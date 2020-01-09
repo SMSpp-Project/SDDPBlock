@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 12 - 2019
+ * \date 09 - 01 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -55,79 +55,116 @@ namespace SMSpp_di_unipi_it
 /*--------------------------- GENERAL NOTES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// SDDPBlock, representing a multistage stochastic programming problem
-/** The SDDPBlock is a class that represents a multistage stochastic
- * programming problem of the form
+/** The SDDPBlock is a class that derives from Block and represents a
+ * multistage stochastic programming problem of the form
  *
  * \f[
- *    \min_{x_1 \in X_1} f_1(x_1) +
- *    \mathbb{E} \left \lbrack \min_{x_2 \in X_2(x_1, \xi_2)} f_2(x_2; \xi_2) +
+ *    \min_{\substack{x_0 \in \mathbb{R}^{n_0} \\ A_0 x_0 + B_0 x_{-1} = b_0\\
+ *                    x_0 \ge 0}} c_0^{\top}x_0 +
+ *    \mathbb{E} \left \lbrack
+ *    \min_{\substack{x_1 \in \mathbb{R}^{n_1} \\ A_1 x_1 + B_1 x_0 = b_1\\
+ *                    x_1 \ge 0}} c_1^{\top}x_1 +
  *    \mathbb{E} \left \lbrack \dots +
- *    \mathbb{E} \left \lbrack \min_{x_{T} \in X_{T}(x_{T-1}, \xi_{T})}
- *                             f_{T}(x_{T}; \xi_{T})
+ *    \mathbb{E} \left \lbrack
+ *    \min_{\substack{x_{T-1} \in \mathbb{R}^{n_{T-1}} \\
+ *          A_{T-1} x_{T-1} + B_{T-1} x_{T-2} = b_{T-1}\\
+ *                    x_{T-1} \ge 0}} c_{T-1}^{\top}x_{T-1}
  *    \right\rbrack \right\rbrack\right\rbrack,
  * \f]
  *
- * where \f$ f_t: \mathbb{R}^{n_t} \rightarrow \mathbb{R} \f$ for \f$
- * t \in \{1, \dots, T\} \f$, \f$ \{\xi_{t}\}_{t \in \{2, \dots, T\}}
- * \f$ is a stochastic process, and \f$ T \f$ is the time horizon. For
- * each \f$ t \in \{2, \dots, T\}\f$, the function \f$ f_t \f$ may
- * depend on \f$ \xi_t \f$, while the set \f$ X_{t} \f$ may depend on
- * both \f$ x_{t-1} \f$ and \f$ \xi_t \f$. For each \f$ t \in \{1,
- * \dots, T\} \f$, we call
+ * where \f$ T \f$ is called the time horizon and \f$ \xi = \{ (b_t,
+ * c_t, A_t, B_t) \}_{t \in \{1, \dots, T-1\}} \f$ is a stochastic
+ * process. This means that some (or all) the components of the
+ * matrices \f$ A_t \f$ and \f$ B_t \f$ and the vectors \f$ b_t \f$
+ * and \f$ c_t \f$ may be random variables. Notice that \f$ x_{-1} \f$
+ * and \f$ (b_0, c_0, A_0, B_0) \f$, which we denote by \f$ \xi_0 \f$,
+ * are deterministic. The term \f$ B_0 x_{-1} \f$ in the first stage
+ * problem could be disregarded (i.e., we could have \f$ B_0 = 0 \f$
+ * or \f$ x_{-1} = 0 \f$ without loss of generality), but we keep them
+ * in order to have all subproblems with the same structure, which
+ * will facilitate our approach.
+ *
+ * For each \f$ t \in \{0, \dots, T-1\}\f$, we call
  *
  * \f[
- *    \min_{x_t \in X_t(x_{t-1}, \xi_t)} f_t(x_t; \xi_t) +
- *         \mathcal{V}_{t+1}(x_t)
+ *    \min_{\substack{x_t \in \mathbb{R}^{n_t}\\
+ *                    A_t x_t + B_t x_{t-1} = b_t\\
+ *                    x_t \ge 0}} c_t^{\top}x_t +
+ *    \mathcal{V}_{t+1}(x_t, \xi_t)
  * \f]
  *
  * the problem associated with stage \f$ t \f$, where
  *
  * \f[
- *    \mathcal{V}_{t+1}(x_t) =
- *          \mathbb{E} \left\lbrack V_{t+1}(x_t, \xi_{t+1}) \right\rbrack
- *  \f]
+ *    \mathcal{V}_{t+1}(x_t, \xi_t) =
+ *      \mathbb{E}
+ *        \left\lbrack
+ *          V_{t+1}(x_t, \xi_{t+1}) \mid \xi_t
+ *        \right\rbrack
+ * \f]
  *
  * is the (expected value) cost-to-go function (also called value
  * function, future value function, future cost function), with \f$
- * \mathcal{V}_{T+1} \equiv 0 \f$,
+ * \mathcal{V}_{T} \equiv 0 \f$ and
  *
  * \f[
  *    V_{t}(x_{t-1}, \xi_{t}) =
- *             \min_{x_t \in X_t(x_{t-1}, \xi_{t})}
- *             f_{t}(x_{t}; \xi_{t}) + \mathcal{V}_{t+1}(x_t)
+ *    \min_{\substack{x_t \in \mathbb{R}^{n_t} \\
+ *                    A_t x_t + B_t x_{t-1} = b_t\\
+ *                    x_t \ge 0}} c_t^{\top}x_t +
+ *    \mathcal{V}_{t+1}(x_t, \xi_t)
  * \f]
  *
- * and
+ * with given \f$ x_{-1} \f$ and (deterministic)
+ * \f$ \xi_0\f$. We consider an approximation to the problem
+ * associated with stage \f$ t \in \{0, \dots, T-1\} \f$ as the problem
  *
  * \f[
- *    f_1(x_1) \doteq f_1(x_1; \xi_1) \quad \mbox{ and } \quad
- *    X_1 \doteq X_1(x_{0}, \xi_1)
+ *    \min_{\substack{x_t \in \mathbb{R}^{n_t} \\
+ *                    A_t x_t + B_t x_{t-1} = b_t\\
+ *                    x_t \ge 0}} c_t^{\top}x_t +
+ *    \mathcal{P}_{t+1}(x_t)                            \qquad (1)
  * \f]
- *
- * with given \f$ x_0 \in \mathbb{R}^{n_0} \f$ and deterministic \f$
- * \xi_1\f$. We consider an approximation to the problem associated
- * with stage \f$ t \in \{1, \dots, T\} \f$ as the problem
- *
- * \f{equation}{
- *    \min_{x_t \in X_t(x_{t-1}, \xi_t)}
- *    f_t(x_t; \xi_t) + \mathcal{P}_{t+1}(x_t)        \quad       (1)
- * \f}
  *
  * where \f$ \mathcal{P}_{t+1}(x_t) \f$ is a polyhedral
  * function, i.e., it is a function of the form
  *
  * \f[
  *    \mathcal{P}_{t+1}(x_t) = \max_{i \in \{1,\dots,k_t\}}
- *                                     \{ a_{t,i}^{\top}x_t + b_{t,i} \}
+ *                                     \{ d_{t,i}^{\top}x_t + e_{t,i} \}
  * \f]
  *
- * with \f$ a_{t,i} \in \mathbb{R}^{n_t} \f$ and \f$ b_{t,i} \in
+ * with \f$ d_{t,i} \in \mathbb{R}^{n_t} \f$ and \f$ e_{t,i} \in
  * \mathbb{R} \f$ for each \f$ i \in \{1,\dots,k_t\} \f$.
  *
- * The SDDPBlock has \f$ T \f$ sub-Blocks, each one being a
- * StochasticBlock. The \f$t\f$-th sub-Block represents an approximation to
- * the problem associated with stage \f$ t \f$ as defined in
- * (1).
+ * An SDDPBlock is characterized by the following:
+ *
+ * 1) It has a time horizon \f$ T \f$.
+ *
+ * 2) It has \f$ T \f$ sub-Blocks, each one being a StochasticBlock. The
+ *    \f$t\f$-th sub-Block represents an approximation to the problem
+ *    associated with stage \f$ t \f$ as defined in (1).
+ *
+ * 3) It has pointers to \f$ T - 1 \f$ PolyhedralFunction. The \f$t\f$-th
+ *    PolyhedralFunction represents the function \f$ \mathcal{P}_{t+1} \f$ in
+ *    (1) and, therefore, must be defined in the \f$t\f$-th sub-Block of this
+ *    SDDPBlock or in any of the sub-Blocks of that sub-Block, recursively.
+ *
+ * 4) It has a set of scenarios. Each scenario is represented by a vector of
+ *    double and spans all the time horizon \f$ T \f$ . Each vector is divided
+ *    into \f$ T \f$ parts, each one being associated with a stage of the
+ *    multistage problem. Let \f$ S \f$ denote a vector representing a
+ *    scenario. Then, \f$ S \f$ is defined as
+ *
+ *    \f[
+ *        S = ( S_0 , ... , S_{T-1} )
+ *    \f]
+ *
+ *    where \f$ S_t \f$ is a sub-vector of S with size \f$ s_t \f$, for each
+ *    \f$ t \in \{ 0, ..., T-1 \} \f$, and is associated with the sub-problem
+ *    at stage \f$ t \f$, i.e., it provides data for the \f$t\f$-th sub-Block
+ *    of this SDDPBlock. We say that \f$ S_t \f$ represents the \f$t\f$-th
+ *    sub-scenario of the scenario represented by \f$ S \f$.
  */
 
 class SDDPBlock : public Block {
@@ -170,24 +207,52 @@ public:
   *
   * - The "TimeHorizon" dimension, containing the time horizon.
   *
-  * - The description of the sub-Blocks. If the sub-group "StochasticBlock" is
-  *   present, then all sub-Blocks are assumed to be identical and the
-  *   description in this sub-group is used to construct each of the
-  *   sub-Blocks of this SDDPBlock. If "StochasticBlock" is not present, then
-  *   the sub-groups "StochasticBlock_i", for i in {0, ..., TimeHorizon - 1}
-  *   must be present, where sub-group "StochasticBlock_i" contains the
-  *   description of the i-th sub-Block of this SDDPBlock.
+  * - The description of the sub-Blocks. This is given by the sub-groups
+  *   "StochasticBlock" and "StochasticBlock_t", for each t in {0, ...,
+  *   TimeHorizon - 1}. These sub-groups are optional, but they cannot be all
+  *   absent. If "StochasticBlock_t" is not provided by some t in {0, ...,
+  *   TimeHorizon - 1}, then "StochasticBlock" must be provided and contain a
+  *   complete description of the t-th sub-Block of this SDDPBlock. If
+  *   "StochasticBlock" is not provided, then "StochasticBlock_t" must be
+  *   provided for each t in {0, ..., TimeHorizon - 1} and contain a complete
+  *   description of the t-th sub-Block of this SDDPBlock.
+  *
+  *   If "StochasticBlock_t" is provided but the description of its inner
+  *   Block is not provided, then the sub-group "StochasticBlock" must be
+  *   provided and contain the description of an inner Block of a
+  *   StochasticBlock. In this case, the description of the inner Block
+  *   provided in the sub-group "StochasticBlock" will be used to construct
+  *   the inner Block of the StochasticBlock described by the
+  *   "StochasticBlock_t" sub-group.
+  *
+  *   If "StochasticBlock_t" is provided but the description of its vector of
+  *   DataMapping is not provided, then if the sub-group "StochasticBlock" is
+  *   provided and contains a description of a vector of DataMapping, then it
+  *   is used to construct the vector of DataMapping of the StochasticBlock
+  *   decribed by the sub-group "StochasticBlock_t".
   *
   * - All the dimensions and variables necessary to describe a vector of
   *   AbstractPath as described in the comments of
   *   AbstractPath::deserialize(). The number of AbstractPath must be equal to
-  *   TimeHorizon and, therefore, the dimension associated with the number of
-  *   AbstractPath is TimeHorizon. The i-th AbstractPath in this vector must
-  *   be the path to the PolyhedralFunction associated with the i-th sub-Block
-  *   of this SDDPBlock. The i-th AbstractPath is taken with respect to the inner
+  *   "TimeHorizon - 1". The i-th AbstractPath in this vector must be the path
+  *   to the PolyhedralFunction associated with the i-th sub-Block of this
+  *   SDDPBlock. The i-th AbstractPath is taken with respect to the inner
   *   Block of the i-th sub-Block of this SDDPBlock.
   *
-  * @param group A netCDF::NcGroup holding the data of the SDDPBlock.
+  * - The "SubScenarioSize" variable, of type netCDF::NcUint64 and indexed
+  *   over dimension "TimeHorizon". This dimension is optional. If it is not
+  *   provided, then all sub-scenarios are assumed to have the same size,
+  *   i.e., \f$ s_i = s_j \f$ for all \f$ i,j \in \{ 0, ..., T-1 \}\f$. If it
+  *   is present, then SubScenarioSize[t] is the size of the sub-scenario
+  *   associated with stage t, i.e., SubScenarioSize[t] = \f$ s_t \f$, for
+  *   each \f$ i \in \{ 0, ..., T-1 \}\f$.
+  *
+  * - The two-dimensional variable "Scenarios" of type netCDF::NcDouble,
+  *   containing the scenarios. The i-th row of "Scenarios" contains the i-th
+  *   scenario, so that Scenarios[ i ][ j ] is the j-th component of the i-th
+  *   scenario.
+  *
+  * @param group A netCDF::NcGroup holding the data describing this SDDPBlock.
   */
 
  void deserialize( netCDF::NcGroup & group ) override;

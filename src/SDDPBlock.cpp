@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 23 - 12 - 2019
+ * \date 08 - 01 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -124,7 +124,7 @@ void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
 
  for( Index i = 0 ; i < time_horizon ; ++i ) {
   auto reference_block = static_cast< StochasticBlock * >( v_Block[ i ] )->
-   get_inner_block();
+   get_nested_Blocks().front();
   assert( reference_block );
   auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
    ( AbstractPath::get_element< Function >( paths[ i ] , reference_block ) );
@@ -175,7 +175,8 @@ void SDDPBlock::update_cuts( PolyhedralFunction::MultiVector && A ,
 void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ) {
  assert( stage < get_time_horizon() );
  auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->get_inner_block() );
+  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
+    get_nested_Blocks().front() );
  benders_block->set_variable_values( values );
 }
 
@@ -214,8 +215,8 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  paths.reserve( v_polyhedral_functions.size() );
 
  for( Index i = 0 ; i < paths.size() ; ++i ) {
-  auto reference_block =
-   static_cast< StochasticBlock * >( v_Block[ i ] )->get_inner_block();
+  auto reference_block = static_cast< StochasticBlock * >( v_Block[ i ] )->
+   get_nested_Blocks().front();
   assert( reference_block );
   paths.push_back( AbstractPath::build_path< PolyhedralFunction >
                    ( v_polyhedral_functions[ i ] , reference_block ) );
