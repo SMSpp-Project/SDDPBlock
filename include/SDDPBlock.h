@@ -30,8 +30,8 @@
 
 #include "Block.h"
 #include "PolyhedralFunction.h"
-#include "ScenarioSimulator.h"
-#include "StOpt/sddp/SimulatorSDDPBase.h"
+//#include "ScenarioSimulator.h"
+//#include "StOpt/sddp/SimulatorSDDPBase.h"
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -476,10 +476,10 @@ protected:
  std::vector< PolyhedralFunction * > v_polyhedral_functions;
 
  /// Simulator for the forward step of the SDDP method
- std::shared_ptr< ScenarioSimulator > simulator_forward;
+ // std::shared_ptr< ScenarioSimulator > simulator_forward;
 
  /// Simulator for the backward step of the SDDP method
- std::shared_ptr< ScenarioSimulator > simulator_backward;
+ // std::shared_ptr< ScenarioSimulator > simulator_backward;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -504,16 +504,11 @@ private:
   * @param group The netCDF::NcGroup containing the description of the
   *        sub-Block.
   *
-  * @param i The index of the sub-Block to be deserialized. If i is
-  *        Inf<Index>(), then the sub-Block is deserialized out of the
-  *        sub-group named "StochasticBlock". If i < Inf<Index>(), then the
-  *        sub-Block is deserialized out of the sub-group named
-  *        "StochasticBlock_i".
+  * @param i The index of the sub-Block to be deserialized.
   *
   * @return A pointer to the Block that was deserialized.
   */
- Block * deserialize_sub_Block( netCDF::NcGroup & group ,
-                                Index i = Inf<Index>() );
+ Block * deserialize_sub_Block( netCDF::NcGroup & group , Index i );
 
 /*--------------------------------------------------------------------------*/
 

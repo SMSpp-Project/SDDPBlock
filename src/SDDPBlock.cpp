@@ -24,11 +24,7 @@
 #include "AbstractPath.h"
 #include "BendersBlock.h"
 #include "SDDPBlock.h"
-#include "SDDPSolver.h"
 #include "StochasticBlock.h"
-#include "StOpt/sddp/backwardForwardSDDP.h"
-#include "StOpt/sddp/LocalConstRegressionForSDDP.h"
-#include "StOpt/sddp/LocalLinearRegressionForSDDP.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
@@ -52,15 +48,17 @@ SMSpp_insert_in_factory_cpp_1( SDDPBlock );
 
 Block * SDDPBlock::deserialize_sub_Block( netCDF::NcGroup & group , Index i ) {
 
- std::string sub_group_name = "StochasticBlock";
- if( i < Inf<Index>() )
-  sub_group_name += "_" + std::to_string( i );
-
+ std::string sub_group_name = "StochasticBlock_" + std::to_string( i );
  auto sub_group = group.getGroup( sub_group_name );
 
- if( sub_group.isNull() )
-  throw std::logic_error( "SDDPBlock::deserialize: the '" +
-                          sub_group_name + "' was not found." );
+ if( sub_group.isNull() ) {
+  sub_group = group.getGroup( "StochasticBlock" );
+  if( sub_group.isNull() )
+   throw std::logic_error( "SDDPBlock::deserialize: neither group '" +
+                           sub_group_name + "' nor 'StochasticBlock' "
+                           "was found." );
+  sub_group_name = "StochasticBlock";
+ }
 
  auto type = group.getAtt( "type" );
  if( type.isNull() )
@@ -74,12 +72,68 @@ Block * SDDPBlock::deserialize_sub_Block( netCDF::NcGroup & group , Index i ) {
   throw std::logic_error( "SDDPBlock::deserialize: attribute 'type' of '" +
                           sub_group_name + "' must contain "
                           "'StochasticBlock'." );
- 
+
  auto sub_Block = new_Block( sub_group , this );
 
  if( ! sub_Block )
   throw std::logic_error( "SDDPBlock::deserialize: sub-group '" +
                           sub_group_name + "' is incomplete." );
+
+ if( sub_group_name != "StochasticBlock" ) {
+
+  // If StochasticBlock_i does not have sub-group "Block" then
+  // "StochasticBlock" must have one.
+  if( sub_group.getGroup( "Block" ).isNull() ) {
+
+   auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
+   if( StochasticBlock_group.isNull() )
+    throw std::logic_error( "SDDPBlock::deserialize: sub-group 'Block' was not "
+                            "provided neither in '" + sub_group_name +
+                            "' nor in 'StochasticBlock'" );
+
+
+   auto Block_group = StochasticBlock_group.getGroup( "Block" );
+   if( Block_group.isNull() )
+    throw std::logic_error( "SDDPBlock::deserialize: sub-group 'Block' was not "
+                            "provided neither in '" + sub_group_name +
+                            "' nor in 'StochasticBlock'" );
+
+   auto inner_block = new_Block( Block_group, this );
+   if( ! inner_block )
+    throw std::logic_error( "SDDPBlock::deserialize: the 'Block' sub-group of "
+                            "the 'StochasticBlock' group has an invalid or "
+                            "incomplete description." );
+
+   static_cast< StochasticBlock * >( sub_Block )->
+    set_inner_block( inner_block );
+  }
+
+  // If StochasticBlock_i does not have description of vector of
+  // "DataMapping" then, if "StochasticBlock" has one, we use it.
+
+  Index num_data_mappings;
+  if( ! ::SMSpp_di_unipi_it::deserialize_dim( sub_group , "NumberDataMappings" ,
+                                              num_data_mappings , true ) ) {
+
+   auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
+   if( ! StochasticBlock_group.isNull() ) {
+
+    if( ::SMSpp_di_unipi_it::deserialize_dim( StochasticBlock_group ,
+                                              "NumberDataMappings" ,
+                                              num_data_mappings , true ) ) {
+
+     std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
+     data_mappings.reserve( num_data_mappings );
+     SimpleDataMappingBase::deserialize
+      ( group , data_mappings ,
+        static_cast< StochasticBlock *>( sub_Block )->get_inner_block() );
+
+     static_cast< StochasticBlock * >( sub_Block )->
+      set_data_mappings( std::move( data_mappings ) );
+    }
+   }
+  }
+ }
 
  return sub_Block;
 }
@@ -91,33 +145,29 @@ void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
  // TimeHorizon
 
  Index time_horizon;
- ::deserialize_dim( group, "TimeHorizon", time_horizon, false );
+ ::SMSpp_di_unipi_it::deserialize_dim( group, "TimeHorizon",
+                                       time_horizon, false );
 
  // StochasticBlock
 
  v_Block.reserve( time_horizon );
 
- auto stochastic_block_group = group.getGroup( "StochasticBlock" );
-
- if( ! stochastic_block_group.isNull() ) {
-  // The "StochasticBlock" group is present. Therefore, the sub-Blocks are all
-  // identical.
-  for( Index i = 0 ; i < time_horizon ; ++i )
-   v_Block.push_back( deserialize_sub_Block( group ) );
- }
- else {
-  for( Index i = 0 ; i < time_horizon ; ++i )
-   v_Block.push_back( deserialize_sub_Block( group , i ) );
- }
+ for( Index i = 0 ; i < time_horizon ; ++i )
+  v_Block.push_back( deserialize_sub_Block( group , i ) );
 
  // PolyhedralFunctions
 
- auto paths = AbstractPath::vector_deserialize( group );
+ auto path_group = group.getGroup( "AbstractPath" );
 
- if( paths.size() != time_horizon )
-  throw ( std::invalid_argument( "SDDPBlock::deserialize: The number of Abstrac"
-                                 "tPath to PolyhedralFunction must be equal to "
-                                 "the time horizon." ) );
+ auto paths = AbstractPath::vector_deserialize( path_group );
+
+ if( paths.size() != time_horizon &&
+     ! ( paths.size() == 1 && time_horizon > 1 ) ) {
+  throw ( std::invalid_argument
+          ( "SDDPBlock::deserialize: The number of AbstractPath to "
+            "PolyhedralFunction must be either equal to 1 or equal to "
+            "the time horizon." ) );
+ }
 
  v_polyhedral_functions.clear();
  v_polyhedral_functions.reserve( time_horizon );
@@ -126,13 +176,32 @@ void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
   auto reference_block = static_cast< StochasticBlock * >( v_Block[ i ] )->
    get_nested_Blocks().front();
   assert( reference_block );
+  auto path_index = ( paths.size() == 1 ) ? 0 : i;
   auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
-   ( AbstractPath::get_element< Function >( paths[ i ] , reference_block ) );
+   ( AbstractPath::get_element< Function >( paths[ path_index ] ,
+                                            reference_block ) );
   if( ! polyhedral_function )
    throw ( std::invalid_argument( "SDDPBlock::deserialize: PolyhedralFunction "
                                   + std::to_string( i ) + " was not found." ) );
   v_polyhedral_functions.push_back( polyhedral_function );
  }
+
+ // TODO
+ // NumberScenarios
+
+ // ScenarioSize
+
+ // SubScenarioSize
+
+ // Scenarios
+
+ // NumberRandomDataGroups
+
+ // SizeRandomDataGroups
+
+ // StateSize
+
+ // AdmissibleState
 }
 
 /*--------------------------------------------------------------------------*/
