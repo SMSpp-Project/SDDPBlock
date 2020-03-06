@@ -1,0 +1,35 @@
+# --------------------------------------------------------------------------- #
+#    Package configuration file                                               #
+#                                                                             #
+#    This file contains instructions on how to generate ***Config.cmake,      #
+#    that is, the file that tells CMake how the package should be             #
+#    configured when found by other projects using find_package().            #
+#                                                                             #
+#    ***Targets.cmake (to be found alongside this file) is the target import  #
+#    file that tells where the headers and library are. It will be different  #
+#    depending on a local build or an installed package.                      #
+#                                                                             #
+#                              Niccolo' Iardella                              #
+#                          Operations Research Group                          #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
+# --------------------------------------------------------------------------- #
+get_filename_component(SDDPBlock_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+# ----- Requirements -------------------------------------------------------- #
+# This is needed to find the custom modules we provide
+list(APPEND CMAKE_MODULE_PATH ${SDDPBlock_CMAKE_DIR})
+
+find_dependency(SMSpp REQUIRED)
+find_dependency(StochasticBlock REQUIRED)
+find_dependency(StOpt REQUIRED)
+
+list(REMOVE_AT CMAKE_MODULE_PATH -1)
+
+# ----- Import target ------------------------------------------------------- #
+if (NOT TARGET SMS++::SDDPBlock)
+    include("${SDDPBlock_CMAKE_DIR}/SDDPBlockTargets.cmake")
+endif ()
+
+set(SDDPBlock_LIBRARIES SMS++::SDDPBlock)
