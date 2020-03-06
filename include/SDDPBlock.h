@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 27 - 02 - 2020
+ * \date 06 - 03 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -31,7 +31,7 @@
 #include "Block.h"
 #include "PolyhedralFunction.h"
 //#include "ScenarioSimulator.h"
-//#include "StOpt/sddp/SimulatorSDDPBase.h"
+#include "StOpt/sddp/SimulatorSDDPBase.h"
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -368,7 +368,7 @@ public:
   * @return The time horizon.
   */
  inline virtual std::size_t get_time_horizon() const {
-   return v_Block.size();
+  return v_Block.size();
  }
 
 /*--------------------------------------------------------------------------*/
@@ -480,6 +480,45 @@ protected:
 
  /// Simulator for the backward step of the SDDP method
  // std::shared_ptr< ScenarioSimulator > simulator_backward;
+
+ /// Number of scenarios
+ Index num_scenarios;
+
+ /// The size of a scenario (spanning the whole time horizon)
+ Index scenario_size;
+
+ /// The size of each sub-scenario
+ /** A scenario is divided into sub-scenarios, each sub-scenario being
+  * associated with a time instant. This vector stores the size of each
+  * sub-scenario. For each t in {0, TimeHorizon -1}, sub_scenario_size[ t ] is
+  * the size of the sub-scenario associated with time t.
+  */
+ std::vector< Index > sub_scenario_size;
+
+ /// Matrix storing the scenarios
+ /** The number of rows is the number of scenarios and the number of columns
+  * is the size of a scenario.
+  */
+ boost::multi_array< double , 2 > scenarios;
+
+ /// The number of groups of related random data
+ Index num_random_data_groups;
+
+ /// The size of each group of related random data
+ /** If there are more than one group of related random data, then
+  * size_random_data_groups[ i ] is the size of the i-th group of related
+  * random data.
+  */
+ std::vector< Index > size_random_data_groups;
+
+ /// The size of each state
+ /** For each t in {0, ..., TimeHorizon - 1}, state_size[ t ] is the size of
+  * the state for time t.
+  */
+ std::vector< double > state_size;
+
+ /// A vector containing the concatenation of states for each time instant
+ std::vector< double > admissible_states;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
