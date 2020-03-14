@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 06 - 03 - 2020
+ * \date 13 - 03 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -60,7 +60,7 @@ Block * SDDPBlock::deserialize_sub_Block( netCDF::NcGroup & group , Index i ) {
   sub_group_name = "StochasticBlock";
  }
 
- auto type = group.getAtt( "type" );
+ auto type = sub_group.getAtt( "type" );
  if( type.isNull() )
   throw std::logic_error( "SDDPBlock::deserialize: attribute 'type' of '" +
                           sub_group_name + "' must be present." );
