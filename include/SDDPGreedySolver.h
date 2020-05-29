@@ -2,14 +2,16 @@
 /*---------------------- File SDDPGreedySolver.h ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
+
  * Header file for the SDDPGreedySolver class, implementing the Solver
  * interface, for multistage programming problems defined by the
- * SDDPBlock. The SDDPGreedySolver implements a greedy strategy to solve an
- * SDDPBlock for a fixed scenario as defined below.
+ * SDDPBlock. The SDDPGreedySolver implements a greedy strategy to try to
+ * solve a deterministic (single-scenario) multistage problem encoded by an
+ * SDDPBlock as defined below.
  *
  * \version 0.1
  *
- * \date 28 - 05 - 2020
+ * \date 29 - 05 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -128,9 +130,9 @@ namespace SMSpp_di_unipi_it
  * cost-to-go function at stage \f$ t \f$.
  *
  *     Notice that the SDDPGreedySolver does not solve neither the problem
- *     enconded by SDDPBlock nor the deterministic (single-scenario)
- *     multistage problem defined in (2). It may not even find a feasible
- *     solution to problem (2) even if one exists.
+ *     encoded by SDDPBlock nor the deterministic (single-scenario) multistage
+ *     problem defined in (2). It may not even find a feasible solution to
+ *     problem (2) even if one exists.
  */
 
 class SDDPGreedySolver : public Solver {
@@ -404,10 +406,15 @@ public:
   * is used to update the next subproblem according to this dependency (which
   * is characterized by the BendersBFunction).
   *
-  * At any given stage, the subproblem may be succesfully solved or not. If
-  * the subproblem turns out to be infeasible, unbounded, or an error
+  * At any given stage, the subproblem may be successfully solved or not. If a
+  * solution to a subproblem is not found (for instance, if the subproblem
+  * turns out to be infeasible, unbounded, or an error occurs while solving
+  * it), then this method stops with the corresponding status as described in
+  * #sddp_greedy_sol_type. In this case, no solution for the deterministic
+  * (single-scenario) multistage problem can be provided.
   *
-  * Notice that a feasible solution may not be found even if one exists.
+  * Notice that a feasible solution may not be found for the deterministic
+  * (single-scenario) multistage problem (2) even if one exists.
   *
   * @return Please refer to #sddp_greedy_sol_type for a description of each
   *         value that this method may return.
