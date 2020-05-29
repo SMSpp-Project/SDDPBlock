@@ -202,8 +202,9 @@ public:
   */
 
  enum sddp_greedy_sol_type {
- kSubproblemInfeasible ,  ///< some subproblem may be infeasible
- /**< Means that a subproblem at some stage, let say t, different than the
+ kSubproblemInfeasible = kInfeasible + 1 ,
+ ///< some subproblem may be infeasible
+ /**< It means that a subproblem at some stage, let say t, different than the
   * first one turned out to be infeasible. Since the feasible region of a
   * subproblem may depend on the solution of the subproblem at the previous
   * stage, it does not mean that the deterministic (single-scenario)
@@ -213,7 +214,37 @@ public:
   * by the method get_fault_stage().
   */
 
+ kSolutionNotFound ,
+ ///< the solution to some subproblem has not been found
+ /**< It means that a solution to a subproblem has not been found for whatever
+  * reason. The stage at which the solution could not be found can be
+  * retrieved by the method get_fault_stage().
+  */
+
  };  // end( sddp_greedy_sol_type )
+
+/*--------------------------------------------------------------------------*/
+
+ /// public enum for the int algorithmic parameters
+ /** Public enum describing the different types of algorithmic parameters of
+  * "int" type that the SDDPGreedySolver has, besides those defined in
+  * Solver. The value intLastAlgPar is provided so that the list can be easily
+  * further extended by derived classes. */
+
+ enum int_par_type_SDDP_Greedy_S {
+
+  intScenarioId = int_par_type_S::intLastAlgPar ,
+  ///< The id of the scenario that must be considered
+  /**< This is the id of the scenario that must be considered when trying to
+   * solve the deterministic (single-scenario) multistage problem. It must be
+   * a valid id for a scenario handled by the SDDPBlock. */
+
+  intLastAlgPar
+  ///< first allowed new double parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * int algorithmic parameters. */
+
+ };  // end( int_par_type_SDDP_Greedy_S )
 
 /**@} ----------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
@@ -235,6 +266,121 @@ public:
 /** @name Other initializations
  *  @{ */
 
+ /// set a given integer (int) numerical parameter
+ /** Set a given integer (int) numerical parameter. Besides
+  * considering the integer parameters defined in #int_par_type_S,
+  * this function also accepts the following parameters:
+  *
+  * - #intScenarioId
+  *
+  * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
+  * detailed description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ virtual void set_par( const idx_type par , const int value ) override {
+  switch( par ) {
+  case( intScenarioId ): set_scenario_id( value ); return;
+  }
+  Solver::set_par( par , value );
+ }
+
+/**@} ----------------------------------------------------------------------*/
+/*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Handling the parameters of the SDDPGreedySolver
+ *  @{ */
+
+ /// get the number of int parameters
+ /** Get the number of int parameters.
+  *
+  * @return The number of int parameters.
+  */
+
+ virtual idx_type get_num_int_par( void ) const override {
+  return( idx_type( intLastAlgPar ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the default value of an int parameter
+ /** Get the default value of the int parameter with given index. Please see
+  * the #int_par_type_SDDP_Greedy_S and #int_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ virtual int get_dflt_int_par( const idx_type par ) const override {
+  switch( par ) {
+  case( intScenarioId ): return 0;
+  }
+  return Solver::get_dflt_int_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get a specific integer (int) numerical parameter
+ /** Get a specific integer (int) numerical parameter. Please see the
+  * #int_par_type_SDDP_Greedy_S and #int_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ virtual int get_int_par( const idx_type par ) const override {
+  switch( par ) {
+  case( intScenarioId ): return scenario_id;
+  }
+  return( Solver::get_dflt_int_par( par ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// returns the index of the int parameter with given string \p name
+ /** This method takes a string, which is assumed to be the name of an int
+  * parameter, and returns its index, i.e., the integer value that can be
+  * used in [set/get]_par() to set/get it. The method is given a void
+  * implementation (throwing exception), rather than being pure virtual, so
+  * that derived classes not having any int parameter do not have to bother
+  * with implementing it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ virtual idx_type int_par_str2idx( const std::string & name ) const override {
+  if( name == "intScenarioId" ) return intScenarioId;
+  return Solver::int_par_str2idx( name );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// returns the string name of the int parameter with given index
+ /** This method takes an int parameter index, i.e., the integer value that
+  * can be used in [set/get]_par() [see above] to set/get it, and returns its
+  * "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ virtual const std::string & int_par_idx2str( const idx_type idx )
+  const override {
+
+  static const std::vector<std::string> parameter_names = { "intScenarioId" };
+
+  if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
+   return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
+
+  return Solver::int_par_idx2str( idx );
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
@@ -242,16 +388,63 @@ public:
  *  @{ */
 
  /// (try to) solve the model encoded in the SDDPBlock for a single scenario
- /**
+ /** This method tries to solve the deterministic (single-scenario) multistage
+  * problem defined in (2) above. The problem is determined by the scenario
+  * whose id is returned by the get_scenario_id() method and whose initial
+  * state is defined in the SDDPBlock. This method does not really try to
+  * solve the problem (2), but employs a procedure that may find a feasible
+  * solution for that problem and can be interpreted as a simulation.
+  *
+  * Beginning at the first stage, this method tries to solve the subproblem
+  * associated with each stage, sequentially, until the last one. The
+  * subproblem at stage t is encoded by the inner Block of the
+  * BendersBFunction associated with the stage t. The subproblem at stage t >
+  * 0 may depend on the variables of the subproblem at stage t-1. After
+  * solving the subproblem at stage t-1, the solution found to this subproblem
+  * is used to update the next subproblem according to this dependency (which
+  * is characterized by the BendersBFunction).
+  *
+  * At any given stage, the subproblem may be succesfully solved or not. If
+  * the subproblem turns out to be infeasible, unbounded, or an error
+  *
+  * Notice that a feasible solution may not be found even if one exists.
+  *
+  * @return Please refer to #sddp_greedy_sol_type for a description of each
+  *         value that this method may return.
   */
 
  virtual int compute( bool changedvars = true ) override;
+
+/**@} ----------------------------------------------------------------------*/
+/*--------- METHODS FOR CHANGING THE DATA OF THE SDDPGreedySolver ----------*/
+/*--------------------------------------------------------------------------*/
+/** @name Changing the data of the SDDPGreedySolver
+ *  @{ */
+
+ /// sets the scenario that should be considered
+ /** This method defines which scenario should be considered when trying to
+  * solve the deterministic single-scenario problem. The \p scenario_id
+  * parameter must be the id of a scenario handled by the SDDPBlock.
+  *
+  * @param scenario_id The id of the scenario
+  */
+ void set_scenario_id( Index scenario_id ) {
+  if( this->scenario_id == scenario_id )
+   return;
+  this->scenario_id = scenario_id;
+  scenario_is_set = false;
+  status_compute = Solver::kUnEval;
+ }
 
 /**@} ----------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Accessing the found solutions (if any)
  * @{ */
+
+ virtual bool has_var_solution( void ) override;
+
+/*--------------------------------------------------------------------------*/
 
  virtual void get_var_solution( Configuration *solc = nullptr ) override;
 
@@ -273,13 +466,27 @@ public:
 /** @name Reading the state of the SDDPGreedySolver
  *  @{ */
 
- /// returns the time horizon of the problem associated with the SDDPBlock
- /** This function returns the time horizon of the problem associated with the
-  * SDDPBlock with which this SDDPGreedySolver is attached.
+ /// returns the time horizon of the SDDPBlock attached to this SDDPGreedySolver
+ /** Returns the time horizon of the problem represented by the SDDPBlock
+  * attached to this SDDPGreedySolver.
   *
-  * @return The time horizon of the problem associated with the SDDPBlock.
+  * @return The time horizon of the problem represented by the SDDPBlock
+  *         attached to this SDDPGreedySolver.
   */
  Index get_time_horizon( void ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the id of the scenario being currently considered
+ /** This method returns the id of the scenario being currently considered
+  * when trying to solve the deterministic (single-scenario) multistage
+  * problem.
+  *
+  * @return The id of the scenario to be considered
+  */
+ Index get_scenario_id( void ) const {
+  return scenario_id;
+ }
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -292,10 +499,10 @@ protected:
 /*--------------------------------------------------------------------------*/
 
  /// The id of the scenario that should be considered
- Index scenario_id;
+ Index scenario_id = 0;
 
  /// The stage at which some special event has happened
- Index fault_stage;
+ Index fault_stage = Inf<Index>();
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -307,11 +514,37 @@ private:
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+ /// solves the subproblem associated with the given stage
+ /** This method solves the subproblem associated with the given \p stage. If
+  * \p write_solution is true then the solution found for the subproblem (if
+  * any) is written into its Block. To solve the subproblem, the method
+  * compute() of the Solver attached to its Block is invoked and the status
+  * returned by that method is returned here.
+  *
+  * @param stage The stage associated with the subproblem to be solved.
+  *
+  * @param write_solution Indicates whether the solution found for the
+  *        subproblem (if any) must be written into its Block.
+  *
+  * @return The status returned by compute() when solving the subproblem.
+  */
  int solve( Index stage , bool write_solution = false );
 
 /*--------------------------------------------------------------------------*/
 
- void process_outstanding_Modification( void );
+ /// returns the Solver attached to the subproblem at the given stage
+ /** This method returns a pointer to the Solver attached to the subproblem
+  * associated with the given \p stage.
+  *
+  * @param stage The stage associated with the subproblem whose Solver is
+  *        desired.
+  *
+  * @return A pointer to the Solver attached to the subproblem associated with
+  *         the given \p stage.
+  */
+ Solver * get_sub_solver( Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
 
  /// returns a pointer to the BendersBFunction associated with the given stage
  /** This method returns a pointer to the BendersBFunction associated with the
@@ -326,11 +559,49 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the solution associated with the problem at the given stage
+ /** This function returns the solution of the problem associated with the
+  * given \p stage, which is part of the state variables of the next stage.
+  *
+  * @param stage The stage whose solution is required.
+  *
+  * @return The vector containing the solution of the problem at the given
+  *         stage.
+  */
+ std::vector<double> get_solution( Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the state variables of the subproblem at the given stage
+ /** This function sets the state variables associated with the subproblem at
+  * the given \p stage.
+  *
+  * @param The vector containing the state of the problem at the given stage.
+  *
+  * @param stage The stage whose state must be set.
+  */
+ void set_state( const std::vector<double> & state , Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario to be considered
+ /** This method updates the sub-Blocks of the SDDPBlock with the data
+  * provided by the scenario whose id is given by the method
+  * get_scenario_id().
+  */
  void set_scenario( void );
 
 /*--------------------------------------------------------------------------*/
 
+ /// sets the initial state
+ /** This function sets the state of the subproblem at the first stage
+  * according to the initial state present in the SDDPBlock.
+  */
  void set_initial_state( void );
+
+/*--------------------------------------------------------------------------*/
+
+ void process_outstanding_Modification( void );
 
 /*--------------------------------------------------------------------------*/
 
@@ -339,6 +610,9 @@ private:
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+ /// The status returned by compute()
+ int status_compute = Solver::kUnEval;
 
  /// Indicates whether the scenario has already been set
  bool scenario_is_set = false;
