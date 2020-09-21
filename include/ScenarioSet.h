@@ -165,17 +165,17 @@ public:
        std::accumulate( sub_scenario_size.begin() ,
                         sub_scenario_size.end() ,
                         decltype( sub_scenario_size )::value_type( 0 ) ) )
-    throw ( std::logic_error( "ScenarioSet::deserialize: The sum of the "
-                              "elements in 'SubScenarioSize' must be equal to "
-                              "'ScenarioSize'" ) );
+    throw( std::logic_error( "ScenarioSet::deserialize: The sum of the "
+                             "elements in 'SubScenarioSize' must be equal to "
+                             "'ScenarioSize'" ) );
   }
   else {
    // SubScenarioSize was not provided
 
    if( scenario_size % time_horizon != 0 )
-    throw ( std::logic_error( "ScenarioSet::deserialize: 'SubScenarioSize' was "
-                              "not provided. Thus, 'ScenarioSize' must be a "
-                              "multiple of 'TimeHorizon'." ) );
+    throw( std::logic_error( "ScenarioSet::deserialize: 'SubScenarioSize' was "
+                             "not provided. Thus, 'ScenarioSize' must be a "
+                             "multiple of 'TimeHorizon'." ) );
 
    sub_scenario_size.resize( time_horizon , scenario_size / time_horizon );
   }
@@ -191,17 +191,7 @@ public:
 
   // Scenarios
 
-  ::SMSpp_di_unipi_it::deserialize( group , "Scenarios" , scenarios ,
-                                    false , false );
-
-  if( scenarios.shape()[ 0 ] != num_scenarios ||
-      scenarios.shape()[ 1 ] != scenario_size ) {
-
-   throw ( std::logic_error( "ScenarioSet::deserialize: 'Scenarios' must be a "
-                             "two-dimensional array whose first and second "
-                             "dimensions have sizes 'NumberScenarios' and "
-                             "'ScenarioSize', respectively." ) );
-  }
+  deserialize_scenarios( group );
 
   // NumberRandomDataGroups and SizeRandomDataGroups
 
@@ -234,17 +224,17 @@ public:
      if( ( scenario_size / time_horizon ) != std::accumulate
          ( size_random_data_groups.begin() , size_random_data_groups.end() ,
            decltype( size_random_data_groups )::value_type(0) ) )
-      throw ( std::logic_error( "ScenarioSet::deserialize: The sum of the "
-                                "sizes in 'SizeRandomDataGroups' must be "
-                                "equal to 'ScenarioSize' / 'TimeHorizon'." ) );
+      throw( std::logic_error( "ScenarioSet::deserialize: The sum of the "
+                               "sizes in 'SizeRandomDataGroups' must be "
+                               "equal to 'ScenarioSize' / 'TimeHorizon'." ) );
     }
     else {
      // SizeRandomDataGroups was not provided.
      size_random_data_groups = { ( scenario_size / time_horizon ) };
      if( num_random_data_groups > 1 ) {
-      throw ( std::logic_error( "ScenarioSet::deserialize: 'NumberRandomData"
-                                "Groups' must be provided since "
-                                "'NumberRandomDataGroups' > 1." ) );
+      throw( std::logic_error( "ScenarioSet::deserialize: 'NumberRandomData"
+                               "Groups' must be provided since "
+                               "'NumberRandomDataGroups' > 1." ) );
      }
     }
    }
@@ -286,9 +276,13 @@ public:
 
   // Scenarios
 
-  ::SMSpp_di_unipi_it::serialize( group , "Scenarios" , netCDF::NcDouble() ,
-                                  { NumberScenarios_dim , ScenarioSize_dim } ,
-                                  scenarios , false , false );
+  auto scenarios_var = group.addVar
+   ( "Scenarios" , netCDF::NcDouble() ,
+     { NumberScenarios_dim , ScenarioSize_dim } );
+
+  for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
+   scenarios_var.putVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
+                         scenarios[ i ].data() );
 
   // NumberRandomDataGroups and SizeRandomDataGroups
 
@@ -365,54 +359,6 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns sub-scenario of scenario \p i that is associated with time \p t
- /** This function returns a const_sub_array<double, 1> of the scenarios
-  * containing the data of the sub-scenario of the \p i-th scenario that is
-  * associated with time \p t.
-  *
-  * @param i The index of a scenario, which must be between 0 and size() - 1.
-  *
-  * @param t A time instant, which must be between 0 and
-  *          get_time_horizon() - 1.
-  *
-  * @return A const_sub_array containing the sub-scenario of scenario \p i
-  *         associated with time instant \p t. */
-
- boost::detail::multi_array::const_sub_array<double, 1>
- scenario_view( Index i ) const {
-  if( i >= size() )
-   throw( std::invalid_argument( "ScenarioSet::get_scenario: invalid "
-                                 "scenario id: " + std::to_string( i ) ) );
-  return scenarios[ i ];
- }
-
-/*--------------------------------------------------------------------------*/
-
- /// returns a view of the scenarios containing the sub-scenario (i, t)
- /** This function returns a const_multi_array_view<double, 1> of the
-  * scenarios containing the data of the sub-scenario associated with time \p
-  * t of the \p i-th scenario.
-  *
-  * @param i The index of a scenario, which must be between 0 and size() - 1.
-  *
-  * @param t A time instant, which must be between 0 and
-  *          get_time_horizon() - 1.
-  *
-  * @return A const_multi_array_view containing the sub-scenario of scenario
-  *         \p i associated with time instant \p t. */
-
- boost::detail::multi_array::const_multi_array_view<double, 1>
- sub_scenario_view( Index i , Index t ) const {
-  assert( i < size() );
-  assert( t < get_time_horizon() );
-  return scenarios[ i ]
-   [ boost::indices [ boost::multi_array_types::index_range
-                      ( sub_scenario_start_index[ t ] ,
-                        sub_scenario_start_index[ t + 1 ] ) ] ];
- }
-
-/*--------------------------------------------------------------------------*/
-
  /// returns a pointer to the array containing the scenario \p i
  /** This function returns a (const) pointer to the array containing the data
   * of the \p i-th scenario. The size of this array is given by
@@ -422,9 +368,9 @@ public:
   *
   * @return A pointer to the array containing the data of scenario \p i. */
 
- const double * get_scenario( Index i ) const {
+ const double * scenario( Index i ) const {
   assert( i < size() );
-  return scenarios[ i ].origin();
+  return scenarios[ i ].data();
  }
 
 /*--------------------------------------------------------------------------*/
@@ -442,10 +388,57 @@ public:
   * @return A pointer to the array containing the sub-scenario of scenario \p
   *         i associated with time instant \p t. */
 
- const double * get_sub_scenario( Index i , Index t ) const {
+ const double * sub_scenario( Index i , Index t ) const {
   assert( i < size() );
   assert( t < get_time_horizon() );
-  return & scenarios[ i ][ t ];
+  return( scenarios[ i ].data() + sub_scenario_start_index[ t ] );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns an iterator to the first element of the sub-scenario (i, t)
+ /** This function returns a const iterator to the first element of the
+  * sub-scenario associated with time \p t of the \p i-th scenario. The size
+  * of this vector is given by get_sub_scenario_size( t ).
+  *
+  * @param i The index of a scenario, which must be between 0 and size() - 1.
+  *
+  * @param t A time instant, which must be between 0 and
+  *          get_time_horizon() - 1.
+  *
+  * @return An iterator to the first element of the sub-scenario of scenario
+  *         \p i associated with time instant \p t. */
+
+ std::vector< double >::const_iterator
+ sub_scenario_begin( Index i , Index t ) const {
+  assert( i < size() );
+  assert( t < get_time_horizon() );
+  return std::next( scenarios[ i ].cbegin() , sub_scenario_start_index[ t ] );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns an iterator to the element following the last in sub-scenario (i,t)
+ /** This function returns a const iterator to the element following the last
+  * element of the vector containing the data of the sub-scenario associated
+  * with time \p t of the \p i-th scenario. The size of this vector is given by
+  * get_sub_scenario_size( t ).
+  *
+  * @param i The index of a scenario, which must be between 0 and size() - 1.
+  *
+  * @param t A time instant, which must be between 0 and
+  *        get_time_horizon() - 1.
+  *
+  * @return An iterator to the element following the last element of the
+  *         vector containing the sub-scenario of scenario \p i associated
+  *         with time instant \p t. */
+
+ std::vector< double >::const_iterator
+ sub_scenario_end( Index i , Index t ) const {
+  assert( i < size() );
+  assert( t < get_time_horizon() );
+  return std::next( scenarios[ i ].cbegin() ,
+                    sub_scenario_start_index[ t + 1 ] );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -455,7 +448,7 @@ public:
   * \p t.
   *
   * @param t A time instant, which must be between 0 and
-  *          get_time_horizon() - 1.
+  *        get_time_horizon() - 1.
   *
   * @return The size of the sub-scenario associated with time instant \p t. */
 
@@ -502,7 +495,7 @@ protected:
  /** The number of rows is the number of scenarios and the number of columns
   * is the size of a scenario.
   */
- boost::multi_array< double , 2 > scenarios;
+ std::vector< std::vector< double > > scenarios;
 
  /// The number of groups of related random data
  Index num_random_data_groups;
@@ -530,6 +523,38 @@ private:
     @{ */
 
  std::vector< Index > sub_scenario_start_index;
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRTIVATE METHODS ------------------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Private methods
+    @{ */
+
+ void deserialize_scenarios( const netCDF::NcGroup & group ) {
+
+  scenarios.resize( num_scenarios , std::vector<double>( scenario_size ) );
+
+  auto scenarios_var = group.getVar( "Scenarios" );
+
+  if( scenarios_var.isNull() )
+   throw( std::invalid_argument
+          ( "ScenarioSet::deserialize_scenarios: 'Scenarios' "
+            "variable has not been provided." ) );
+
+  auto dims = scenarios_var.getDims();
+
+  if( ( dims.size() != 2 ) || ( dims[ 0 ].getSize() != num_scenarios ) ||
+      ( dims[ 1 ].getSize() != scenario_size ) )
+
+   throw( std::logic_error
+          ( "ScenarioSet::deserialize_scenarios: 'Scenarios' must be a two-"
+            "dimensional array whose first and second dimensions have sizes "
+            "'NumberScenarios' and 'ScenarioSize', respectively." ) );
+
+  for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
+   scenarios_var.getVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
+                         scenarios[ i ].data() );
+ }
 
 /**@} ----------------------------------------------------------------------*/
 
