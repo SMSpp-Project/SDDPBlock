@@ -497,6 +497,15 @@ public:
   return scenario_id;
  }
 
+ /// returns the status of the most recent call to compute()
+ /** Returns the status of the most recent call to compute().
+  *
+  * @return The status of the most recent call to compute().
+  */
+ Index get_status( void ) const {
+  return status_compute;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
