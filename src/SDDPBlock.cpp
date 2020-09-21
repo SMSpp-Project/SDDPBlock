@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 13 - 03 - 2020
+ * \date 19 - 09 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -178,108 +178,16 @@ void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
   assert( reference_block );
   auto path_index = ( paths.size() == 1 ) ? 0 : i;
   auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
-   ( AbstractPath::get_element< Function >( paths[ path_index ] ,
-                                            reference_block ) );
+   ( paths[ path_index ].get_element< Function >( reference_block ) );
   if( ! polyhedral_function )
    throw ( std::invalid_argument( "SDDPBlock::deserialize: PolyhedralFunction "
                                   + std::to_string( i ) + " was not found." ) );
   v_polyhedral_functions.push_back( polyhedral_function );
  }
 
- // NumberScenarios
-
- ::SMSpp_di_unipi_it::deserialize_dim( group , "NumberScenarios" ,
-                                       num_scenarios , false );
-
- // ScenarioSize
-
- ::SMSpp_di_unipi_it::deserialize_dim( group , "ScenarioSize" ,
-                                       scenario_size , false );
-
- // SubScenarioSize
-
- if( ::SMSpp_di_unipi_it::deserialize( group , "SubScenarioSize" ,
-                                       time_horizon , sub_scenario_size ,
-                                       true , false ) ) {
-
-  if( scenario_size !=
-      std::accumulate( sub_scenario_size.begin() ,
-                       sub_scenario_size.end() , 0 ) )
-   throw ( std::logic_error( "SDDPBlock::deserialize: The sum of the "
-                             "elements in 'SubScenarioSize' must be equal to "
-                             "'ScenarioSize'" ) );
- }
- else {
-  // SubScenarioSize was not provided
-
-  if( scenario_size % time_horizon != 0 )
-   throw ( std::logic_error( "SDDPBlock::deserialize: 'SubScenarioSize' was "
-                             "not provided. Thus, 'ScenarioSize' must be a "
-                             "multiple of 'TimeHorizon'." ) );
-
-  sub_scenario_size.resize( time_horizon , scenario_size / time_horizon );
- }
-
  // Scenarios
 
- ::SMSpp_di_unipi_it::deserialize( group , "Scenarios" , scenarios ,
-                                   false , false );
-
- if( scenarios.shape()[ 0 ] != num_scenarios ||
-     scenarios.shape()[ 1 ] != scenario_size ) {
-
-  throw ( std::logic_error( "SDDPBlock::deserialize: 'Scenarios' must be a "
-                            "two-dimensional array whose first and second "
-                            "dimensions have sizes 'NumberScenarios' and "
-                            "'ScenarioSize', respectively." ) );
- }
-
- // NumberRandomDataGroups and SizeRandomDataGroups
-
- if( std::adjacent_find( sub_scenario_size.begin() , sub_scenario_size.end() ,
-                         std::not_equal_to<>() ) != sub_scenario_size.end() ) {
-  // Not all sub-scenarios have the same size. In this case, we consider a
-  // single random data group.
-  num_random_data_groups = 1;
- }
- else {
-
-  // All sub-scenarios have the same size. Thus, we check
-  // NumberRandomDataGroups and SizeRandomDataGroups.
-
-  if( ! ::SMSpp_di_unipi_it::deserialize_dim
-      ( group , "NumberRandomDataGroups" , num_random_data_groups , true ) ) {
-   // NumberRandomDataGroups was not provided. Hence, there must be a single
-   // random data group.
-   num_random_data_groups = 1;
-  }
-  else {
-   // NumberRandomDataGroups was provided. Now, we check SizeRandomDataGroups.
-
-   if( ::SMSpp_di_unipi_it::deserialize
-       ( group , "SizeRandomDataGroups" , num_random_data_groups ,
-         size_random_data_groups , true , false ) ) {
-
-    // SizeRandomDataGroups was provided.
-
-    if( ( scenario_size / time_horizon ) !=
-        std::accumulate( size_random_data_groups.begin() ,
-                         size_random_data_groups.end() , 0 ) )
-     throw ( std::logic_error( "SDDPBlock::deserialize: The sum of the sizes "
-                               "in 'SizeRandomDataGroups' must be equal to "
-                               "'ScenarioSize' / 'TimeHorizon'." ) );
-   }
-   else {
-    // SizeRandomDataGroups was not provided.
-    size_random_data_groups = { ( scenario_size / time_horizon ) };
-    if( num_random_data_groups > 1 ) {
-     throw ( std::logic_error( "SDDPBlock::deserialize: 'NumberRandomData"
-                               "Groups' must be provided since "
-                               "'NumberRandomDataGroups' > 1." ) );
-    }
-   }
-  }
- }
+ scenario_set.deserialize( group );
 
  // StateSize
 
@@ -300,13 +208,14 @@ void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
                                    admissible_states , false );
 
  if( state_size_is_scalar ) {
-  if( admissible_states.size() != state_size[ 0 ] ||
+  if( admissible_states.size() != state_size[ 0 ] &&
       admissible_states.size() != time_horizon * state_size[ 0 ] )
    throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
                              "array has an invalid size." ) );
  }
  else if( admissible_states.size() !=
-          std::accumulate( state_size.begin() , state_size.end() , 0 ) ) {
+          std::accumulate( state_size.begin() , state_size.end() ,
+                           decltype( state_size )::value_type( 0 ) ) ) {
   throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
                             "array has an invalid size." ) );
  }
@@ -321,7 +230,7 @@ void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
 void SDDPBlock::add_Modification( sp_Mod mod , Observer::ChnlName chnl ) {
  // TODO
  if( anyone_there() )
-  add_Modification( std::make_shared<NBModification>( this ) );
+  Block::add_Modification( std::make_shared<NBModification>( this ) , chnl );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -361,9 +270,49 @@ void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::set_scenario( const Eigen::ArrayXd & scenario , Index stage ) {
+void SDDPBlock::set_state( const std::vector<double> & values , Index stage ) {
  assert( stage < get_time_horizon() );
- static_cast< StochasticBlock * >( v_Block[ stage ] )->set_data( scenario );
+ auto benders_block = static_cast< BendersBlock * >
+  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
+    get_nested_Blocks().front() );
+ benders_block->set_variable_values( values );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::set_admissible_state( Index stage ) {
+ assert( stage < get_time_horizon() );
+
+ // Beginning of the admissible state at the given stage
+ auto begin = std::accumulate( state_size.begin() ,
+                               state_size.begin() + stage ,
+                               decltype( state_size )::value_type( 0 ) );
+
+ auto benders_block = static_cast< BendersBlock * >
+  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
+    get_nested_Blocks().front() );
+
+ benders_block->set_variable_values( admissible_states.begin() + begin );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::set_scenario( Index scenario_id ) {
+ for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+  auto sub_scenario_begin = scenario_set.
+   sub_scenario_begin( scenario_id , stage );
+  static_cast< StochasticBlock * >( v_Block[ stage ] )->
+   set_data( sub_scenario_begin );
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::set_scenario( Index scenario_id , Index stage ) {
+ auto sub_scenario_begin = scenario_set.
+  sub_scenario_begin( scenario_id , stage );
+ static_cast< StochasticBlock * >( v_Block[ stage ] )->
+  set_data( sub_scenario_begin );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -387,7 +336,7 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  for( Index i = 0 ; i < v_Block.size() ; ++i ) {
   auto sub_group = group.addGroup( "StochasticBlock_" +
                                    std::to_string( i ) );
-  v_Block[ 0 ]->serialize( sub_group );
+  v_Block[ i ]->serialize( sub_group );
  }
 
  // AbstractPaths to PolyhedralFunctions
@@ -399,43 +348,14 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
   auto reference_block = static_cast< StochasticBlock * >( v_Block[ i ] )->
    get_nested_Blocks().front();
   assert( reference_block );
-  paths.push_back( AbstractPath::build_path< PolyhedralFunction >
-                   ( v_polyhedral_functions[ i ] , reference_block ) );
+  paths.emplace_back( v_polyhedral_functions[ i ] , reference_block );
  }
 
  AbstractPath::serialize( paths , group );
 
- /////////////////////////////////////////////////////////
-
- // NumberScenarios
-
- auto NumberScenarios_dim = group.addDim( "NumberScenarios" , num_scenarios );
-
- // ScenarioSize
-
- auto ScenarioSize_dim = group.addDim( "ScenarioSize" , scenario_size );
-
- // SubScenarioSize
-
- ::SMSpp_di_unipi_it::serialize( group , "SubScenarioSize" ,
-                                 netCDF::NcUint64() , TimeHorizon_dim ,
-                                 sub_scenario_size , false );
-
  // Scenarios
 
- ::SMSpp_di_unipi_it::serialize( group , "Scenarios" , netCDF::NcDouble() ,
-                                 { NumberScenarios_dim , ScenarioSize_dim } ,
-                                 scenarios , false , false );
-
- // NumberRandomDataGroups and SizeRandomDataGroups
-
- auto NumberRandomDataGroups_dim = group.addDim( "NumberRandomDataGroups" ,
-                                                 num_random_data_groups );
-
- if( size_random_data_groups.size() > 0 )
-  ::SMSpp_di_unipi_it::serialize( group , "SizeRandomDataGroups" , netCDF::NcUint64() ,
-                                  NumberRandomDataGroups_dim ,
-                                  size_random_data_groups , false );
+ scenario_set.serialize( group );
 
  // StateSize
 
