@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 12 - 2019
+ * \date 20 - 09 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -261,7 +261,7 @@ public:
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
-   * to extend the set of double algorithmic parameters. */
+   * to extend the set of int algorithmic parameters. */
 
  };  // end( int_par_type_SDDP_S )
 
@@ -385,7 +385,7 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const int value ) override {
+ void set_par( const idx_type par , const int value ) override {
   switch( par ) {
   case( intMaxIter ): maximum_number_iterations = value; return;
   case( intNStepConv ): convergence_frequency = value; return;
@@ -414,7 +414,7 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const double value ) override {
+ void set_par( const idx_type par , const double value ) override {
   if( par == dblAccuracy ) {
    accuracy = value;
    return;
@@ -444,8 +444,7 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const std::string & value )
-  override {
+ void set_par( const idx_type par , const std::string & value ) override {
   switch( par ) {
   case( strRegressorsFilename ): regressors_filename = value; return;
   case( strCutsFilename ): cuts_filename = value; return;
@@ -466,7 +465,7 @@ public:
   * @return The number of int parameters.
   */
 
- virtual idx_type get_num_int_par( void ) const override {
+ idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
  }
 
@@ -477,7 +476,7 @@ public:
   * @return The number of double parameters.
   */
 
- virtual idx_type get_num_dbl_par( void ) const override {
+ idx_type get_num_dbl_par( void ) const override {
   return( idx_type( dblLastAlgPar ) );
  }
 
@@ -488,7 +487,7 @@ public:
   * @return The number of string parameters.
   */
 
- virtual idx_type get_num_str_par( void ) const override {
+ idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
  }
 
@@ -504,7 +503,7 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual int get_dflt_int_par( const idx_type par ) const override {
+ int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
   case( intNStepConv ): return 1;
   case( intPrintTime ): return 1;
@@ -525,7 +524,7 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual double get_dflt_dbl_par( const idx_type par ) const override {
+ double get_dflt_dbl_par( const idx_type par ) const override {
   if( par == dblAccuracy ) return 1.0e-8;
   return Solver::get_dflt_dbl_par( par );
  }
@@ -542,8 +541,7 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual const std::string & get_dflt_str_par( const idx_type par )
-  const override {
+ const std::string & get_dflt_str_par( const idx_type par ) const override {
 
   static const std::vector<std::string> default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" };
@@ -565,7 +563,7 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual int get_int_par( const idx_type par ) const override {
+ int get_int_par( const idx_type par ) const override {
   switch( par ) {
   case( intMaxIter ): return maximum_number_iterations;
   case( intNStepConv ): return convergence_frequency;
@@ -586,7 +584,7 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual double get_dbl_par( const idx_type par ) const override {
+ double get_dbl_par( const idx_type par ) const override {
   if( par == dblAccuracy )
    return accuracy;
   return( get_dflt_dbl_par( par ) );
@@ -603,7 +601,7 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual const std::string & get_str_par( const idx_type par ) const override {
+ const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
   case( strRegressorsFilename ): return regressors_filename;
   case( strCutsFilename ): return cuts_filename;
@@ -626,7 +624,7 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type int_par_str2idx( const std::string & name ) const override {
+ idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intNStepConv" ) return intNStepConv;
   if( name == "intPrintTime" ) return intPrintTime;
   if( name == "intNbSimulCheckForSimu" ) return intNbSimulCheckForSimu;
@@ -644,7 +642,7 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type dbl_par_str2idx( const std::string & name ) const override {
+ idx_type dbl_par_str2idx( const std::string & name ) const override {
   if( name == "dblAccuracy" ) return dblAccuracy;
   return Solver::dbl_par_str2idx( name );
  }
@@ -660,7 +658,7 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type str_par_str2idx( const std::string & name ) const override {
+ idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strRegressorsFilename" ) return strRegressorsFilename;
   if( name == "strCutsFilename" ) return strCutsFilename;
   if( name == "strVisitedStatesFilename" ) return strVisitedStatesFilename;
@@ -678,8 +676,7 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & int_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" };
@@ -701,8 +698,7 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & dbl_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & dbl_par_idx2str( const idx_type idx ) const override {
   static const std::string dblAccuracy_name = "dblAccuracy";
   if( idx == dblAccuracy ) return dblAccuracy_name;
   return Solver::dbl_par_idx2str( idx );
@@ -719,8 +715,7 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & str_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" };
@@ -741,7 +736,7 @@ public:
  /**
   */
 
- virtual int compute( bool changedvars = true ) override;
+ int compute( bool changedvars = true ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
@@ -749,7 +744,7 @@ public:
 /** @name Accessing the found solutions (if any)
  * @{ */
 
- virtual void get_var_solution( Configuration *solc = nullptr ) override {
+ void get_var_solution( Configuration *solc = nullptr ) override {
   // TODO
  }
 
@@ -781,6 +776,21 @@ public:
   * @return The time horizon of the problem associated with the SDDPBlock.
   */
  SDDPBlock::Index get_time_horizon() const;
+
+/*--------------------------------------------------------------------------*/
+
+/// returns the solution associated with the problem at the given stage
+/** This function returns the solution of the problem associated with the
+ * given \p stage, which is part of the state variables of the next stage.
+ *
+ * @param stage The stage whose solution is required.
+ *
+ * @return The array containing the solution of the problem at the given
+ *         stage.
+ */
+
+ template< class T = Eigen::ArrayXd >
+ T get_solution( SDDPBlock::Index stage ) const;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -878,16 +888,12 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- void set_scenario( const Eigen::ArrayXd & scenario ,
+ void set_scenario( SDDPBlock::Index scenario_id ,
                     SDDPBlock::Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
  void solve( SDDPBlock::Index stage );
-
-/*--------------------------------------------------------------------------*/
-
- Eigen::ArrayXd get_solution( SDDPBlock::Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
@@ -911,14 +917,14 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
-  virtual Eigen::ArrayXd oneStepBackward
+  Eigen::ArrayXd oneStepBackward
   ( const StOpt::SDDPCutOptBase & p_linCut,
     const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & p_aState,
     const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
 
 /*--------------------------------------------------------------------------*/
 
-  virtual double oneStepForward
+  double oneStepForward
   ( const Eigen::ArrayXd &p_aParticle, Eigen::ArrayXd &p_state,
     Eigen::ArrayXd &p_stateToStore,
     const StOpt::SDDPCutOptBase &p_linCut,
@@ -952,8 +958,7 @@ private:
    *
    * @param date_next Another stage.
    */
-  virtual void updateDates
-  ( const double & date, const double & date_next ) override;
+  void updateDates( const double & date, const double & date_next ) override;
 
 /*--------------------------------------------------------------------------*/
 
@@ -975,7 +980,7 @@ private:
    * @return An initial state for the optimization problem
    * associated with the given stage.
    */
-  virtual Eigen::ArrayXd oneAdmissibleState( const double & stage ) override;
+  Eigen::ArrayXd oneAdmissibleState( const double & stage ) override;
 
 /*--------------------------------------------------------------------------*/
 
@@ -987,7 +992,7 @@ private:
    *
    * @return The size of the state vector.
    */
-  virtual int getStateSize() const override {
+  int getStateSize() const override {
    return sddp_solver->initial_state.size();
   }
 
@@ -999,7 +1004,7 @@ private:
    *
    * @return The simulator associated with the backward pass.
    */
-  virtual std::shared_ptr< StOpt::SimulatorSDDPBase >
+  std::shared_ptr< StOpt::SimulatorSDDPBase >
   getSimulatorBackward() const override {
    return simulator_backward;
   }
@@ -1012,7 +1017,7 @@ private:
    *
    * @return The simulator associated with the forward pass.
    */
-  virtual std::shared_ptr< StOpt::SimulatorSDDPBase >
+  std::shared_ptr< StOpt::SimulatorSDDPBase >
   getSimulatorForward() const override {
    return simulator_forward;
   }
