@@ -23,6 +23,7 @@ target_compile_features(SDDPBlock PUBLIC cxx_std_17)
 
 target_sources(SDDPBlock PRIVATE
                src/SDDPBlock.cpp
+               src/SDDPGreedySolver.cpp
                )
 
 # Different INSTALL_INTERFACE and BUILD_INTERFACE paths are used when
