@@ -466,7 +466,9 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
- void load( std::istream &input ) override {}
+ void load( std::istream &input ) override {
+  throw( std::logic_error( "SDDPBlock::load: method not implemented yet." ) );
+ }
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/

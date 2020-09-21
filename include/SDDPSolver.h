@@ -804,19 +804,19 @@ protected:
 
  /// Initial state
  /** The initial state at the beginning of the simulation. */
- Eigen::ArrayXd initial_state; //p_initialState;
+ Eigen::ArrayXd initial_state;
 
  /// Number of meshes in each direction
  /** This array stores the number of meshes in each direction. The
   * i-th component of this array contains the number of meshes
   * (number of steps) at direction i. */
- Eigen::ArrayXi number_meshes; // p_meshForReg;
+ Eigen::ArrayXi number_meshes;
 
  /// The cuts used at the last time step
  /** The cuts used at the last time step: when the final value
   * function is zero, the last cut is given by an all zero array of
   * size nbstate + 1. */
- StOpt::SDDPFinalCut final_cut; // p_finalCut
+ StOpt::SDDPFinalCut final_cut;
 
  /// Number of iterations performed by the method
  /** Number of iterations performed by the method at the last call of

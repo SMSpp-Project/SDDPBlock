@@ -258,7 +258,9 @@ public:
 
   // TimeHorizon
 
-  auto TimeHorizon_dim = group.addDim( "TimeHorizon" , get_time_horizon() );
+  auto TimeHorizon_dim = group.getDim( "TimeHorizon" );
+  if( TimeHorizon_dim.isNull() )
+   TimeHorizon_dim = group.addDim( "TimeHorizon" , get_time_horizon() );
 
   // NumberScenarios
 
