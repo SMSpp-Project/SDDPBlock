@@ -298,12 +298,8 @@ void SDDPBlock::set_admissible_state( Index stage ) {
 /*--------------------------------------------------------------------------*/
 
 void SDDPBlock::set_scenario( Index scenario_id ) {
- for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
-  auto sub_scenario_begin = scenario_set.
-   sub_scenario_begin( scenario_id , stage );
-  static_cast< StochasticBlock * >( v_Block[ stage ] )->
-   set_data( sub_scenario_begin );
- }
+ for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
+  this->set_scenario( scenario_id ,  stage );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -311,8 +307,17 @@ void SDDPBlock::set_scenario( Index scenario_id ) {
 void SDDPBlock::set_scenario( Index scenario_id , Index stage ) {
  auto sub_scenario_begin = scenario_set.
   sub_scenario_begin( scenario_id , stage );
- static_cast< StochasticBlock * >( v_Block[ stage ] )->
-  set_data( sub_scenario_begin );
+
+ try {
+  static_cast< StochasticBlock * >( v_Block[ stage ] )->
+   set_data( sub_scenario_begin );
+ }
+ catch( const std::exception & e ) {
+  std::cout << "SDDPBlock::set_scenario: exception while setting scenario "
+            << scenario_id << " of stage " << stage << ".\n"
+            << e.what() << std::endl;
+  std::exit( EXIT_FAILURE );
+ }
 }
 
 /*--------------------------------------------------------------------------*/
