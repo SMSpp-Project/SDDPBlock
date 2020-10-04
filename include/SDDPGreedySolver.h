@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 29 - 05 - 2020
+ * \date 04 - 10 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -285,7 +285,7 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const int value ) override {
+ void set_par( const idx_type par , const int value ) override {
   switch( par ) {
   case( intScenarioId ): set_scenario_id( value ); return;
   }
@@ -304,7 +304,7 @@ public:
   * @return The number of int parameters.
   */
 
- virtual idx_type get_num_int_par( void ) const override {
+ idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
  }
 
@@ -319,7 +319,7 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual int get_dflt_int_par( const idx_type par ) const override {
+ int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
   case( intScenarioId ): return 0;
   }
@@ -337,7 +337,7 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual int get_int_par( const idx_type par ) const override {
+ int get_int_par( const idx_type par ) const override {
   switch( par ) {
   case( intScenarioId ): return scenario_id;
   }
@@ -358,7 +358,7 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type int_par_str2idx( const std::string & name ) const override {
+ idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
   return Solver::int_par_str2idx( name );
  }
@@ -374,8 +374,7 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & int_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names = { "intScenarioId" };
 
@@ -422,7 +421,7 @@ public:
   *         value that this method may return.
   */
 
- virtual int compute( bool changedvars = true ) override;
+ int compute( bool changedvars = true ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------- METHODS FOR CHANGING THE DATA OF THE SDDPGreedySolver ----------*/
@@ -451,11 +450,31 @@ public:
 /** @name Accessing the found solutions (if any)
  * @{ */
 
- virtual bool has_var_solution( void ) override;
+ bool has_var_solution( void ) override {
+  return ( status_compute == Solver::kLowPrecision ) ||
+   ( status_compute == Solver::kStopIter ) ||
+   ( status_compute == Solver::kStopTime );
+ }
 
 /*--------------------------------------------------------------------------*/
 
- virtual void get_var_solution( Configuration *solc = nullptr ) override;
+ void get_var_solution( Configuration *solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ OFValue get_lb( void ) override {
+  if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
+   return solution_value;
+  return( - std::numeric_limits<OFValue>::infinity() );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ OFValue get_ub( void ) override {
+  if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
+   return solution_value;
+  return( std::numeric_limits<OFValue>::infinity() );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -497,6 +516,8 @@ public:
   return scenario_id;
  }
 
+/*--------------------------------------------------------------------------*/
+
  /// returns the status of the most recent call to compute()
  /** Returns the status of the most recent call to compute().
   *
@@ -505,6 +526,23 @@ public:
  Index get_status( void ) const {
   return status_compute;
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario to be considered
+ /** This method updates the sub-Blocks of the SDDPBlock with the data
+  * provided by the scenario whose id is given by the method
+  * get_scenario_id().
+  */
+ void set_scenario( void );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the initial state
+ /** This function sets the state of the subproblem at the first stage
+  * according to the initial state present in the SDDPBlock.
+  */
+ void set_initial_state( void );
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -569,7 +607,7 @@ private:
   * given \p stage.
   *
   * @param[in] stage An Index in the interval [0, T-1], where T is the time
-  * horizon.
+  *            horizon.
   *
   * @return A pointer to the BendersBFunction associated with the given stage.
   */
@@ -602,24 +640,30 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- /// sets the scenario to be considered
- /** This method updates the sub-Blocks of the SDDPBlock with the data
-  * provided by the scenario whose id is given by the method
-  * get_scenario_id().
-  */
- void set_scenario( void );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the initial state
- /** This function sets the state of the subproblem at the first stage
-  * according to the initial state present in the SDDPBlock.
-  */
- void set_initial_state( void );
-
-/*--------------------------------------------------------------------------*/
-
  void process_outstanding_Modification( void );
+
+/*--------------------------------------------------------------------------*/
+
+ double get_sub_solution_value( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  auto sub_solver = get_sub_solver( stage );
+  if( sub_solver->is_var_feasible() )
+   return sub_solver->get_var_value();
+  else if( get_objective_sense( stage ) == Objective::eMin )
+   return sub_solver->get_ub();
+  else
+   return sub_solver->get_lb();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ int get_objective_sense( Index stage = 0 ) const {
+  assert( stage < get_time_horizon() );
+  auto benders_function = get_benders_function( stage );
+  auto inner_block = benders_function->get_inner_block();
+  assert( inner_block );
+  return inner_block->get_objective_sense();
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -637,6 +681,9 @@ private:
 
  /// Indicates whether the initial state has already been set
  bool initial_state_is_set = false;
+
+ /// The value of the solution (if any).
+ double solution_value = 0.0;
 
 };   // end( class SDDPGreedySolver )
 

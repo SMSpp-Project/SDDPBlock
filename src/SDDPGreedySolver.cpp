@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 29 - 05 - 2020
+ * \date 04 - 10 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -56,6 +56,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  auto time_horizon = get_time_horizon();
  status_compute = Solver::kLowPrecision;
  fault_stage = Inf<Index>();
+ solution_value = 0.0;
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
@@ -86,10 +87,14 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    break;
   }
   else if( sub_status == Solver::kStopTime || sub_status == Solver::kStopIter ) {
+   solution_value += get_sub_solution_value( stage );
    if( fault_stage == Inf<Index>() ) {
     fault_stage = stage;
     status_compute = sub_status;
    }
+  }
+  else {
+   solution_value += get_sub_solution_value( stage );
   }
  }
 
@@ -106,14 +111,6 @@ SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon( void ) const {
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
-/*--------------------------------------------------------------------------*/
-
-bool SDDPGreedySolver::has_var_solution( void ) {
- return ( status_compute == Solver::kLowPrecision ) ||
-  ( status_compute == Solver::kStopIter ) ||
-  ( status_compute == Solver::kStopTime );
-}
-
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
@@ -165,7 +162,7 @@ BendersBFunction * SDDPGreedySolver::get_benders_function( Index stage ) const {
 
  auto benders_block = static_cast< BendersBlock * >
   ( static_cast< SDDPBlock * >( f_Block )->
-    get_sub_Block( get_time_horizon() - 1 )->get_inner_block() );
+    get_sub_Block( stage )->get_inner_block() );
 
  auto objective = static_cast< FRealObjective * >
   ( benders_block->get_objective() );
