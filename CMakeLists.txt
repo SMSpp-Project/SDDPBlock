@@ -11,11 +11,12 @@ project(SDDPBlock VERSION 0.3.0 LANGUAGES CXX)
 
 # ----- Requirements -------------------------------------------------------- #
 # This is to use the find modules we provide
-list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
 find_package(SMSpp REQUIRED)
 find_package(StochasticBlock REQUIRED)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package(StOpt REQUIRED)
+list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
 # ----- Library ------------------------------------------------------------- #
 add_library(SDDPBlock)
@@ -23,8 +24,7 @@ target_compile_features(SDDPBlock PUBLIC cxx_std_17)
 
 target_sources(SDDPBlock PRIVATE
                src/SDDPBlock.cpp
-               src/SDDPGreedySolver.cpp
-               )
+               src/SDDPGreedySolver.cpp)
 
 # Different INSTALL_INTERFACE and BUILD_INTERFACE paths are used when
 # generating the target import file (***Targets.cmake), that must be different
@@ -85,9 +85,11 @@ install(FILES
 
 # Shipping custom find modules should not be encouraged because third
 # party developers should provide them.
-# We ship FindStOpt because StOpt does not provide its own.
+# We ship FindStOpt because StOpt does not provide its own,
+# and FindEigen3 because the user may want not to install Eigen3.
 install(FILES
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindStOpt.cmake
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindEigen3.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SDDPBlock)
 
 # ----- Export from the build tree ------------------------------------------ #
@@ -103,6 +105,10 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
     # Export also the find modules for the local config file to use it
     configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindStOpt.cmake
                    ${CMAKE_CURRENT_BINARY_DIR}/FindStOpt.cmake
+                   COPYONLY)
+
+    configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindEigen3.cmake
+                   ${CMAKE_CURRENT_BINARY_DIR}/FindEigen3.cmake
                    COPYONLY)
 
     # Register package in user's package registry (~/.cmake/registry)
