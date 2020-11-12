@@ -114,3 +114,7 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
     # Register package in user's package registry (~/.cmake/registry)
     export(PACKAGE SDDPBlock)
 endif ()
+
+if (BUILD_TESTING)
+    # Just consuming BUILD_TESTING to avoid warnings
+endif ()
