@@ -35,39 +35,45 @@
 # --------------------------------------------------------------------------- #
 include(FindPackageHandleStandardArgs)
 
-# ----- Find the headers ---------------------------------------------------- #
-# Note that find_path() also creates a cache entry
-find_path(Eigen3_INCLUDE_DIR Eigen/Dense
-          HINTS ${EIGEN3_INC}
-          PATH_SUFFIXES eigen3
-          DOC "Eigen3 include directory.")
-
-# ----- Parse the version --------------------------------------------------- #
+# Check if already in cache
 if (Eigen3_INCLUDE_DIR)
-    file(STRINGS
-         "${Eigen3_INCLUDE_DIR}/Eigen/src/Core/util/Macros.h"
-         _eigen3_version_lines REGEX "#define EIGEN_(WORLD|MAJOR|MINOR)_VERSION")
+    set(Eigen3_FOUND TRUE)
+else ()
 
-    string(REGEX REPLACE ".*EIGEN_WORLD_VERSION *\([0-9]*\).*" "\\1" _eigen3_version_major "${_eigen3_version_lines}")
-    string(REGEX REPLACE ".*EIGEN_MAJOR_VERSION *\([0-9]*\).*" "\\1" _eigen3_version_minor "${_eigen3_version_lines}")
-    string(REGEX REPLACE ".*EIGEN_MINOR_VERSION *\([0-9]*\).*" "\\1" _eigen3_version_patch "${_eigen3_version_lines}")
+    # ----- Find the headers ------------------------------------------------ #
+    # Note that find_path() also creates a cache entry
+    find_path(Eigen3_INCLUDE_DIR Eigen/Dense
+              HINTS ${EIGEN3_INC}
+              PATH_SUFFIXES eigen3
+              DOC "Eigen3 include directory.")
 
-    set(Eigen3_VERSION "${_eigen3_version_major}.${_eigen3_version_minor}.${_eigen3_version_patch}")
-    unset(_eigen3_version_lines)
-    unset(_eigen3_version_major)
-    unset(_eigen3_version_minor)
-    unset(_eigen3_version_patch)
+    # ----- Parse the version ----------------------------------------------- #
+    if (Eigen3_INCLUDE_DIR)
+        file(STRINGS
+             "${Eigen3_INCLUDE_DIR}/Eigen/src/Core/util/Macros.h"
+             _eigen3_version_lines REGEX "#define EIGEN_(WORLD|MAJOR|MINOR)_VERSION")
+
+        string(REGEX REPLACE ".*EIGEN_WORLD_VERSION *\([0-9]*\).*" "\\1" _eigen3_version_major "${_eigen3_version_lines}")
+        string(REGEX REPLACE ".*EIGEN_MAJOR_VERSION *\([0-9]*\).*" "\\1" _eigen3_version_minor "${_eigen3_version_lines}")
+        string(REGEX REPLACE ".*EIGEN_MINOR_VERSION *\([0-9]*\).*" "\\1" _eigen3_version_patch "${_eigen3_version_lines}")
+
+        set(Eigen3_VERSION "${_eigen3_version_major}.${_eigen3_version_minor}.${_eigen3_version_patch}")
+        unset(_eigen3_version_lines)
+        unset(_eigen3_version_major)
+        unset(_eigen3_version_minor)
+        unset(_eigen3_version_patch)
+    endif ()
+
+    # ----- Handle the standard arguments ----------------------------------- #
+    # The following macro manages the QUIET, REQUIRED and version-related
+    # options passed to find_package(). It also sets <PackageName>_FOUND if
+    # REQUIRED_VARS are set.
+    # REQUIRED_VARS should be cache entries and not output variables. See:
+    # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
+    find_package_handle_standard_args(Eigen3
+                                      REQUIRED_VARS Eigen3_INCLUDE_DIR
+                                      VERSION_VAR Eigen3_VERSION)
 endif ()
-
-# ----- Handle the standard arguments --------------------------------------- #
-# The following macro manages the QUIET, REQUIRED and version-related options
-# passed to find_package(). It also sets <PackageName>_FOUND if REQUIRED_VARS
-# are set. REQUIRED_VARS should be cache entries and not output variables.
-# See:
-# https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
-find_package_handle_standard_args(Eigen3
-                                  REQUIRED_VARS Eigen3_INCLUDE_DIR
-                                  VERSION_VAR Eigen3_VERSION)
 
 # ----- Export the target --------------------------------------------------- #
 if (Eigen3_FOUND)

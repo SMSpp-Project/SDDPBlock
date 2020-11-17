@@ -52,43 +52,50 @@ if (NOT Eigen3_FOUND)
     find_package(Eigen3 REQUIRED)
 endif ()
 
-# ----- Find the geners library --------------------------------------------- #
-# Note that find_path() creates a cache entry
-find_path(StOpt_geners_INCLUDE_DIR
-          NAMES geners/uriUtils.hh
-          PATHS ${STOPT_INC}
-          DOC "geners include directory.")
+# Check if already in cache
+if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
+    StOpt_INCLUDE_DIR AND StOpt_LIBRARY)
+    set(StOpt_FOUND TRUE)
+else ()
 
-# Note that find_library() creates a cache entry
-find_library(StOpt_geners_LIBRARY
-             NAMES geners
-             PATHS ${STOPT_LIB}
-             DOC "geners library.")
+    # ----- Find the geners library ----------------------------------------- #
+    # Note that find_path() creates a cache entry
+    find_path(StOpt_geners_INCLUDE_DIR
+              NAMES geners/uriUtils.hh
+              PATHS ${STOPT_INC}
+              DOC "geners include directory.")
 
-# ----- Find the StOpt library ---------------------------------------------- #
-# Note that find_path() creates a cache entry
-find_path(StOpt_INCLUDE_DIR
-          NAMES StOpt/sddp/OptimizerSDDPBase.h
-          PATHS ${STOPT_INC}
-          DOC "StOpt include directory.")
+    # Note that find_library() creates a cache entry
+    find_library(StOpt_geners_LIBRARY
+                 NAMES geners
+                 PATHS ${STOPT_LIB}
+                 DOC "geners library.")
 
-# Note that find_library() creates a cache entry
-find_library(StOpt_LIBRARY
-             NAMES StOpt
-             PATHS ${STOPT_LIB}
-             DOC "StOpt library.")
+    # ----- Find the StOpt library ------------------------------------------ #
+    # Note that find_path() creates a cache entry
+    find_path(StOpt_INCLUDE_DIR
+              NAMES StOpt/sddp/OptimizerSDDPBase.h
+              PATHS ${STOPT_INC}
+              DOC "StOpt include directory.")
 
-# ----- Handle the standard arguments --------------------------------------- #
-# The following macro manages the QUIET, REQUIRED and version-related options
-# passed to find_package(). It also sets <PackageName>_FOUND if REQUIRED_VARS
-# are set. REQUIRED_VARS should be cache entries and not output variables.
-# See:
-# https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
-find_package_handle_standard_args(
-        StOpt
-        REQUIRED_VARS
-        StOpt_geners_INCLUDE_DIR StOpt_geners_LIBRARY
-        StOpt_LIBRARY StOpt_INCLUDE_DIR)
+    # Note that find_library() creates a cache entry
+    find_library(StOpt_LIBRARY
+                 NAMES StOpt
+                 PATHS ${STOPT_LIB}
+                 DOC "StOpt library.")
+
+    # ----- Handle the standard arguments ----------------------------------- #
+    # The following macro manages the QUIET, REQUIRED and version-related
+    # options passed to find_package(). It also sets <PackageName>_FOUND if
+    # REQUIRED_VARS are set.
+    # REQUIRED_VARS should be cache entries and not output variables. See:
+    # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
+    find_package_handle_standard_args(
+            StOpt
+            REQUIRED_VARS
+            StOpt_geners_INCLUDE_DIR StOpt_geners_LIBRARY
+            StOpt_LIBRARY StOpt_INCLUDE_DIR)
+endif ()
 
 # ----- Export the targets -------------------------------------------------- #
 if (StOpt_FOUND)
