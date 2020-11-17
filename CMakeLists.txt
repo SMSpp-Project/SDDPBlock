@@ -23,7 +23,7 @@ cmake_minimum_required(VERSION 3.11)
 project(SDDPBlock VERSION 0.3.0 LANGUAGES CXX)
 
 # ----- Requirements -------------------------------------------------------- #
-find_package(SMSpp REQUIRED)
+#find_package(SMSpp REQUIRED)
 find_package(StochasticBlock REQUIRED)
 
 # This adds the cmake directory to the find module search paths,
@@ -75,7 +75,7 @@ target_include_directories(
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
 target_link_libraries(SDDPBlock PUBLIC
-                      SMS++::SMSpp
+                      # SMS++::SMSpp
                       SMS++::StochasticBlock
                       StOpt::StOpt)
 
