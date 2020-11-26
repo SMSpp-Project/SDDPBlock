@@ -14,7 +14,7 @@
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
-get_filename_component(SDDPBlock_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(@modName@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
 # ----- Requirements -------------------------------------------------------- #
@@ -27,8 +27,8 @@ find_dependency(StOpt)
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
 # ----- Import target ------------------------------------------------------- #
-if (NOT TARGET SMS++::SDDPBlock)
-    include("${SDDPBlock_CMAKE_DIR}/SDDPBlockTargets.cmake")
-endif ()
+if (NOT TARGET @modNamespace@::@modName@)
+    include("${@modName@_CMAKE_DIR}/@modName@Targets.cmake")
+endif()
 
-set(SDDPBlock_LIBRARIES SMS++::SDDPBlock)
+set(@modName@_LIBRARIES @modNamespace@::@modName@)

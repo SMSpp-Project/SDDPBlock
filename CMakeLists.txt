@@ -22,6 +22,18 @@
 cmake_minimum_required(VERSION 3.11)
 project(SDDPBlock VERSION 0.3.0 LANGUAGES CXX)
 
+# These variables make the code harder to read but easier to change.
+set(modName ${PROJECT_NAME})
+set(modNamespace "SMS++")
+set(modHeader "${modName}Config.h")
+set(modTargets "${modName}Targets")
+
+# ----- Settings ------------------------------------------------------------ #
+# This creates an ENABLE_TESTING option (default: ON) and enables the testing
+# using the ctest executable.
+# See: https://cmake.org/cmake/help/latest/manual/ctest.1.html
+#include(CTest)
+
 # ----- Requirements -------------------------------------------------------- #
 #find_package(SMSpp REQUIRED)
 find_package(StochasticBlock REQUIRED)
@@ -37,20 +49,21 @@ list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
-configure_file(cmake/SDDPBlockConfig.h.in SDDPBlockConfig.h)
+configure_file(cmake/${modHeader}.in ${modHeader})
 
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
 # be STATIC or SHARED, so no reason to do it now.
-add_library(SDDPBlock)
-target_compile_features(SDDPBlock PUBLIC cxx_std_17)
+add_library(${modName})
+target_compile_features(${modName} PUBLIC cxx_std_17)
 
 # When adding source files with target_sources(), PRIVATE means that the files
 # should only be added to this library, whereas PUBLIC means they should be
 # added to this library and to any target that links to it.
 # INTERFACE can be used for sources that should not be added to this library
 # but should be added to anything that links to it.
-target_sources(SDDPBlock PRIVATE
+# Note: do not GLOB files here.
+target_sources(${modName} PRIVATE
                src/SDDPBlock.cpp
                src/SDDPGreedySolver.cpp)
 
@@ -65,23 +78,22 @@ target_sources(SDDPBlock PRIVATE
 # will look into the BUILD_INTERFACE path for its headers, if it finds it
 # installed in the system will look into the INSTALL_INTERFACE path.
 target_include_directories(
-        SDDPBlock PUBLIC
+        ${modName} PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include/SMS++>)
+        $<INSTALL_INTERFACE:include/${modNamespace}>)
 
 # When linking other targets to the library with target_link_libraries(),
 # PRIVATE means that the libraries will be linked only to this library,
 # PUBLIC means they will be linked also to the targets that depend on this
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
-target_link_libraries(SDDPBlock PUBLIC
-                      # SMS++::SMSpp
-                      SMS++::StochasticBlock
+target_link_libraries(${modName} PUBLIC
+                      ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
 
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
-add_library(SMS++::SDDPBlock ALIAS SDDPBlock)
+add_library(${modNamespace}::${modName} ALIAS ${modName})
 
 # ----- Install instructions ------------------------------------------------ #
 # The following commands are used when installing the library
@@ -91,46 +103,45 @@ add_library(SMS++::SDDPBlock ALIAS SDDPBlock)
 include(GNUInstallDirs)
 
 # Install the library
-install(TARGETS SDDPBlock
-        EXPORT SDDPBlock-targets
+install(TARGETS ${modName}
+        EXPORT ${modTargets}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # Install the headers
 install(DIRECTORY include/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/SMS++)
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
 # Install the auto-generated configuration header (see above).
-install(FILES ${PROJECT_BINARY_DIR}/SDDPBlockConfig.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/SMS++)
+install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
-install(EXPORT SDDPBlock-targets
-        FILE SDDPBlockTargets.cmake
-        NAMESPACE SMS++::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SDDPBlock)
+install(EXPORT ${modTargets}
+        NAMESPACE ${modNamespace}::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # Generate the package version file, that allows other
 # CMake projects to know the version.
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
-        ${CMAKE_CURRENT_BINARY_DIR}/SDDPBlockConfigVersion.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
         VERSION ${PROJECT_VERSION}
         COMPATIBILITY AnyNewerVersion)
 
 # Generate the package configuration file, that allows other
 # CMake projects to find the library with find_package().
 configure_package_config_file(
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/SDDPBlockConfig.cmake.in
-        ${CMAKE_CURRENT_BINARY_DIR}/SDDPBlockConfig.cmake
-        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SDDPBlock)
+        ${CMAKE_CURRENT_LIST_DIR}/cmake/${modName}Config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/${modName}Config.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # Install the package version and configuration files.
 install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/SDDPBlockConfig.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/SDDPBlockConfigVersion.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SDDPBlock)
+        ${CMAKE_CURRENT_BINARY_DIR}/${modName}Config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${modName}ConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # Shipping custom find modules should not be encouraged because third
 # party developers should provide them.
@@ -139,7 +150,7 @@ install(FILES
 install(FILES
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindStOpt.cmake
         ${CMAKE_CURRENT_LIST_DIR}/cmake/FindEigen3.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SDDPBlock)
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # ----- Export from the build tree ------------------------------------------ #
 # The following commands are needed so other projects can find the library
@@ -154,9 +165,9 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
 
     # Generate the target import file, that allows other
     # CMake projects to import the target.
-    export(EXPORT SDDPBlock-targets
-           FILE ${CMAKE_CURRENT_BINARY_DIR}/SDDPBlockTargets.cmake
-           NAMESPACE SMS++::)
+    export(EXPORT ${modTargets}
+           FILE ${CMAKE_CURRENT_BINARY_DIR}/${modTargets}.cmake
+           NAMESPACE ${modNamespace}::)
 
     # Export the find modules for the local configuration file to use them.
     configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindStOpt.cmake
@@ -176,7 +187,7 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
     endif ()
 
     # Export the package in user's package registry
-    export(PACKAGE SDDPBlock)
+    export(PACKAGE ${modName})
 endif ()
 
 # ----- Subdirectories ------------------------------------------------------ #
