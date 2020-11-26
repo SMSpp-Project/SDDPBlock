@@ -20,13 +20,20 @@
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
 cmake_minimum_required(VERSION 3.11)
-project(SDDPBlock VERSION 0.3.0 LANGUAGES CXX)
+project(SDDPBlock
+        VERSION 0.3.0
+        DESCRIPTION "SMS++ SDDPBlock module"
+        HOMEPAGE_URL https://gitlab.com/smspp/sddpblock
+        LANGUAGES C CXX)
 
 # These variables make the code harder to read but easier to change.
 set(modName ${PROJECT_NAME})
 set(modNamespace "SMS++")
 set(modHeader "${modName}Config.h")
 set(modTargets "${modName}Targets")
+
+# Find out if it's being called by the umbrella.
+get_directory_property(hasParent PARENT_DIRECTORY)
 
 # ----- Settings ------------------------------------------------------------ #
 # This creates an ENABLE_TESTING option (default: ON) and enables the testing
@@ -95,6 +102,11 @@ target_link_libraries(${modName} PUBLIC
 # the library with this notation.
 add_library(${modNamespace}::${modName} ALIAS ${modName})
 
+# ----- Subdirectories ------------------------------------------------------ #
+if (BUILD_TESTING)
+    # Just consuming BUILD_TESTING to avoid warnings
+endif ()
+
 # ----- Install instructions ------------------------------------------------ #
 # The following commands are used when installing the library
 # and its CMake configuration files on the system.
@@ -144,13 +156,16 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
 # Shipping custom find modules should not be encouraged because third
-# party developers should provide them.
-# We ship FindStOpt because StOpt does not provide its own,
-# and FindEigen3 because the user may want not to install Eigen3.
-install(FILES
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindStOpt.cmake
-        ${CMAKE_CURRENT_LIST_DIR}/cmake/FindEigen3.cmake
+# party developers should provide for them.
+file(GLOB findMods ${CMAKE_CURRENT_LIST_DIR}/cmake/Find*)
+install(FILES ${findMods}
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
+
+# Install the README and LICENSE files.
+install(FILES
+        ${CMAKE_CURRENT_LIST_DIR}/README.md
+        ${CMAKE_CURRENT_LIST_DIR}/LICENSE
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/${modName})
 
 # ----- Export from the build tree ------------------------------------------ #
 # The following commands are needed so other projects can find the library
@@ -170,19 +185,15 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
            NAMESPACE ${modNamespace}::)
 
     # Export the find modules for the local configuration file to use them.
-    configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindStOpt.cmake
-                   ${CMAKE_CURRENT_BINARY_DIR}/FindStOpt.cmake
-                   COPYONLY)
-
-    configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindEigen3.cmake
-                   ${CMAKE_CURRENT_BINARY_DIR}/FindEigen3.cmake
-                   COPYONLY)
+    foreach (findMod ${findMods})
+        configure_file(${findMod} ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
+    endforeach ()
 
     # Add the binary directory to RPATH, so executables that use
     # dynamic loading will look into it.
-    get_directory_property(hasParent PARENT_DIRECTORY)
     if (hasParent)
-        set(SMSPP_BUILD_RPATH "${SMSPP_BUILD_RPATH};${CMAKE_CURRENT_BINARY_DIR}"
+        set(SMSPP_BUILD_RPATH
+            "${SMSPP_BUILD_RPATH};${CMAKE_CURRENT_BINARY_DIR}"
             PARENT_SCOPE)
     endif ()
 
@@ -190,7 +201,22 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
     export(PACKAGE ${modName})
 endif ()
 
-# ----- Subdirectories ------------------------------------------------------ #
-if (BUILD_TESTING)
-    # Just consuming BUILD_TESTING to avoid warnings
+# ----- Packaging support --------------------------------------------------- #
+# The following commands allow one to build a proper package using CPack.
+# See: https://cmake.org/cmake/help/latest/manual/cpack.1.html
+
+# Using this with the umbrella project is too messy.
+if (NOT hasParent)
+    set(CPACK_PACKAGE_VENDOR "SMS++ Team")
+    set(CPACK_PACKAGE_CONTACT "Niccolò Iardella")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${PROJECT_DESCRIPTION})
+    set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/LICENSE")
+    set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
+    set(CPACK_SOURCE_IGNORE_FILES
+        \\\\.git/
+        \\\\.gitignore$
+        \\\\.gitattributes$)
+    include(CPack)
 endif ()
+
+# --------------------------------------------------------------------------- #
