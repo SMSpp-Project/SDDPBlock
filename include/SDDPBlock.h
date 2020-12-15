@@ -298,7 +298,7 @@ public:
   * @param group A netCDF::NcGroup holding the data describing this SDDPBlock.
   */
 
- void deserialize( netCDF::NcGroup & group ) override;
+ void deserialize( const netCDF::NcGroup & group ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------- METHODS FOR Saving THE DATA OF THE SDDPBlock -------------*/
@@ -521,7 +521,7 @@ private:
   *
   * @return A pointer to the Block that was deserialized.
   */
- Block * deserialize_sub_Block( netCDF::NcGroup & group , Index i );
+ Block * deserialize_sub_Block( const netCDF::NcGroup & group , Index i );
 
 /*--------------------------------------------------------------------------*/
 

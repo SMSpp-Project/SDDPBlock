@@ -135,7 +135,7 @@ public:
   *        ScenarioSet.
   */
 
- void deserialize( netCDF::NcGroup & group ) {
+ void deserialize( const netCDF::NcGroup & group ) {
 
   // TimeHorizon
 

@@ -46,7 +46,8 @@ SMSpp_insert_in_factory_cpp_1( SDDPBlock );
 /*---------------- CONSTRUCTING AND DESTRUCTING SDDPBlock ------------------*/
 /*--------------------------------------------------------------------------*/
 
-Block * SDDPBlock::deserialize_sub_Block( netCDF::NcGroup & group , Index i ) {
+Block * SDDPBlock::deserialize_sub_Block( const netCDF::NcGroup & group ,
+                                          Index i ) {
 
  std::string sub_group_name = "StochasticBlock_" + std::to_string( i );
  auto sub_group = group.getGroup( sub_group_name );
@@ -140,7 +141,7 @@ Block * SDDPBlock::deserialize_sub_Block( netCDF::NcGroup & group , Index i ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::deserialize( netCDF::NcGroup & group ) {
+void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
 
  // TimeHorizon
 
