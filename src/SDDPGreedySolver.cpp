@@ -22,6 +22,7 @@
 /*--------------------------------------------------------------------------*/
 
 #include "BendersBlock.h"
+#include "CDASolver.h"
 #include "FRealObjective.h"
 #include "SDDPBlock.h"
 #include "SDDPGreedySolver.h"
@@ -60,6 +61,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
+  std::cout << "stage: " << stage << std::endl;
+
   if( stage > 0 ) {
    set_state( get_solution( stage - 1 ) , stage );
   }
@@ -77,6 +80,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
     break;
   }
   else if( sub_status >= Solver::kError ) {
+   std::cout << "sub_status: " << sub_status << std::endl;
    fault_stage = stage;
    status_compute = kError;
    break;
@@ -94,6 +98,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    }
   }
   else {
+   std::cout << "solution value: " << get_sub_solution_value( stage )
+             << std::endl;
    solution_value += get_sub_solution_value( stage );
   }
  }
@@ -123,8 +129,19 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
  if( ! solver->has_var_solution() )
   throw( std::logic_error( "SDDPGreedySolver::get_var_solution: subproblem "
                            "at the last stage does not have a solution." ) );
- else
+ else {
   solver->get_var_solution();
+
+  // TODO make SDDPGreedySolver a CDASolver?
+  for( Index t = 0 ; t < get_time_horizon() ; ++t ) {
+   auto solver = get_sub_solver( t );
+   if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) ) {
+    //assert( cda_solver->has_dual_solution() );
+    if( cda_solver->has_dual_solution() )
+     cda_solver->get_dual_solution();
+   }
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/
@@ -134,7 +151,12 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
 int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
 
  auto benders_function = get_benders_function( stage );
+
+ std::cout << "computing Benders function..." << std::endl;
  auto status = benders_function->compute();
+
+ std::cout << "Benders function computed" << std::endl;
+ 
  auto solver = benders_function->get_solver();
 
  if( solver->has_var_solution() && write_solution ) {
@@ -216,19 +238,23 @@ void SDDPGreedySolver::process_outstanding_Modification( void ) {
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::set_scenario( void ) {
+ std::cout << "setting scenario" << std::endl;
  if( ! scenario_is_set ) {
   static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id );
   scenario_is_set = true;
  }
+ std::cout << "scenario set" << std::endl;
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::set_initial_state( void ) {
+ std::cout << "setting initial state" << std::endl;
  if( ! initial_state_is_set ) {
   static_cast< SDDPBlock * >( f_Block )->set_admissible_state( 0 );
   initial_state_is_set = true;
  }
+ std::cout << "initial state set" << std::endl;
 }
 
 /*--------------------------------------------------------------------------*/

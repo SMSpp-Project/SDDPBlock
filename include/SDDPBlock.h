@@ -30,7 +30,7 @@
 
 #include "Block.h"
 #include "PolyhedralFunction.h"
-//#include "ScenarioSimulator.h"
+#include "ScenarioSimulator.h"
 #include "ScenarioSet.h"
 #include "StOpt/sddp/SimulatorSDDPBase.h"
 
@@ -358,6 +358,49 @@ public:
   */
  virtual StochasticBlock * get_sub_Block( Index i ) const;
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the admissible state associated with the given \p stage
+ /** This function returns an iterator to the vector containing the admissible
+  * state for the given \p stage.
+  *
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @return An iterator to the vector containing the admissible state for the
+  *         given \p stage. */
+
+ std::vector<double>::const_iterator get_admissible_state( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  return std::next( admissible_states.cbegin() ,
+                    admissible_state_begin[ stage ] );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the size of the admissible state associated with the given \p stage
+ /** This function returns the size of the admissible state associated with
+  * the given \p stage.
+  *
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @return The size of the admissible state for the given \p stage. */
+
+ Index get_admissible_state_size( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  if( stage == get_time_horizon() - 1 )
+   return admissible_states.size() - admissible_state_begin[ stage ];
+  else
+   return admissible_state_begin[ stage + 1 ] - admissible_state_begin[ stage ];
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the set of scenarios
+ /** This function returns the set of scenarios. */
+ const ScenarioSet & get_scenario_set() const {
+  return scenario_set;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -393,6 +436,10 @@ public:
   */
  void update_cuts( PolyhedralFunction::MultiVector && A ,
                    PolyhedralFunction::RealVector & b , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ double get_future_cost( Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -478,18 +525,20 @@ protected:
  std::vector< PolyhedralFunction * > v_polyhedral_functions;
 
  /// Simulator for the forward step of the SDDP method
- // std::shared_ptr< ScenarioSimulator > simulator_forward;
+ std::shared_ptr< ScenarioSimulator > simulator_forward;
 
  /// Simulator for the backward step of the SDDP method
- // std::shared_ptr< ScenarioSimulator > simulator_backward;
+ std::shared_ptr< ScenarioSimulator > simulator_backward;
 
+ /// The set of scenarios
  ScenarioSet scenario_set;
 
- /// The size of each state
- /** For each t in {0, ..., TimeHorizon - 1}, state_size[ t ] is the size of
-  * the state for time t.
-  */
- std::vector< Index > state_size;
+ /// The start index of each admissible state
+ /** For each t in {0, ..., TimeHorizon - 1}, admissible_state_begin[ t ] is
+  * the index in vector #admissible_states at which the admissible state for
+  * stage t begins. */
+
+ std::vector< Index > admissible_state_begin;
 
  /// A vector containing the concatenation of states for each time instant
  std::vector< double > admissible_states;

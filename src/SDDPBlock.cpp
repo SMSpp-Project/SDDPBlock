@@ -192,6 +192,8 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
 
  // StateSize
 
+ std::vector< Index > state_size;
+
  ::SMSpp_di_unipi_it::deserialize( group , "StateSize" , { time_horizon } ,
                                    state_size , false , true );
 
@@ -220,6 +222,15 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
   throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
                             "array has an invalid size." ) );
  }
+
+ // Construct the vector admissible_state_begin
+
+ admissible_state_begin.resize( time_horizon );
+ if( time_horizon > 0 )
+  admissible_state_begin.front() = 0;
+ for( Index t = 1 ; t < time_horizon ; ++t )
+  admissible_state_begin[ t ] =
+   admissible_state_begin[ t - 1 ] + state_size[ t - 1 ];
 
  Block::deserialize( group );
 }
@@ -261,6 +272,17 @@ void SDDPBlock::update_cuts( PolyhedralFunction::MultiVector && A ,
 
 /*--------------------------------------------------------------------------*/
 
+double SDDPBlock::get_future_cost( Index stage ) const {
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPBlock::get_future_cost: invalid "
+                                "stage index: " + std::to_string( stage ) ) );
+
+ v_polyhedral_functions[ stage ]->compute();
+ return v_polyhedral_functions[ stage ]->get_value();
+}
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ) {
  assert( stage < get_time_horizon() );
  auto benders_block = static_cast< BendersBlock * >
@@ -284,16 +306,12 @@ void SDDPBlock::set_state( const std::vector<double> & values , Index stage ) {
 void SDDPBlock::set_admissible_state( Index stage ) {
  assert( stage < get_time_horizon() );
 
- // Beginning of the admissible state at the given stage
- auto begin = std::accumulate( state_size.begin() ,
-                               state_size.begin() + stage ,
-                               decltype( state_size )::value_type( 0 ) );
-
  auto benders_block = static_cast< BendersBlock * >
   ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
     get_nested_Blocks().front() );
 
- benders_block->set_variable_values( admissible_states.begin() + begin );
+ auto admissible_state = get_admissible_state( stage );
+ benders_block->set_variable_values( admissible_state );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -335,7 +353,8 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
 
  // TimeHorizon
 
- auto TimeHorizon_dim = group.addDim( "TimeHorizon" , get_time_horizon() );
+ const auto time_horizon = get_time_horizon();
+ auto TimeHorizon_dim = group.addDim( "TimeHorizon" , time_horizon );
 
  // StochasticBlock_i
 
@@ -364,6 +383,12 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  scenario_set.serialize( group );
 
  // StateSize
+
+ std::vector< Index > state_size( time_horizon );
+ for( Index t = 0 ; t < time_horizon - 1 ; ++t )
+  state_size[ t ] = admissible_state_begin[ t+1 ] - admissible_state_begin[ t ];
+ if( time_horizon > 0 )
+  state_size.back() = admissible_states.size() - admissible_state_begin.back();
 
  ::SMSpp_di_unipi_it::serialize( group , "StateSize" , netCDF::NcUint64() ,
                                  TimeHorizon_dim , state_size , false );

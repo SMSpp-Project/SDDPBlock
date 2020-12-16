@@ -348,9 +348,34 @@ public:
   cuts_filename = get_dflt_str_par( strCutsFilename );
   visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
 
+  // vector
+
+  // number_meshes = get_dflt_str_par( vecMeshForReg ); // TODO
+
   // SDDPOptimizer
 
   sddp_optimizer = std::make_shared<SDDPOptimizer>( this );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ void set_Block( Block * block ) override {
+  if( f_Block == block )  // registering to the same Block
+   return;                // cowardly and silently return
+
+  Solver::set_Block( block );
+
+  if( ! block )
+   return;
+
+  if( auto sddp_block = dynamic_cast< SDDPBlock * >( block ) ) {
+   auto scenario_set = sddp_block->get_scenario_set();
+   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    set_scenarios( scenario_set );
+  }
+  else
+   throw( std::invalid_argument( "SDDPSolver::set_Block: An SDDPSolver can "
+                                 "only be attached to an SDDPBlock." ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -798,6 +823,15 @@ public:
 
 protected:
 
+/// returns a pointer to the BendersBFunction associated with the given \p stage
+/** This function returns a pointer to the BendersBFunction associated with
+ * the given \p stage, which must be an integer between 0 and
+ * get_time_horizon() - 1.
+ *
+ * @param stage An index between 0 and get_time_horizon() - 1.
+ */
+ BendersBFunction * get_benders_function( SDDPBlock::Index stage ) const;
+
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -883,6 +917,10 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ void add_cut( const Eigen::ArrayXd & cuts , SDDPBlock::Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
  void set_state( const Eigen::ArrayXd & state ,
                  SDDPBlock::Index stage ) const;
 
@@ -893,7 +931,13 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- void solve( SDDPBlock::Index stage );
+/// solves the subproblem associated with the given stage
+/** This function solves the subproblem associated with the given \p stage,
+ * which must be an integer between 0 and get_time_horizon() - 1.
+ *
+ * @param stage The stage whose associated subproblem must be solved.
+ */
+ double solve( SDDPBlock::Index stage );
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
@@ -1032,6 +1076,26 @@ private:
    */
   void set_solver( SDDPSolver * solver ) {
    sddp_solver = solver;
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  void set_scenarios( const ScenarioSet & scenario_set ) {
+   if( simulator_forward )
+    simulator_forward->set_scenarios( scenario_set );
+   else {
+    simulator_forward = std::make_shared< ScenarioSimulator >( scenario_set ,
+                                                               false );
+    simulator_forward->set_number_simulations
+     ( std::min( 3u , scenario_set.size() ) );
+   }
+   if( simulator_backward )
+    simulator_backward->set_scenarios( scenario_set );
+   else {
+    simulator_backward = std::make_shared< ScenarioSimulator >( scenario_set ,
+                                                                true );
+    simulator_backward->set_number_simulations( scenario_set.size() );
+   }
   }
 
 /*--------------------------------------------------------------------------*/

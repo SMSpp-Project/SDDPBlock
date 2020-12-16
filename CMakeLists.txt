@@ -72,7 +72,8 @@ target_compile_features(${modName} PUBLIC cxx_std_17)
 # Note: do not GLOB files here.
 target_sources(${modName} PRIVATE
                src/SDDPBlock.cpp
-               src/SDDPGreedySolver.cpp)
+               src/SDDPGreedySolver.cpp
+               src/SDDPSolver.cpp)
 
 # When using target_include_directories(), PUBLIC means that any targets
 # that link to this target also need that include directory.
