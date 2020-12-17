@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 20 - 09 - 2020
+ * \date 16 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -258,8 +258,14 @@ public:
    * parameter #intNStepConv for more details. The default value for
    * intNbSimulCheckForSimu is 1. */
 
+  intLogVerbosity ,
+  ///< It indicates the verbosity of the log
+  /**< This parameter indicates the verbosity of the log. If it is less than
+   * or equal to zero, no log is output. The higher this value, the more
+   * detailed is the log. */
+
   intLastAlgPar
-  ///< first allowed new double parameter for derived classes
+  ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
    * to extend the set of int algorithmic parameters. */
 
@@ -402,6 +408,8 @@ public:
   *
   * - #intNbSimulCheckForSimu
   *
+  * - #intLogVerbosity
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -417,6 +425,8 @@ public:
   case( intPrintTime ): print_cpu_time = value; return;
   case( intNbSimulCheckForSimu ):
    number_simulations_for_convergence = value; return;
+  case( intLogVerbosity ):
+   log_verbosity = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -533,6 +543,7 @@ public:
   case( intNStepConv ): return 1;
   case( intPrintTime ): return 1;
   case( intNbSimulCheckForSimu ): return 1;
+  case( intLogVerbosity ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -594,6 +605,7 @@ public:
   case( intNStepConv ): return convergence_frequency;
   case( intPrintTime ): return print_cpu_time;
   case( intNbSimulCheckForSimu ): return number_simulations_for_convergence;
+  case( intLogVerbosity ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -653,6 +665,7 @@ public:
   if( name == "intNStepConv" ) return intNStepConv;
   if( name == "intPrintTime" ) return intPrintTime;
   if( name == "intNbSimulCheckForSimu" ) return intNbSimulCheckForSimu;
+  if( name == "intLogVerbosity" ) return intLogVerbosity;
   return Solver::int_par_str2idx( name );
  }
 
@@ -704,7 +717,8 @@ public:
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" };
+   { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" ,
+     "intLogVerbosity" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -771,6 +785,24 @@ public:
 
  void get_var_solution( Configuration *solc = nullptr ) override {
   // TODO
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_var_value( void ) override {
+  return backward_value;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_lb( void ) override {
+  return backward_value;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_ub( void ) override {
+  return backward_value;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -869,6 +901,9 @@ protected:
   */
  double accuracy_achieved;
 
+ /// It indicates the level of verbosity of the log
+ int log_verbosity = 0;
+
  // PARAMETERS
 
  /// Name of the file in which regressors will be stored
@@ -912,12 +947,23 @@ private:
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void update_cuts( const Eigen::ArrayXXd & cuts ,
-                   SDDPBlock::Index stage ) const;
+/// add cuts to the sub-problem at the given stage
+/** This function adds cuts to the sub-problem at the given \p stage.
+ *
+ * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
+ *        a matrix with as many columns as there are cuts to be added and the
+ *        number of rows must be equal to one plus the number of Variable
+ *        defined in the BendersBlock associated with stage \p stage.
+ *
+ * @param stage The stage at which cuts should be updated, which must be an
+ *        integer between 0 and get_time_horizon() - 1.
+ *
+ * @param range The indices of the cuts in \p cuts that should be added.
+ */
 
-/*--------------------------------------------------------------------------*/
-
- void add_cut( const Eigen::ArrayXd & cuts , SDDPBlock::Index stage ) const;
+ void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ,
+                Block::Range range =
+                std::make_pair( 0 , Inf<SDDPBlock::Index>() )  ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -931,6 +977,10 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ void process_outstanding_Modification();
+
+/*--------------------------------------------------------------------------*/
+
 /// solves the subproblem associated with the given stage
 /** This function solves the subproblem associated with the given \p stage,
  * which must be an integer between 0 and get_time_horizon() - 1.
@@ -940,9 +990,17 @@ private:
  double solve( SDDPBlock::Index stage );
 
 /*--------------------------------------------------------------------------*/
-/*-------------------------- PRIVATE CLASSES -------------------------------*/
+/*---------------------------- PRIVATE FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+ /// the value of the last backward pass
+ double backward_value;
+
+ /// the value obtained during the forward pass when checking for convergence
+ double forward_value;
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE CLASSES -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
  class SDDPOptimizer : public StOpt::OptimizerSDDPBase {
@@ -1100,9 +1158,16 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
-  double get_objective_function_value( const double & stage ) const;
-
-/*--------------------------------------------------------------------------*/
+  /// returns the (pointer to the) Block associated with the given stage
+  /** This method takes a double as parameter, representing a stage, and
+   * returns a pointer to the Block associated with this stage.
+   *
+   * @param[in] stage A number in the interval [0, T-1], where T is the time
+   *            horizon. Although the parameter is of type double, its value
+   *            must be actually an integer.
+   *
+   * @return A pointer to the Block associated with the given stage.
+   */
 
   StochasticBlock * get_block( const double & stage ) const;
 
