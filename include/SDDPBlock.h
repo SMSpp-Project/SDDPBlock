@@ -340,7 +340,7 @@ public:
   * @return The vector of PolyhedralFunction.
   */
  const std::vector< PolyhedralFunction * > &
- get_polyhedral_functions( ) const {
+ get_polyhedral_functions() const {
   return v_polyhedral_functions;
  }
 
