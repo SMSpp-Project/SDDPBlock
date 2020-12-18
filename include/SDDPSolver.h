@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 17 - 12 - 2020
+ * \date 18 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -258,11 +258,23 @@ public:
    * parameter #intNStepConv for more details. The default value for
    * intNbSimulCheckForSimu is 1. */
 
+  intNbSimulBackward ,
+  ///< Number of simulations considered in the backward pass
+  /**< This parameter determines the number of simulations that must be
+   * considered during the backward pass. By default, this number is equal to
+   * the number of scenarios. */
+
+  intNbSimulForward ,
+  ///< Number of simulations considered in the forward pass
+  /**< This parameter determines the number of simulations that must be
+   * considered during the forward pass. By default, this number is
+   * the minimum between 3 and the number of scenarios. */
+
   intLogVerbosity ,
   ///< It indicates the verbosity of the log
   /**< This parameter indicates the verbosity of the log. If it is less than
    * or equal to zero, no log is output. The higher this value, the more
-   * detailed is the log. */
+   * detailed is the log. The default value for intLogVerbosity is 0. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -282,10 +294,10 @@ public:
 
   dblAccuracy = dbl_par_type_S::dblLastAlgPar ,
   ///< relative accuracy for declaring a solution optimal
-  /**< The algorithmic parameter for setting the *relative* accuracy
-   * required to the solution of the SDDPBlock. Please see the
-   * comments of the #intNStepConv parameter for a detailed
-   * explanation of its meaning. */
+  /**< The algorithmic parameter for setting the *relative* accuracy required
+   * to the solution of the SDDPBlock. Please see the comments of the
+   * #intNStepConv parameter for a detailed explanation of its meaning. The
+   * default value for dblAccuracy is 1.0e-4. */
 
   dblLastAlgPar
   ///< first allowed new double parameter for derived classes
@@ -356,7 +368,7 @@ public:
 
   // vector
 
-  // number_meshes = get_dflt_str_par( vecMeshForReg ); // TODO
+  // number_meshes = get_dflt_vint_par( vecMeshForReg ); // TODO
 
   // SDDPOptimizer
 
@@ -408,6 +420,10 @@ public:
   *
   * - #intNbSimulCheckForSimu
   *
+  * - #intNbSimulBackward
+  *
+  * - #intNbSimulForward
+  *
   * - #intLogVerbosity
   *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
@@ -425,6 +441,14 @@ public:
   case( intPrintTime ): print_cpu_time = value; return;
   case( intNbSimulCheckForSimu ):
    number_simulations_for_convergence = value; return;
+  case( intNbSimulBackward ):
+   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    set_number_simulations_backward( value );
+   return;
+  case( intNbSimulForward ):
+   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    set_number_simulations_forward( value );
+   return;
   case( intLogVerbosity ):
    log_verbosity = value; return;
   }
@@ -543,6 +567,12 @@ public:
   case( intNStepConv ): return 1;
   case( intPrintTime ): return 1;
   case( intNbSimulCheckForSimu ): return 1;
+  case( intNbSimulBackward ):
+   return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    get_dflt_number_simulations_backward();
+  case( intNbSimulForward ):
+   return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    get_dflt_number_simulations_forward();
   case( intLogVerbosity ): return 0;
   }
   return Solver::get_dflt_int_par( par );
@@ -561,7 +591,7 @@ public:
   */
 
  double get_dflt_dbl_par( const idx_type par ) const override {
-  if( par == dblAccuracy ) return 1.0e-8;
+  if( par == dblAccuracy ) return 1.0e-4;
   return Solver::get_dflt_dbl_par( par );
  }
 
@@ -601,11 +631,17 @@ public:
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intMaxIter ): return maximum_number_iterations;
-  case( intNStepConv ): return convergence_frequency;
-  case( intPrintTime ): return print_cpu_time;
-  case( intNbSimulCheckForSimu ): return number_simulations_for_convergence;
-  case( intLogVerbosity ): return log_verbosity;
+   case( intMaxIter ): return maximum_number_iterations;
+   case( intNStepConv ): return convergence_frequency;
+   case( intPrintTime ): return print_cpu_time;
+   case( intNbSimulCheckForSimu ): return number_simulations_for_convergence;
+   case( intNbSimulBackward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_number_simulations_backward();
+   case( intNbSimulForward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_number_simulations_forward();
+   case( intLogVerbosity ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -665,6 +701,8 @@ public:
   if( name == "intNStepConv" ) return intNStepConv;
   if( name == "intPrintTime" ) return intPrintTime;
   if( name == "intNbSimulCheckForSimu" ) return intNbSimulCheckForSimu;
+  if( name == "intNbSimulBackward" ) return intNbSimulBackward;
+  if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intLogVerbosity" ) return intLogVerbosity;
   return Solver::int_par_str2idx( name );
  }
@@ -718,7 +756,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" ,
-     "intLogVerbosity" };
+     "intNbSimulBackward" , "intNbSimulForward" , "intLogVerbosity" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1005,6 +1043,8 @@ private:
    */
   SDDPOptimizer( SDDPSolver * solver = nullptr ) {
    sddp_solver = solver;
+   simulator_backward = std::make_shared< ScenarioSimulator >( true );
+   simulator_forward = std::make_shared< ScenarioSimulator >( false );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1129,21 +1169,16 @@ private:
 /*--------------------------------------------------------------------------*/
 
   void set_scenarios( const ScenarioSet & scenario_set ) {
-   if( simulator_forward )
-    simulator_forward->set_scenarios( scenario_set );
-   else {
-    simulator_forward = std::make_shared< ScenarioSimulator >( scenario_set ,
-                                                               false );
+   simulator_backward->set_scenarios( scenario_set );
+   simulator_forward->set_scenarios( scenario_set );
+
+   if( simulator_backward->getNbSimul() == 0 )
+    simulator_backward->set_number_simulations
+     ( get_dflt_number_simulations_backward() );
+
+   if( simulator_forward->getNbSimul() == 0 )
     simulator_forward->set_number_simulations
-     ( std::min( 3u , scenario_set.size() ) );
-   }
-   if( simulator_backward )
-    simulator_backward->set_scenarios( scenario_set );
-   else {
-    simulator_backward = std::make_shared< ScenarioSimulator >( scenario_set ,
-                                                                true );
-    simulator_backward->set_number_simulations( scenario_set.size() );
-   }
+     ( get_dflt_number_simulations_forward() );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1160,6 +1195,42 @@ private:
    */
 
   StochasticBlock * get_block( const double & stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+  int get_number_simulations_backward() const {
+   return simulator_backward->getNbSimul();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_number_simulations_forward() const {
+   return simulator_forward->getNbSimul();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  void set_number_simulations_backward( int number_simulations ) {
+   simulator_backward->set_number_simulations( number_simulations );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  void set_number_simulations_forward( int number_simulations ) {
+   simulator_forward->set_number_simulations( number_simulations );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_dflt_number_simulations_backward() const {
+   return simulator_backward->get_number_scenarios();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_dflt_number_simulations_forward() const {
+   return std::min( 3u , simulator_forward->get_number_scenarios() );
+  }
 
 /*--------------------------------------------------------------------------*/
 

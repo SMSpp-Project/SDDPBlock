@@ -8,7 +8,7 @@
  *
  * \version 0.1
  *
- * \date 30 - 11 - 2020
+ * \date 18 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -86,7 +86,9 @@ public:
   *        backward sweep. */
 
  ScenarioSimulator( const bool backward = true ) :
-  SimulatorSDDPBase() , backward_simulator( backward ) { }
+  SimulatorSDDPBase() , backward_simulator( backward ) {
+  random_number_engine.seed( initial_seed );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -101,12 +103,14 @@ public:
  ScenarioSimulator( const ScenarioSet & scenario_set , const bool backward ) :
   SimulatorSDDPBase() , backward_simulator( backward ){
   const auto number_scenarios = scenario_set.size();
-  if( backward_simulator )
-   set_number_simulations( number_scenarios );
-  else
-   set_number_simulations( std::min( 3u , number_scenarios ) );
-  random_number_engine.seed( initial_seed );
+  if( number_simulations == 0 ) {
+   if( backward_simulator )
+    set_number_simulations( number_scenarios );
+   else
+    set_number_simulations( std::min( 3u , number_scenarios ) );
+  }
   set_scenarios( scenario_set );
+  random_number_engine.seed( initial_seed );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -308,6 +312,13 @@ public:
   return all_particles.front().rows();
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the total number of scenarios available
+ Index get_number_scenarios() const {
+  return indices_selected_particles.size();
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -334,21 +345,10 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the total number of scenarios available
- Index get_number_scenarios() const {
-  if( current_date_index < all_particles.size() )
-   return all_particles[ current_date_index ].cols();
-  return 0;
- }
-
-
-/*--------------------------------------------------------------------------*/
-
  /// returns the number of dates, which is equal to the time horizon
  Index get_number_dates() const {
   return all_particles.size();
  }
-
 
 /*--------------------------------------------------------------------------*/
 
@@ -386,10 +386,10 @@ protected:
 /*--------------------------------------------------------------------------*/
 
  /// The index associated with the current date
- int current_date_index;
+ int current_date_index = 0;
 
  // The number of simulations to be produced
- int number_simulations;
+ int number_simulations = 0;
 
  // Indicates whether this is a simulator for the SDDP backward sweep
  bool backward_simulator;

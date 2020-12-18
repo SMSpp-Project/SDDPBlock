@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 17 - 12 - 2020
+ * \date 18 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -275,7 +275,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
    double gy = 0;
    auto state_variables = std::get<0>( state ).get();
-   for( std::size_t j = 0 ; j < ( *state_variables ).size() ; ++j )
+   for( decltype( ( *state_variables ).size() ) j = 0 ;
+        j < ( *state_variables ).size() ; ++j )
     gy += linearization( j + 1 ) * ( *state_variables )( j );
    const double epsilon = 1.0e-8;
    const auto max_diff = std::max( epsilon , epsilon *
