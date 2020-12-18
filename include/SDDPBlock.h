@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 19 - 09 - 2020
+ * \date 17 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -415,8 +415,8 @@ public:
 /** @name Methods describing the behavior of an SDDPBlock
  * @{ */
 
- /// update the cuts of the problem at the given stage
- /** This function updates the cuts of the problem at the given \p stage. The
+ /// add cuts of the problem at the given stage
+ /** This function adds cuts of the problem at the given \p stage. The
   * parameters must satisfy the following requirements:
   *
   * 1. \p A must be a matrix with as many columns as there are cuts to be
@@ -433,9 +433,14 @@ public:
   * @param b A vector containing the constants of the cuts to be added.
   *
   * @param stage The stage whose cuts should be updated.
+  *
+  * @param replace_last_cuts Indicates whether the last cuts present in the
+  *        PolyhedralFunction associated with the given \p stage must be
+  *        removed.
   */
- void update_cuts( PolyhedralFunction::MultiVector && A ,
-                   PolyhedralFunction::RealVector & b , Index stage );
+ void add_cuts( PolyhedralFunction::MultiVector && A ,
+                PolyhedralFunction::RealVector && b , Index stage ,
+                bool replace_last_cuts );
 
 /*--------------------------------------------------------------------------*/
 

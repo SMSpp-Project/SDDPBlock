@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 16 - 12 - 2020
+ * \date 17 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -124,6 +124,8 @@ int SDDPSolver::compute( bool changedvars ) {
  StOpt::SDDPFinalCut final_cut
   ( Eigen::ArrayXXd::Zero( initial_state.size() + 1 , 1 ) );
 
+ cut_controller.reset();
+
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
@@ -183,7 +185,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   *log << ")" << std::endl;
 
   if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 )
-   *log << "  state:      " << *std::get<0>( state ) << std::endl;
+   *log << "  state:         " << *std::get<0>( state ) << std::endl;
  }
 
  /* "particle" contains the random quantities in which the regression over the
@@ -202,14 +204,14 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   */
 
  if( current_stage == sddp_solver->get_time_horizon() - 1 )
-  sddp_solver->add_cuts( cuts , current_stage );
+  sddp_solver->add_cuts( cuts , current_stage , true );
  else {
   if( cuts.cols() > 1 )
    assert( cuts.cols() >= simulator_forward->getNbSimul() );
   auto first_cut = cuts.cols() - 1;
   if( cuts.cols() >= simulator_forward->getNbSimul() )
    first_cut = cuts.cols() - simulator_forward->getNbSimul();
-  sddp_solver->add_cuts( cuts , current_stage ,
+  sddp_solver->add_cuts( cuts , current_stage , true ,
                          Block::Range( first_cut , cuts.cols() ) );
   //   ( cuts( Eigen::all , Eigen::lastN( simulator_forward->getNbSimul() ) ) ,
   //     current_stage );
@@ -301,6 +303,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                            "linearization is available." ) );
  }
 
+ sddp_solver->cut_controller.backward_pass( current_stage );
+
  return linearization;
 }
 
@@ -313,7 +317,12 @@ SDDPBlock::Index SDDPSolver::get_time_horizon( void ) const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
-                           SDDPBlock::Index stage , Block::Range range ) const {
+                           SDDPBlock::Index stage , bool backward ,
+                           Block::Range range ) const {
+
+ if( ! cut_controller.add_cuts( stage , get_time_horizon() ) )
+  return;
+
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::add_cuts: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
@@ -354,8 +363,11 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   }
  }
 
- static_cast< SDDPBlock * >( f_Block )->update_cuts( std::move( A ) ,
-                                                     b , stage );
+ auto replace_last_cuts = cut_controller.remove_cuts
+  ( stage , get_time_horizon() , backward );
+
+ static_cast< SDDPBlock * >( f_Block )->add_cuts
+  ( std::move( A ) , std::move( b ) , stage , replace_last_cuts );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -493,20 +505,15 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  // Update the cuts in the Block associated with the current stage.
 
  if( current_stage == sddp_solver->get_time_horizon() - 1 )
-  sddp_solver->add_cuts( cuts , current_stage );
+  sddp_solver->add_cuts( cuts , current_stage , false );
  else {
   if( cuts.cols() > 1 )
    assert( cuts.cols() >= simulator_forward->getNbSimul() );
   auto first_cut = cuts.cols() - 1;
   if( cuts.cols() >= simulator_forward->getNbSimul() )
    first_cut = cuts.cols() - simulator_forward->getNbSimul();
-  sddp_solver->add_cuts( cuts , current_stage ,
+  sddp_solver->add_cuts( cuts , current_stage , false ,
                          Block::Range( first_cut , cuts.cols() ) );
-  /*
-  sddp_solver->add_cuts
-   ( cuts( Eigen::all , Eigen::lastN( simulator_forward->getNbSimul() ) ) ,
-     current_stage );
-  */
  }
 
  /***************/

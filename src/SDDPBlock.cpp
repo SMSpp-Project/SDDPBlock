@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 19 - 09 - 2020
+ * \date 17 - 12 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -260,14 +260,23 @@ StochasticBlock * SDDPBlock::get_sub_Block( Index i ) const {
 /*------------ METHODS DESCRIBING THE BEHAVIOR OF AN SDDPBlock -------------*/
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::update_cuts( PolyhedralFunction::MultiVector && A ,
-                             PolyhedralFunction::RealVector & b ,
-                             Index stage ) {
+void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
+                          PolyhedralFunction::RealVector && b ,
+                          Index stage , bool replace_last_cuts ) {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::update_cuts: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
+ if( replace_last_cuts ) {
+  const auto num_cuts = b.size();
+  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
+  assert( num_rows >= num_cuts );
+  Range range( num_rows - num_cuts , num_rows );
+
+  v_polyhedral_functions[ stage ]->modify_rows( std::move( A ) , b , range );
+ }
+ else
+  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
 }
 
 /*--------------------------------------------------------------------------*/
