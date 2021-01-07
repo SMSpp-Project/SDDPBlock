@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 17 - 12 - 2020
+ * \date 07 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -242,18 +242,24 @@ public:
   *   is used to construct the vector of DataMapping of the StochasticBlock
   *   described by the "StochasticBlock_t" group.
   *
+  * - The "NumPolyhedralFunctionsPerStage" dimension, containing the number of
+  *   PolyhedralFunction that are present at each stage. This dimension is
+  *   optional. If it is not provided, then we assume that there is a single
+  *   PolyhedralFunction at each stage.
+  *
   * - The AbstractPath group containing the description of a vector of
   *   AbstractPath as described in the AbstractPath class. The number of
-  *   AbstractPath must be equal to either 1 or "TimeHorizon - 1". If the number
-  *   of AbstractPath is "TimeHorizon - 1" then the i-th AbstractPath in this
-  *   vector must be the path to the PolyhedralFunction associated with the
-  *   i-th sub-Block of this SDDPBlock. The i-th AbstractPath is taken with
-  *   respect to the inner Block of the i-th sub-Block of this SDDPBlock. If
-  *   the number of AbstractPath in this vector is 1, then all paths are
-  *   assumed to be equal: for each i in {0, ..., TimeHorizon-1}, the provided
-  *   AbstractPath will be the path to the PolyhedralFunction associated with
-  *   the i-th sub-Block of this SDDPBlock (taken with respect to the inner
-  *   Block of this i-th sub-Block).
+  *   AbstractPath must be equal to either "NumPolyhedralFunctionsPerStage" or
+  *   "NumPolyhedralFunctionsPerStage * TimeHorizon". If the number of
+  *   AbstractPath is "NumPolyhedralFunctionsPerStage" then the i-th
+  *   PolyhedralFunction of each stage is given by the i-th AbstractPath. If
+  *   the number of AbstractPath is "NumPolyhedralFunctionsPerStage *
+  *   TimeHorizon" then the i-th PolyhedralFunction of stage t is given by the
+  *   AbstractPath at position "i + t * NumPolyhedralFunctionsPerStage" for
+  *   each t in {0, ..., TimeHorizon-1} and i in {0, ...,
+  *   NumPolyhedralFunctionsPerStage-1}.  An AbstractPath associated with a
+  *   stage t is taken with respect to the inner Block of the t-th sub-Block
+  *   of this SDDPBlock.
   *
   * - The description of a ScenarioSet, as specified in the comments to
   *   ScenarioSet::deserialize().
@@ -342,6 +348,39 @@ public:
  const std::vector< PolyhedralFunction * > &
  get_polyhedral_functions() const {
   return v_polyhedral_functions;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns a PolyhedralFunction
+ /** This function returns a pointer to the i-th PolyhedralFunction of the
+  * given \p stage.
+  *
+  * @param stage A number between 0 and get_time_horizon() - 1.
+  *
+  * @param i If there are more than one PolyhedralFunction per stage, this
+  *        parameter informs the index of the desired PolyhedralFunction at
+  *        the given \p stage.
+  *
+  * @return A pointer to the i-th PolyhedralFunction of the given \p stage.
+  */
+ const PolyhedralFunction * get_polyhedral_function( Index stage ,
+                                                     Index i = 0 ) const {
+  assert( stage < get_time_horizon() );
+  assert( i < num_polyhedral_per_stage );
+  return v_polyhedral_functions[ num_polyhedral_per_stage * stage + i ];
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the number of PolyhedralFunction per stage
+ /** This function returns the number of PolyhedralFunction present at each
+  * stage.
+  *
+  * @return The number of PolyhedralFunction per stage.
+  */
+ Index get_num_polyhedral_function_per_stage() const {
+  return num_polyhedral_per_stage;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -528,6 +567,9 @@ protected:
 
  /// Pointers to the PolyhedralFunction of each sub-Block
  std::vector< PolyhedralFunction * > v_polyhedral_functions;
+
+ /// Number of PolyhedralFunctions for each stage
+ Index num_polyhedral_per_stage;
 
  /// Simulator for the forward step of the SDDP method
  std::shared_ptr< ScenarioSimulator > simulator_forward;

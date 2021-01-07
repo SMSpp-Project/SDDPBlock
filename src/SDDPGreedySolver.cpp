@@ -193,14 +193,28 @@ std::vector<double> SDDPGreedySolver::get_solution
   throw( std::invalid_argument( "SDDPGreedySolver::get_solution: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- const auto polyhedral_function =
-  static_cast< SDDPBlock * >( f_Block )->get_polyhedral_functions()[ stage ];
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
 
- std::vector<double> solution( polyhedral_function->get_num_active_var() );
+ Index solution_size = 0;
+ for( Index i = 0 ;
+      i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
+  solution_size +=
+   sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
+ }
+
+ std::vector<double> solution;
+ solution.reserve( solution_size );
 
  Index i = 0;
- for( const auto & variable : * polyhedral_function ) {
-  solution[ i++ ] = static_cast< const ColVariable & >( variable ).get_value();
+ for( Index i = 0 ;
+      i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
+  const auto polyhedral_function =
+   sddp_block->get_polyhedral_function( stage , i );
+
+  for( const auto & variable : * polyhedral_function ) {
+   solution.push_back
+    ( static_cast< const ColVariable & >( variable ).get_value() );
+  }
  }
  return solution;
 }

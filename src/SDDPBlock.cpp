@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 17 - 12 - 2020
+ * \date 07 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -162,28 +162,44 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
 
  auto paths = AbstractPath::vector_deserialize( path_group );
 
- if( paths.size() != time_horizon &&
-     ! ( paths.size() == 1 && time_horizon > 1 ) ) {
-  throw ( std::invalid_argument
-          ( "SDDPBlock::deserialize: The number of AbstractPath to "
-            "PolyhedralFunction must be either equal to 1 or equal to "
-            "the time horizon." ) );
+ if( ! ::SMSpp_di_unipi_it::deserialize_dim
+     ( group , "NumPolyhedralFunctionsPerStage" , num_polyhedral_per_stage ) )
+  num_polyhedral_per_stage = 1;
+
+ if( paths.size() != num_polyhedral_per_stage * time_horizon &&
+     ! ( paths.size() == num_polyhedral_per_stage && time_horizon > 1 ) ) {
+  if( num_polyhedral_per_stage == 1 )
+   throw ( std::invalid_argument
+           ( "SDDPBlock::deserialize: The number of AbstractPath to "
+             "PolyhedralFunction must be either equal to 1 or equal to "
+             "the time horizon." ) );
+  else
+   throw ( std::invalid_argument
+           ( "SDDPBlock::deserialize: The number of AbstractPath to "
+             "PolyhedralFunction must be either equal to K or equal to K "
+             "times the time horizon, where K is the number of "
+             "PolyhedralFunction per stage." ) );
  }
 
  v_polyhedral_functions.clear();
- v_polyhedral_functions.reserve( time_horizon );
+ v_polyhedral_functions.reserve( num_polyhedral_per_stage * time_horizon );
 
- for( Index i = 0 ; i < time_horizon ; ++i ) {
-  auto reference_block = static_cast< StochasticBlock * >( v_Block[ i ] )->
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  auto reference_block = static_cast< StochasticBlock * >( v_Block[ t ] )->
    get_nested_Blocks().front();
   assert( reference_block );
-  auto path_index = ( paths.size() == 1 ) ? 0 : i;
-  auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
-   ( paths[ path_index ].get_element< Function >( reference_block ) );
-  if( ! polyhedral_function )
-   throw ( std::invalid_argument( "SDDPBlock::deserialize: PolyhedralFunction "
-                                  + std::to_string( i ) + " was not found." ) );
-  v_polyhedral_functions.push_back( polyhedral_function );
+  for( Index i = 0 ; i < num_polyhedral_per_stage ; ++i ) {
+   Index path_index = num_polyhedral_per_stage * t + i;
+   if( paths.size() == num_polyhedral_per_stage )
+    path_index = i;
+   auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
+    ( paths[ path_index ].get_element< Function >( reference_block ) );
+   if( ! polyhedral_function )
+    throw ( std::invalid_argument
+            ( "SDDPBlock::deserialize: PolyhedralFunction for stage "
+              + std::to_string( t ) + " was not found." ) );
+   v_polyhedral_functions.push_back( polyhedral_function );
+  }
  }
 
  // Scenarios
@@ -386,6 +402,9 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  }
 
  AbstractPath::serialize( paths , group );
+
+ if( num_polyhedral_per_stage != 1 )
+  group.addDim( "NumPolyhedralFunctionsPerStage" , num_polyhedral_per_stage );
 
  // Scenarios
 
