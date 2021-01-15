@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 04 - 10 - 2020
+ * \date 15 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -287,7 +287,8 @@ public:
 
  void set_par( const idx_type par , const int value ) override {
   switch( par ) {
-  case( intScenarioId ): set_scenario_id( value ); return;
+   case( intScenarioId ): set_scenario_id( value ); return;
+   case( intLogVerb ): log_verbosity = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -321,7 +322,8 @@ public:
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intScenarioId ): return 0;
+   case( intScenarioId ): return 0;
+   case( intLogVerb ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -339,7 +341,8 @@ public:
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intScenarioId ): return scenario_id;
+   case( intScenarioId ): return scenario_id;
+   case( intLogVerb ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -684,6 +687,9 @@ private:
 
  /// The value of the solution (if any).
  double solution_value = 0.0;
+
+ /// It indicates the level of verbosity of the log
+ int log_verbosity = 0;
 
 };   // end( class SDDPGreedySolver )
 

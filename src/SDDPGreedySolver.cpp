@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 04 - 10 - 2020
+ * \date 15 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -60,6 +60,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  solution_value = 0.0;
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
+
+  if( f_log && log_verbosity )
+   *f_log << "Solving problem at stage " << stage << std::endl;
 
   if( stage > 0 ) {
    set_state( get_solution( stage - 1 ) , stage );
@@ -205,7 +208,6 @@ std::vector<double> SDDPGreedySolver::get_solution
  std::vector<double> solution;
  solution.reserve( solution_size );
 
- Index i = 0;
  for( Index i = 0 ;
       i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
   const auto polyhedral_function =
