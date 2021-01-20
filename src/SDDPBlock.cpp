@@ -231,6 +231,14 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
       admissible_states.size() != time_horizon * state_size[ 0 ] )
    throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
                              "array has an invalid size." ) );
+
+  if( admissible_states.size() != time_horizon * state_size[ 0 ] ) {
+   std::vector<double> state = admissible_states;
+   admissible_states.reserve( time_horizon * state_size[ 0 ] );
+   for( Index t = 1 ; t < time_horizon ; ++t )
+    admissible_states.insert( admissible_states.cend() ,
+                              state.cbegin() , state.cend() );
+  }
  }
  else if( admissible_states.size() !=
           std::accumulate( state_size.begin() , state_size.end() ,
@@ -280,16 +288,21 @@ void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
                           PolyhedralFunction::RealVector && b ,
                           Index stage , bool replace_last_cuts ) {
  if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPBlock::update_cuts: invalid "
-                                "stage index: " + std::to_string( stage ) ) );
+  throw( std::invalid_argument( "SDDPBlock::add_cuts: invalid stage index: " +
+                                std::to_string( stage ) ) );
 
  if( replace_last_cuts ) {
+  /*
   const auto num_cuts = b.size();
   const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
   assert( num_rows >= num_cuts );
   Range range( num_rows - num_cuts , num_rows );
-
   v_polyhedral_functions[ stage ]->modify_rows( std::move( A ) , b , range );
+  */
+
+  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
+  v_polyhedral_functions[ stage ]->delete_rows( Range( 0 , num_rows ) );
+  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
  }
  else
   v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );

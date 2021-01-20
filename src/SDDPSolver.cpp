@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 12 - 2020
+ * \date 18 - 01 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -69,15 +69,12 @@ int SDDPSolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
 
- // ostringstream in which the text output of StOpt will be stored
- std::ostringstream output_stream;
- /*
+ // ostream for StOpt output
  boost::iostreams::stream< boost::iostreams::null_sink >
   null_sink( ( boost::iostreams::null_sink() ) );
  std::ostream * output_stream = & null_sink;
  if( f_log && log_verbosity >= 5 )
   output_stream = f_log;
- */
 
  auto time_horizon = get_time_horizon();
 
@@ -104,7 +101,7 @@ int SDDPSolver::compute( bool changedvars ) {
   * forwardValueForConv is the value obtained during the forward pass when
   * checking for convergence. */
 
- accuracy_achieved = accuracy;
+ auto accuracy_achieved_stopt = accuracy;
 
  if( ! initial_state.size() ) // TODO add a parameter to set initial_state
   initial_state = sddp_optimizer->oneAdmissibleState( 0 );
@@ -133,9 +130,8 @@ int SDDPSolver::compute( bool changedvars ) {
     final_cut , dates ,
     number_meshes ,
     regressors_filename , cuts_filename , visited_states_filename ,
-    number_iterations_performed , accuracy_achieved , convergence_frequency ,
-    //*output_stream , print_cpu_time );
-    output_stream , print_cpu_time );
+    number_iterations_performed , accuracy_achieved_stopt ,
+    convergence_frequency , *output_stream , print_cpu_time );
 
  backward_value = backward_forward_values.first;
  forward_value = backward_forward_values.second;
@@ -148,7 +144,15 @@ int SDDPSolver::compute( bool changedvars ) {
  if( ! owned )              // if the Block was actually locked
   f_Block->unlock( f_id );  // unlock it
 
- if( accuracy_achieved <= accuracy )
+ if( forward_value != 0.0 )
+  accuracy_achieved = std::abs( ( backward_value - forward_value ) /
+                                forward_value );
+ else
+  accuracy_achieved = std::abs( backward_value );
+
+ if( accuracy_achieved_stopt == 0.0 && accuracy_achieved != 0.0 )
+  return( kCurveCross );
+ else if( accuracy_achieved_stopt <= accuracy )
   return( kOK );
  else if( number_iterations_performed == maximum_number_iterations )
   return( kStopIter );
@@ -184,7 +188,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   }
   *log << ")" << std::endl;
 
-  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 )
+  if( sddp_solver->log_verbosity >= 20 )
    *log << "  state:         " << *std::get<0>( state ) << std::endl;
  }
 
@@ -206,11 +210,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  if( current_stage == sddp_solver->get_time_horizon() - 1 )
   sddp_solver->add_cuts( cuts , current_stage , true );
  else {
-  if( cuts.cols() > 1 )
-   assert( cuts.cols() >= simulator_forward->getNbSimul() );
-  auto first_cut = cuts.cols() - 1;
-  if( cuts.cols() >= simulator_forward->getNbSimul() )
-   first_cut = cuts.cols() - simulator_forward->getNbSimul();
+  //auto first_cut = cuts.cols() - 1;
+  Block::Index first_cut = 0;
   sddp_solver->add_cuts( cuts , current_stage , true ,
                          Block::Range( first_cut , cuts.cols() ) );
   //   ( cuts( Eigen::all , Eigen::lastN( simulator_forward->getNbSimul() ) ) ,
@@ -354,7 +355,7 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   }
  }
 
- if( f_log && log_verbosity >= 5 ) {
+ if( f_log && log_verbosity >= 30 ) {
   *f_log << "  Adding the following cuts:" << std::endl;
   for( decltype( b )::size_type i = 0 ; i < b.size() ; ++i ) {
    *f_log << "    (" << b[ i ];
@@ -364,8 +365,10 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   }
  }
 
- auto replace_last_cuts = cut_controller.remove_cuts
-  ( stage , get_time_horizon() , backward );
+ //auto replace_last_cuts = cut_controller.remove_cuts
+ //( stage , get_time_horizon() , backward );
+
+ bool replace_last_cuts = true;
 
  static_cast< SDDPBlock * >( f_Block )->add_cuts
   ( std::move( A ) , std::move( b ) , stage , replace_last_cuts );
@@ -489,7 +492,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    *log << particle( i );
   }
   *log << ")" << std::endl;
-  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 )
+  if( sddp_solver->log_verbosity >= 20 )
    *log << "  state:         " << state << std::endl;
  }
 
@@ -508,9 +511,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  if( current_stage == sddp_solver->get_time_horizon() - 1 )
   sddp_solver->add_cuts( cuts , current_stage , false );
  else {
-  if( cuts.cols() > 1 )
-   assert( cuts.cols() >= simulator_forward->getNbSimul() );
-  auto first_cut = cuts.cols() - 1;
+  //auto first_cut = cuts.cols() - 1;
+  Block::Index first_cut = 0;
   if( cuts.cols() >= simulator_forward->getNbSimul() )
    first_cut = cuts.cols() - simulator_forward->getNbSimul();
   sddp_solver->add_cuts( cuts , current_stage , false ,
@@ -548,7 +550,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
   *( sddp_solver->f_log ) << "  objective: " << objective_value << std::endl;
-  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 )
+  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 )
    *( sddp_solver->f_log ) << "  solution:  " << solution << std::endl;
  }
 

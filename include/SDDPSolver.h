@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 12 - 2020
+ * \date 18 - 01 - 2020
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -204,6 +204,23 @@ public:
  *  @{ */
 
 /*--------------------------------------------------------------------------*/
+ /// public enum for the possible return values of compute()
+ /** Public enum "extending" Solver::sol_type with more detailed values
+  * specific to SDDPSolver. */
+
+ enum sol_type_SDDP_S {
+  kCurveCross = sol_type::kLastSolverError
+  ///< backward and forward curves are crossing
+  /**< The convergence of the method is checked every #intNStepConv iterations
+   * by computing a "special" forward value. See #intNStepConv for
+   * details. The kCurveCross status is returned when the difference between
+   * the most recent backward value and the "special" forward value. When the
+   * sign of this difference changes with respect to that that was computed
+   * for the first time, the method returns this status.
+   */
+ };  // end( sol_type_SDDP_S )
+
+/*--------------------------------------------------------------------------*/
  /// public enum for the int algorithmic parameters
  /** Public enum describing the different types of algorithmic
   * parameters of "int" type that the SDDP solver has, besides those
@@ -269,12 +286,6 @@ public:
   /**< This parameter determines the number of simulations that must be
    * considered during the forward pass. By default, this number is
    * the minimum between 3 and the number of scenarios. */
-
-  intLogVerbosity ,
-  ///< It indicates the verbosity of the log
-  /**< This parameter indicates the verbosity of the log. If it is less than
-   * or equal to zero, no log is output. The higher this value, the more
-   * detailed is the log. The default value for intLogVerbosity is 0. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -424,8 +435,6 @@ public:
   *
   * - #intNbSimulForward
   *
-  * - #intLogVerbosity
-  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -449,7 +458,7 @@ public:
    std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
     set_number_simulations_forward( value );
    return;
-  case( intLogVerbosity ):
+  case( intLogVerb ):
    log_verbosity = value; return;
   }
   Solver::set_par( par , value );
@@ -552,10 +561,26 @@ public:
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of an int parameter
- /** Get the default value of the int parameter with given index.
-  * Please see the #int_par_type_SDDP_S and #int_par_type_S
-  * enumerations for a detailed explanation of the possible
-  * parameters.
+ /** Get the default value of the int parameter with given index.  Please see
+  * the #int_par_type_SDDP_S and #int_par_type_S enumerations for a detailed
+  * explanation of the possible parameters. This function returns the
+  * following values depending on the desired parameter:
+  *
+  * - #intNStepConv: 1
+  *
+  * - #intPrintTime: 1
+  *
+  * - #intNbSimulCheckForSimu: 1
+  *
+  * - #intNbSimulBackward: given by
+  *   SDDPOptimizer::get_dflt_number_simulations_backward()
+  *
+  * - #intNbSimulForward: given by
+  *   SDDPOptimizer::get_dflt_number_simulations_forward()
+  *
+  * - #intLogVerb: 0
+  *
+  * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
   *
@@ -564,16 +589,16 @@ public:
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intNStepConv ): return 1;
-  case( intPrintTime ): return 1;
-  case( intNbSimulCheckForSimu ): return 1;
-  case( intNbSimulBackward ):
-   return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-    get_dflt_number_simulations_backward();
-  case( intNbSimulForward ):
-   return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-    get_dflt_number_simulations_forward();
-  case( intLogVerbosity ): return 0;
+   case( intNStepConv ): return 1;
+   case( intPrintTime ): return 1;
+   case( intNbSimulCheckForSimu ): return 1;
+   case( intNbSimulBackward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_dflt_number_simulations_backward();
+   case( intNbSimulForward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_dflt_number_simulations_forward();
+   case( intLogVerb ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -641,7 +666,7 @@ public:
    case( intNbSimulForward ):
     return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      get_number_simulations_forward();
-   case( intLogVerbosity ): return log_verbosity;
+   case( intLogVerb ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -703,7 +728,6 @@ public:
   if( name == "intNbSimulCheckForSimu" ) return intNbSimulCheckForSimu;
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
-  if( name == "intLogVerbosity" ) return intLogVerbosity;
   return Solver::int_par_str2idx( name );
  }
 
@@ -756,7 +780,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" ,
-     "intNbSimulBackward" , "intNbSimulForward" , "intLogVerbosity" };
+     "intNbSimulBackward" , "intNbSimulForward" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
