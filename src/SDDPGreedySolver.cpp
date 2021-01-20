@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 15 - 01 - 2021
+ * \date 20 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -67,6 +67,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   if( stage > 0 ) {
    set_state( get_solution( stage - 1 ) , stage );
   }
+
+  if( callback ) callback( stage );
 
   auto sub_status = solve( stage , true );
 

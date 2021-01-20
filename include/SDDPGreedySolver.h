@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 01 - 2021
+ * \date 20 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -547,6 +547,17 @@ public:
   */
  void set_initial_state( void );
 
+/*--------------------------------------------------------------------------*/
+
+ /// sets the callback function
+ /** It sets the callback function that is called right before the sub-problem
+  * at each stage is solved. The parameter of the callback function is the
+  * stage associated with the sub-problem that will be solved.
+  */
+ void set_callback( std::function< void( Index ) > function ) {
+  callback = function;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -562,6 +573,9 @@ protected:
 
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();
+
+ /// Function to be called right before each sub-problem is solved
+ std::function< void( Index ) > callback;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
