@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 20 - 01 - 2021
+ * \date 22 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -22,6 +22,7 @@
 /*--------------------------------------------------------------------------*/
 
 #include "BendersBlock.h"
+#include "BlockSolverConfig.h"
 #include "CDASolver.h"
 #include "FRealObjective.h"
 #include "SDDPBlock.h"
@@ -43,6 +44,34 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 /*--------------------------------------------------------------------------*/
 /*----------------------- METHODS of SDDPGreedySolver ----------------------*/
 /*--------------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::set_Block( Block * block ) {
+
+ if( f_Block == block )
+  return;
+
+ if( f_Block ) {
+  // TODO clean
+  v_inner_block_configured.clear();
+ }
+
+ Solver::set_Block( block );
+
+ if( ! f_Block )
+  return;
+
+ SDDPBlock * sddp_block;
+ if( ! ( sddp_block = dynamic_cast< SDDPBlock * >( block ) ) )
+  throw( std::invalid_argument( "SDDPGreedySolver::set_Block: given Block "
+                                "is not an SDDPBlock." ) );
+
+ v_inner_block_configured.assign( sddp_block->get_time_horizon() , false );
+
+}  // end( SDDPGreedySolver::set_Block )
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
@@ -148,9 +177,58 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+void SDDPGreedySolver::configure_inner_block
+( Index stage , BendersBFunction * benders_function ) {
+
+ if( v_inner_block_configured[ stage ] )
+  return;
+
+ auto inner_block = benders_function->get_inner_block();
+
+ // BlockConfig
+
+ if( ( ! f_inner_block_config ) &&
+     ( ! f_inner_block_config_filename.empty() ) ) {
+  auto c = Configuration::deserialize( f_inner_block_config_filename );
+  if( ! ( f_inner_block_config = dynamic_cast< BlockConfig * >( c ) ) ) {
+   delete c;
+   throw( std::invalid_argument
+          ( "SDDPGreedySolver::configure_inner_block: file " +
+            f_inner_block_config_filename + " is not a BlockConfig." ) );
+  }
+ }
+
+ if( f_inner_block_config )
+  f_inner_block_config->apply( inner_block );
+
+ // BlockSolverConfig
+
+ if( ( ! f_inner_block_solver_config ) &&
+     ( ! f_inner_block_solver_config_filename.empty() ) ) {
+  auto c = Configuration::deserialize( f_inner_block_solver_config_filename );
+  if( ! ( f_inner_block_solver_config =
+          dynamic_cast< BlockSolverConfig * >( c ) ) ) {
+   delete c;
+   throw( std::invalid_argument
+          ( "SDDPGreedySolver::configure_inner_block: file " +
+            f_inner_block_solver_config_filename +
+            " is not a BlockSolverConfig." ) );
+  }
+ }
+
+ if( f_inner_block_solver_config )
+  f_inner_block_solver_config->apply( inner_block );
+
+ v_inner_block_configured[ stage ] = true;
+}
+
+/*--------------------------------------------------------------------------*/
+
 int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
 
  auto benders_function = get_benders_function( stage );
+
+ configure_inner_block( stage , benders_function );
 
  auto status = benders_function->compute();
 
