@@ -245,6 +245,19 @@ public:
    * solve the deterministic (single-scenario) multistage problem. It must be
    * a valid id for a scenario handled by the SDDPBlock. */
 
+  intUnregisterSolver ,
+  ///< Indicates whether Solver(s) of the inner Block must be unregistered
+  /**< Within compute(), for each stage, the inner Block of the
+   * BendersBFunction at that stage is solved. Sometimes, the Solver(s)
+   * attached to that inner Block are not needed after it is solved and can be
+   * unregistered. This parameter indicates whether these Solver(s) must be
+   * unregistered. If the value of this parameter is non-zero, then the
+   * Solver(s) of the inner Block of the BendersBFunction are unregistered as
+   * follows. If this SDDPGreedySolver has a BlockSolverConfig associated with
+   * that inner Block, then it is used to unregister the Solver(s) of that
+   * inner Block. Otherwise, all Solver(s) of that inner Block are
+   * unregistered by a call to Block::unregister_Solvers(). */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -310,7 +323,9 @@ public:
   * considering the integer parameters defined in #int_par_type_S,
   * this function also accepts the following parameters:
   *
-  * - #intScenarioId
+  * - #intScenarioId [0]
+  *
+  * - #intUnregisterSolver [0]
   *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
@@ -323,6 +338,7 @@ public:
  void set_par( const idx_type par , const int value ) override {
   switch( par ) {
    case( intScenarioId ): set_scenario_id( value ); return;
+   case( intUnregisterSolver ): f_unregister_solver = value; return;
    case( intLogVerb ): log_verbosity = value; return;
   }
   Solver::set_par( par , value );
@@ -418,6 +434,7 @@ public:
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
    case( intScenarioId ): return 0;
+   case( intUnregisterSolver ): return 0;
    case( intLogVerb ): return 0;
   }
   return Solver::get_dflt_int_par( par );
@@ -460,6 +477,7 @@ public:
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
    case( intScenarioId ): return scenario_id;
+   case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
@@ -502,6 +520,7 @@ public:
 
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
+  if( name == "intUnregisterSolver" ) return intUnregisterSolver;
   return Solver::int_par_str2idx( name );
  }
 
@@ -537,7 +556,8 @@ public:
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names = { "intScenarioId" };
+  static const std::vector<std::string> parameter_names =
+   { "intScenarioId" , "intUnregisterSolver" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -635,9 +655,7 @@ public:
  * @{ */
 
  bool has_var_solution( void ) override {
-  return ( status_compute == Solver::kLowPrecision ) ||
-   ( status_compute == Solver::kStopIter ) ||
-   ( status_compute == Solver::kStopTime );
+  return f_has_var_solution;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -755,6 +773,9 @@ protected:
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();
 
+ /// Indicates whether the Solver of the inner Block must be unregister
+ bool f_unregister_solver = false;
+
  /// Function to be called right before each sub-problem is solved
  std::function< void( Index ) > callback;
 
@@ -776,8 +797,18 @@ protected:
  /// BlockConfig for the inner Blocks
  std::vector< BlockConfig * > v_BC;
 
+ /// Names of the BlockSolverConfig file for the inner Blocks
+ std::vector< std::string > v_BSC_filename;
+
+ /// BlockSolverConfig for the inner Blocks
+ std::vector< BlockSolverConfig * > v_BSC;
+
  /// Indicates whether the inner Block of each BendersBFunction was configured
  std::vector< bool > v_inner_block_configured;
+
+ /// Indicates whether the Solver of the inner Block of each BendersBFunction
+ /// was configured
+ std::vector< bool > v_inner_solver_configured;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -886,9 +917,11 @@ private:
 
  /*--------------------------------------------------------------------------*/
 
- void configure_inner_block( Index stage ,
-                             BendersBFunction * benders_function );
+ void configure_inner_block( Index stage );
 
+/*--------------------------------------------------------------------------*/
+
+ void unregister_solver_inner_block( Index stage );
 
 /*--------------------------------------------------------------------------*/
 
@@ -906,6 +939,9 @@ private:
 
  /// Indicates whether the initial state has already been set
  bool initial_state_is_set = false;
+
+ /// Indicates whether the initial state has already been set
+ bool f_has_var_solution = false;
 
  /// The value of the solution (if any).
  double solution_value = 0.0;
