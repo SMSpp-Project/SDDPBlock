@@ -513,8 +513,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  else {
   //auto first_cut = cuts.cols() - 1;
   Block::Index first_cut = 0;
-  if( cuts.cols() >= simulator_forward->getNbSimul() )
-   first_cut = cuts.cols() - simulator_forward->getNbSimul();
+  //if( cuts.cols() >= simulator_forward->getNbSimul() )
+  //first_cut = cuts.cols() - simulator_forward->getNbSimul();
   sddp_solver->add_cuts( cuts , current_stage , false ,
                          Block::Range( first_cut , cuts.cols() ) );
  }
