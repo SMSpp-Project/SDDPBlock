@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 01 - 2020
+ * \date 31 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -137,8 +137,10 @@ int SDDPSolver::compute( bool changedvars ) {
  forward_value = backward_forward_values.second;
 
  if( f_log && log_verbosity > 0 ) {
-  *f_log << "Backward value: " << backward_value << std::endl;
-  *f_log << "Forward value:  " << forward_value << std::endl;
+  *f_log << "Backward value: " << std::setprecision( 20 )
+         << backward_value << std::endl;
+  *f_log << "Forward value:  " << std::setprecision( 20 )
+         << forward_value << std::endl;
  }
 
  if( ! owned )              // if the Block was actually locked
@@ -434,8 +436,24 @@ double SDDPSolver::solve( SDDPBlock::Index stage ) {
  auto status = benders_function->compute();
 
  if( status != kOK && status != kLowPrecision ) {
+  // No feasible solution has been found
+
+  std::string message;
+  if( status == kUnbounded )
+   message = " The sub-problem is unbounded.";
+  else if( status == kInfeasible )
+   message = " The sub-problem is infeasible.";
+  else if( status == kError )
+   message = " An error occurred while solving the sub-problem.";
+  else if( status == kStopTime )
+   message = " A time limit has been reached while solving the sub-problem.";
+  else if( status == kStopIter )
+   message = " A maximum number of iterations has been reached while solving "
+    "the sub-problem.";
+
   throw( std::logic_error( "SDDPSolver::solve: the sub-problem at stage " +
-                           std::to_string( stage ) + " was not solved." ) );
+                           std::to_string( stage ) + " was not solved." +
+                           message ) );
  }
 
  auto solver = benders_function->get_solver();
