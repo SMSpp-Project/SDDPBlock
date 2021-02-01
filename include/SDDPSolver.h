@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 01 - 2020
+ * \date 01 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -34,6 +34,7 @@
 
 #include <boost/bimap.hpp>
 #include <Eigen/Dense>
+#include "BlockSolverConfig.h"
 #include "ScenarioSimulator.h"
 #include "Solver.h"
 #include "StOpt/sddp/OptimizerSDDPBase.h"
@@ -230,7 +231,7 @@ public:
  enum int_par_type_SDDP_S {
 
   intNStepConv = int_par_type_S::intLastAlgPar ,
-  ///< Frequency in which the convergence is checked
+  ///< Frequency at which the convergence is checked
   /**< The method stops when either the maximum number of iterations
    * is reached (an iteration performs one backward pass and one (or
    * two) forward pass(es); see parameter #intMaxIter for the maximum
@@ -254,7 +255,7 @@ public:
    * given by the intNStepConv parameter. At such an iteration, an
    * extra forward pass is performed, in which the number of
    * simulations considered is given by the value of the parameter
-   * #intNbSimulCheckForSimu. \f$ \bar{z}_{k} \f$ is the upper bound
+   * #intNbSimulCheckForConv. \f$ \bar{z}_{k} \f$ is the upper bound
    * computed by this forward pass. The default value for
    * intNStepConv is 1. */
 
@@ -267,13 +268,13 @@ public:
    * time is displayed at every step. The default value for
    * intPrintTime is 1. */
 
-  intNbSimulCheckForSimu ,
+  intNbSimulCheckForConv ,
   ///< Number of simulations considered when checking convergence
   /**< This parameter determines the number of simulations that must
    * be considered during the forward pass that computes the upper
    * bound used for checking convergence. See the comments for the
    * parameter #intNStepConv for more details. The default value for
-   * intNbSimulCheckForSimu is 1. */
+   * intNbSimulCheckForConv is 1. */
 
   intNbSimulBackward ,
   ///< Number of simulations considered in the backward pass
@@ -341,6 +342,18 @@ public:
   /**< Name of the file in which the visited states will be stored.
    * The default value is "visited_states.sddp". */
 
+  strInnerBC ,
+  ///< name of the file containing the default BlockConfig for the inner Block
+  /**< Name of the file containing the default BlockConfig that will be
+   * applied to the inner Block of each BendersBFunction.
+   */
+
+  strInnerBSC ,
+  ///< name of the file containing the default BlockSolverConfig for inner Block
+  /**< Name of the file containing the default BlockSolverConfig that will be
+   * applied to the inner Block of each BendersBFunction.
+   */
+
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -365,7 +378,7 @@ public:
   convergence_frequency = get_dflt_int_par( intNStepConv );
   print_cpu_time = get_dflt_int_par( intPrintTime );
   number_simulations_for_convergence =
-   get_dflt_int_par( intNbSimulCheckForSimu );
+   get_dflt_int_par( intNbSimulCheckForConv );
 
   // double
 
@@ -397,14 +410,68 @@ public:
   if( ! block )
    return;
 
-  if( auto sddp_block = dynamic_cast< SDDPBlock * >( block ) ) {
-   auto scenario_set = sddp_block->get_scenario_set();
-   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-    set_scenarios( scenario_set );
-  }
-  else
+  auto sddp_block = dynamic_cast< SDDPBlock * >( block );
+
+  if( ! sddp_block )
    throw( std::invalid_argument( "SDDPSolver::set_Block: An SDDPSolver can "
                                  "only be attached to an SDDPBlock." ) );
+
+  const auto & scenario_set = sddp_block->get_scenario_set();
+  std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+   set_scenarios( scenario_set );
+
+  // BlockConfig for the inner Blocks
+  if( ( ! f_inner_block_config ) &&
+      ( ! f_inner_block_config_filename.empty() ) ) {
+   auto c = Configuration::deserialize( f_inner_block_config_filename );
+   if( ! ( f_inner_block_config = dynamic_cast< BlockConfig * >( c ) ) ) {
+    delete c;
+    throw( std::invalid_argument
+           ( "SDDPSolver::configure_inner_block: file " +
+             f_inner_block_config_filename + " is not a BlockConfig." ) );
+   }
+  }
+
+  // BlockSolverConfig for the inner Blocks
+  if( ( ! f_inner_block_solver_config ) &&
+      ( ! f_inner_block_solver_config_filename.empty() ) ) {
+   auto c = Configuration::deserialize( f_inner_block_solver_config_filename );
+   if( ! ( f_inner_block_solver_config =
+           dynamic_cast< BlockSolverConfig * >( c ) ) ) {
+    delete c;
+    throw( std::invalid_argument
+           ( "SDDPSolver::configure_inner_block: file " +
+             f_inner_block_solver_config_filename +
+             " is not a BlockSolverConfig." ) );
+   }
+  }
+
+  // Configure the inner Blocks
+  if( f_inner_block_config || f_inner_block_solver_config ) {
+
+   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+    auto benders_function = get_benders_function( stage );
+
+    if( ! benders_function )
+     throw( std::invalid_argument
+            ( "SDDPSolver::set_Block: The BendersBFunction at stage " +
+              std::to_string( stage ) + " is not present." ) );
+
+    auto inner_block = benders_function->get_inner_block();
+
+    if( ! inner_block )
+     throw( std::invalid_argument
+            ( "SDDPSolver::set_Block: The inner Block of the BendersBFunction "
+              " at stage " + std::to_string( stage ) + " is not present." ) );
+
+    if( f_inner_block_config )
+     f_inner_block_config->apply( inner_block );
+
+    if( f_inner_block_solver_config )
+     f_inner_block_solver_config->apply( inner_block );
+   }
+  }
  }
 
 /*--------------------------------------------------------------------------*/
@@ -429,7 +496,7 @@ public:
   *
   * - #intPrintTime
   *
-  * - #intNbSimulCheckForSimu
+  * - #intNbSimulCheckForConv
   *
   * - #intNbSimulBackward
   *
@@ -448,7 +515,7 @@ public:
   case( intMaxIter ): maximum_number_iterations = value; return;
   case( intNStepConv ): convergence_frequency = value; return;
   case( intPrintTime ): print_cpu_time = value; return;
-  case( intNbSimulCheckForSimu ):
+  case( intNbSimulCheckForConv ):
    number_simulations_for_convergence = value; return;
   case( intNbSimulBackward ):
    std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
@@ -471,8 +538,6 @@ public:
   * this function also accepts the following parameters:
   *
   * - #dblAccuracy
-  *
-  * - #dblLastAlgPar
   *
   * Please refer to the #dbl_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -502,7 +567,9 @@ public:
   *
   * - #strVisitedStatesFilename
   *
-  * - #strLastAlgPar
+  * - #strInnerBC
+  *
+  * - #strInnerBSC
   *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -514,9 +581,11 @@ public:
 
  void set_par( const idx_type par , const std::string & value ) override {
   switch( par ) {
-  case( strRegressorsFilename ): regressors_filename = value; return;
-  case( strCutsFilename ): cuts_filename = value; return;
-  case( strVisitedStatesFilename ): visited_states_filename = value; return;
+   case( strRegressorsFilename ): regressors_filename = value; return;
+   case( strCutsFilename ): cuts_filename = value; return;
+   case( strVisitedStatesFilename ): visited_states_filename = value; return;
+   case( strInnerBC ): f_inner_block_config_filename = value; return;
+   case( strInnerBSC ): f_inner_block_solver_config_filename = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -570,7 +639,7 @@ public:
   *
   * - #intPrintTime: 1
   *
-  * - #intNbSimulCheckForSimu: 1
+  * - #intNbSimulCheckForConv: 1
   *
   * - #intNbSimulBackward: given by
   *   SDDPOptimizer::get_dflt_number_simulations_backward()
@@ -591,7 +660,7 @@ public:
   switch( par ) {
    case( intNStepConv ): return 1;
    case( intPrintTime ): return 1;
-   case( intNbSimulCheckForSimu ): return 1;
+   case( intNbSimulCheckForConv ): return 1;
    case( intNbSimulBackward ):
     return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      get_dflt_number_simulations_backward();
@@ -635,7 +704,7 @@ public:
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
   static const std::vector<std::string> default_values =
-   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" };
+   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -659,7 +728,7 @@ public:
    case( intMaxIter ): return maximum_number_iterations;
    case( intNStepConv ): return convergence_frequency;
    case( intPrintTime ): return print_cpu_time;
-   case( intNbSimulCheckForSimu ): return number_simulations_for_convergence;
+   case( intNbSimulCheckForConv ): return number_simulations_for_convergence;
    case( intNbSimulBackward ):
     return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      get_number_simulations_backward();
@@ -701,9 +770,11 @@ public:
 
  const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
-  case( strRegressorsFilename ): return regressors_filename;
-  case( strCutsFilename ): return cuts_filename;
-  case( strVisitedStatesFilename ): return visited_states_filename;
+   case( strRegressorsFilename ): return regressors_filename;
+   case( strCutsFilename ): return cuts_filename;
+   case( strVisitedStatesFilename ): return visited_states_filename;
+   case( strInnerBC ): return f_inner_block_config_filename;
+   case( strInnerBSC ): return f_inner_block_solver_config_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -725,7 +796,7 @@ public:
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intNStepConv" ) return intNStepConv;
   if( name == "intPrintTime" ) return intPrintTime;
-  if( name == "intNbSimulCheckForSimu" ) return intNbSimulCheckForSimu;
+  if( name == "intNbSimulCheckForConv" ) return intNbSimulCheckForConv;
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   return Solver::int_par_str2idx( name );
@@ -762,6 +833,8 @@ public:
   if( name == "strRegressorsFilename" ) return strRegressorsFilename;
   if( name == "strCutsFilename" ) return strCutsFilename;
   if( name == "strVisitedStatesFilename" ) return strVisitedStatesFilename;
+  if( name == "strInnerBC" ) return strInnerBC;
+  if( name == "strInnerBSC" ) return strInnerBSC;
   return Solver::str_par_str2idx( name );
  }
 
@@ -779,7 +852,7 @@ public:
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" ,
+   { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
@@ -819,7 +892,8 @@ public:
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" };
+   { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
+     "strInnerBC" , "strInnerBSC" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -976,6 +1050,18 @@ protected:
 
  /// Name of the file in which the visited states will be stored
  std::string visited_states_filename;
+
+ /// Name of the default BlockConfig file for the inner Blocks
+ std::string f_inner_block_config_filename;
+
+ /// Default BlockConfig for the inner Blocks
+ BlockConfig * f_inner_block_config = nullptr;
+
+ /// Name of the default BlockSolverConfig file for the inner Blocks
+ std::string f_inner_block_solver_config_filename;
+
+ /// Default BlockConfig for the inner Blocks
+ BlockSolverConfig * f_inner_block_solver_config = nullptr;
 
  /// Maximum number of iterations that the method should perform
  int maximum_number_iterations;

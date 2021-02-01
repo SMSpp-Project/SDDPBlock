@@ -568,7 +568,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
   *( sddp_solver->f_log ) << "  objective: " << objective_value << std::endl;
-  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 )
+  if( sddp_solver->log_verbosity >= 20 )
    *( sddp_solver->f_log ) << "  solution:  " << solution << std::endl;
  }
 

@@ -112,9 +112,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    break;
   }
   else if( sub_status == Solver::kUnbounded ) {
-    fault_stage = stage;
-    status_compute = Solver::kUnbounded;
-    break;
+   fault_stage = stage;
+   status_compute = Solver::kUnbounded;
+   break;
   }
   else if( sub_status >= Solver::kError ) {
    fault_stage = stage;
@@ -142,6 +142,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  }
 
  f_has_var_solution =
+  ( status_compute == Solver::kOK ) ||
   ( status_compute == Solver::kLowPrecision ) ||
   ( status_compute == Solver::kStopIter ) ||
   ( status_compute == Solver::kStopTime );

@@ -276,15 +276,15 @@ public:
  enum str_par_type_SDDP_Greedy_S {
 
   strInnerBC = str_par_type_S::strLastAlgPar ,
-  ///< name of the file containing the default BlockConfig
+  ///< name of the file containing the default BlockConfig for the inner Block
   /**< Name of the file containing the default BlockConfig that will be
-   * applied to the inner Block of the BendersBFunction.
+   * applied to the inner Block of each BendersBFunction.
    */
 
   strInnerBSC ,
-  ///< name of the file containing the default BlockSolverConfig
+  ///< name of the file containing the default BlockSolverConfig for inner Block
   /**< Name of the file containing the default BlockSolverConfig that will be
-   * applied to the inner Block of the BendersBFunction.
+   * applied to the inner Block of each BendersBFunction.
    */
 
   strLastAlgPar
