@@ -371,7 +371,12 @@ public:
   * @return A pointer to the array containing the data of scenario \p i. */
 
  const double * scenario( Index i ) const {
-  assert( i < size() );
+  if( i >= size() )
+   throw( std::invalid_argument
+          ( "ScenarioSet::scenario: Invalid scenario index " +
+            std::to_string( i ) + ". The total number of scenarios is " +
+            std::to_string( size() ) + "." ) );
+
   return scenarios[ i ].data();
  }
 
@@ -391,7 +396,13 @@ public:
   *         i associated with time instant \p t. */
 
  const double * sub_scenario( Index i , Index t ) const {
-  assert( i < size() );
+
+  if( i >= size() )
+   throw( std::invalid_argument
+          ( "ScenarioSet::sub_scenario: Invalid scenario index " +
+            std::to_string( i ) + ". The total number of scenarios is " +
+            std::to_string( size() ) + "."  ) );
+
   assert( t < get_time_horizon() );
   return( scenarios[ i ].data() + sub_scenario_start_index[ t ] );
  }
@@ -413,7 +424,12 @@ public:
 
  std::vector< double >::const_iterator
  sub_scenario_begin( Index i , Index t ) const {
-  assert( i < size() );
+  if( i >= size() )
+   throw( std::invalid_argument
+          ( "ScenarioSet::sub_scenario_begin: Invalid scenario index " +
+            std::to_string( i ) + ". The total number of scenarios is " +
+            std::to_string( size() ) + "." ) );
+
   assert( t < get_time_horizon() );
   return std::next( scenarios[ i ].cbegin() , sub_scenario_start_index[ t ] );
  }
@@ -437,7 +453,12 @@ public:
 
  std::vector< double >::const_iterator
  sub_scenario_end( Index i , Index t ) const {
-  assert( i < size() );
+  if( i >= size() )
+   throw( std::invalid_argument
+          ( "ScenarioSet::sub_scenario_end: Invalid scenario index " +
+            std::to_string( i ) + ". The total number of scenarios is " +
+            std::to_string( size() ) + "." ) );
+
   assert( t < get_time_horizon() );
   return std::next( scenarios[ i ].cbegin() ,
                     sub_scenario_start_index[ t + 1 ] );
