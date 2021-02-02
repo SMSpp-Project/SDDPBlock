@@ -477,7 +477,10 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// destructor
- virtual ~SDDPSolver() { }
+ virtual ~SDDPSolver() {
+  delete f_inner_block_config;
+  delete f_inner_block_solver_config;
+ }
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
