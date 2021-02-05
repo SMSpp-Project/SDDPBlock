@@ -928,20 +928,22 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- double get_var_value( void ) override {
+ double get_lb( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ double get_ub( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ double get_backward_value( void ) const {
   return backward_value;
  }
 
 /*--------------------------------------------------------------------------*/
 
- double get_lb( void ) override {
-  return backward_value;
- }
-
-/*--------------------------------------------------------------------------*/
-
- double get_ub( void ) override {
-  return backward_value;
+ double get_forward_value( void ) const {
+  return forward_value;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -1087,6 +1089,9 @@ protected:
  /** Relative accuracy for declaring a solution optimal. See the
   * comments about the dblAccuracy parameter for more details. */
  double accuracy;
+
+ /// Status returned by compute()
+ int status = kUnEval;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/

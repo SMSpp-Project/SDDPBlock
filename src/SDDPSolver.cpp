@@ -106,17 +106,6 @@ int SDDPSolver::compute( bool changedvars ) {
  if( ! initial_state.size() ) // TODO add a parameter to set initial_state
   initial_state = sddp_optimizer->oneAdmissibleState( 0 );
 
- /*
- if( ! number_meshes.size() ) {
-  // TODO add to SDDPSolver parameters
-  auto simulator = std::static_pointer_cast< ScenarioSimulator >
-   ( sddp_optimizer->getSimulatorBackward() );
-  const auto particle_length = simulator->get_particle_length();
-  number_meshes = Eigen::ArrayXi::Constant
-   ( particle_length , std::min( 10 , simulator->getNbSimul() ) );
- }
- */
-
  // The cuts used at the last time step. TODO add a parameter to set final_cut
  StOpt::SDDPFinalCut final_cut
   ( Eigen::ArrayXXd::Zero( initial_state.size() + 1 , 1 ) );
@@ -127,11 +116,10 @@ int SDDPSolver::compute( bool changedvars ) {
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
   ( sddp_optimizer , number_simulations_for_convergence , initial_state ,
-    final_cut , dates ,
-    number_meshes ,
-    regressors_filename , cuts_filename , visited_states_filename ,
-    number_iterations_performed , accuracy_achieved_stopt ,
-    convergence_frequency , *output_stream , print_cpu_time );
+    final_cut , dates , number_meshes , regressors_filename , cuts_filename ,
+    visited_states_filename , number_iterations_performed ,
+    accuracy_achieved_stopt , convergence_frequency , *output_stream ,
+    print_cpu_time );
 
  backward_value = backward_forward_values.first;
  forward_value = backward_forward_values.second;
@@ -153,13 +141,63 @@ int SDDPSolver::compute( bool changedvars ) {
   accuracy_achieved = std::abs( backward_value );
 
  if( accuracy_achieved_stopt == 0.0 && accuracy_achieved != 0.0 )
-  return( kCurveCross );
+  status = kCurveCross;
  else if( accuracy_achieved_stopt <= accuracy )
-  return( kOK );
+  status = kOK;
  else if( number_iterations_performed == maximum_number_iterations )
-  return( kStopIter );
+  status = kStopIter;
  else
-  return( kError ); // TODO
+  status = kError; // TODO
+
+ return status;
+}
+
+/*--------------------------------------------------------------------------*/
+
+double SDDPSolver::get_lb( void ) {
+ if( ! f_Block )
+  return - Inf< double >();
+
+ const auto minimization =
+  ( f_Block->get_objective_sense() == Objective::eMin );
+
+ if( status == kOK || status == kLowPrecision ) {
+  if( minimization )
+   return backward_value;
+  return forward_value;
+ }
+
+ if( status == kInfeasible ) {
+  if( minimization )
+   return Inf< double >();
+  return - Inf< double >();
+ }
+
+ return - Inf< double >();
+}
+
+/*--------------------------------------------------------------------------*/
+
+double SDDPSolver::get_ub( void ) {
+ if( ! f_Block )
+  return Inf< double >();
+
+ const auto minimization =
+  ( f_Block->get_objective_sense() == Objective::eMin );
+
+ if( status == kOK || status == kLowPrecision ) {
+  if( minimization )
+   return forward_value;
+  return backward_value;
+ }
+
+ if( status == kInfeasible ) {
+  if( minimization )
+   return Inf< double >();
+  return - Inf< double >();
+ }
+
+ return Inf< double >();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -212,12 +250,9 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  if( current_stage == sddp_solver->get_time_horizon() - 1 )
   sddp_solver->add_cuts( cuts , current_stage , true );
  else {
-  //auto first_cut = cuts.cols() - 1;
   Block::Index first_cut = 0;
   sddp_solver->add_cuts( cuts , current_stage , true ,
                          Block::Range( first_cut , cuts.cols() ) );
-  //   ( cuts( Eigen::all , Eigen::lastN( simulator_forward->getNbSimul() ) ) ,
-  //     current_stage );
  }
 
  /*******************/
@@ -367,10 +402,7 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   }
  }
 
- //auto replace_last_cuts = cut_controller.remove_cuts
- //( stage , get_time_horizon() , backward );
-
- bool replace_last_cuts = true;
+ const bool replace_last_cuts = true;
 
  static_cast< SDDPBlock * >( f_Block )->add_cuts
   ( std::move( A ) , std::move( b ) , stage , replace_last_cuts );
@@ -529,10 +561,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  if( current_stage == sddp_solver->get_time_horizon() - 1 )
   sddp_solver->add_cuts( cuts , current_stage , false );
  else {
-  //auto first_cut = cuts.cols() - 1;
   Block::Index first_cut = 0;
-  //if( cuts.cols() >= simulator_forward->getNbSimul() )
-  //first_cut = cuts.cols() - simulator_forward->getNbSimul();
   sddp_solver->add_cuts( cuts , current_stage , false ,
                          Block::Range( first_cut , cuts.cols() ) );
  }
