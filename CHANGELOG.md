@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Inner Blocks of SDDPBlock can be configured by SDDPSolver and SDDPGreedySolver.
+
+- Implementation of SDDPSolver.
+
 ## [0.3.0] - 2020-09-16
 
 ### Added
