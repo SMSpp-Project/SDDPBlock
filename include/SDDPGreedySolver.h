@@ -2,7 +2,6 @@
 /*---------------------- File SDDPGreedySolver.h ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
-
  * Header file for the SDDPGreedySolver class, implementing the Solver
  * interface, for multistage programming problems defined by the
  * SDDPBlock. The SDDPGreedySolver implements a greedy strategy to try to
@@ -11,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 29 - 05 - 2020
+ * \date 22 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -44,6 +43,8 @@ namespace SMSpp_di_unipi_it
 {
 
  class BendersBFunction;      // forward declaration of BendersBFunction
+
+ class BlockSolverConfig;     // forward declaration of BlockSolverConfig
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
@@ -243,12 +244,54 @@ public:
    * solve the deterministic (single-scenario) multistage problem. It must be
    * a valid id for a scenario handled by the SDDPBlock. */
 
+  intUnregisterSolver ,
+  ///< Indicates whether Solver(s) of the inner Block must be unregistered
+  /**< Within compute(), for each stage, the inner Block of the
+   * BendersBFunction at that stage is solved. Sometimes, the Solver(s)
+   * attached to that inner Block are not needed after it is solved and can be
+   * unregistered. This parameter indicates whether these Solver(s) must be
+   * unregistered. If the value of this parameter is non-zero, then the
+   * Solver(s) of the inner Block of the BendersBFunction are unregistered as
+   * follows. If this SDDPGreedySolver has a BlockSolverConfig associated with
+   * that inner Block, then it is used to unregister the Solver(s) of that
+   * inner Block. Otherwise, all Solver(s) of that inner Block are
+   * unregistered by a call to Block::unregister_Solvers(). */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
    * int algorithmic parameters. */
 
  };  // end( int_par_type_SDDP_Greedy_S )
+
+/*--------------------------------------------------------------------------*/
+
+ /// public enum for the string algorithmic parameters
+ /** Public enum describing the different types of algorithmic parameters of
+  * "string" type that the SDDPGreedySolver has, besides those defined in
+  * Solver. The value strLastAlgPar is provided so that the list can be easily
+  * further extended by derived classes. */
+
+ enum str_par_type_SDDP_Greedy_S {
+
+  strInnerBC = str_par_type_S::strLastAlgPar ,
+  ///< name of the file containing the default BlockConfig for the inner Block
+  /**< Name of the file containing the default BlockConfig that will be
+   * applied to the inner Block of each BendersBFunction.
+   */
+
+  strInnerBSC ,
+  ///< name of the file containing the default BlockSolverConfig for inner Block
+  /**< Name of the file containing the default BlockSolverConfig that will be
+   * applied to the inner Block of each BendersBFunction.
+   */
+
+  strLastAlgPar
+  ///< first allowed new string parameter for derived classes
+  /**< Convenience value for easily allow derived classes
+   * to extend the set of string algorithmic parameters. */
+
+ };  // end( str_par_type_SDDP_Greedy_S )
 
 /**@} ----------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
@@ -270,12 +313,18 @@ public:
 /** @name Other initializations
  *  @{ */
 
+ void set_Block( Block * block ) override;
+
+/*--------------------------------------------------------------------------*/
+
  /// set a given integer (int) numerical parameter
  /** Set a given integer (int) numerical parameter. Besides
   * considering the integer parameters defined in #int_par_type_S,
   * this function also accepts the following parameters:
   *
-  * - #intScenarioId
+  * - #intScenarioId [0]
+  *
+  * - #intUnregisterSolver [0]
   *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
@@ -285,9 +334,60 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const int value ) override {
+ void set_par( const idx_type par , const int value ) override {
   switch( par ) {
-  case( intScenarioId ): set_scenario_id( value ); return;
+   case( intScenarioId ): set_scenario_id( value ); return;
+   case( intUnregisterSolver ): f_unregister_solver = value; return;
+   case( intLogVerb ): log_verbosity = value; return;
+  }
+  Solver::set_par( par , value );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set a given string parameter
+ /** Set a given string parameter. Set a given string parameter. Besides
+  * considering the integer parameters defined in #str_par_type_S, this
+  * function also accepts the following parameters:
+  *
+  * - #strInnerBC [""]: the filename of the "default" BlockConfig of the inner
+  *   Block of the BendersBFunction(s). If non-empty(), this parameter is used
+  *   to create a BlockConfig that is apply()-ed to the inner Block of all
+  *   BendersBFunction unless specific BlockConfig are provided for that
+  *   specific component [see vintWBCfg and vstrBCfg]. If left empty(), no
+  *   BlockConfig is apply()-ed unless for those BendersBFunction for which
+  *   specific ones are provided.
+  *
+  * - #strInnerBSC [""]: the filename of the "default" BlockSolverConfig of
+  *   the inner Block of the BendersBFunction(s). If non-empty(), this
+  *   parameter is used to create a BlockSolverConfig that is apply()-ed to
+  *   the inner Block of all BendersBFunction unless specific
+  *   BlockSolverConfig are provided for that specific component [see
+  *   vintWBSCfg and vstrBSCfg]. If left empty(), no BlockSolverConfig is
+  *   apply()-ed unless for those BendersBFunction for which specific ones are
+  *   provided. Note that each BendersBFunction does require a working Solver
+  *   attached to its inner Block (unless the inner Solver can avoid it for
+  *   some specially structured inner Block), so this will have to be provided
+  *   in some way (but there are plenty of: besides this parameter and
+  *   vstrBSCfg, it can come from the "extra" Configuration in the
+  *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
+  *
+  * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
+  * description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( const idx_type par , const std::string & value ) override {
+  switch( par ) {
+   case( strInnerBC ):
+    f_inner_block_config_filename = value;
+    return;
+   case( strInnerBSC ):
+    f_inner_block_solver_config_filename = value;
+    return;
   }
   Solver::set_par( par , value );
  }
@@ -304,8 +404,19 @@ public:
   * @return The number of int parameters.
   */
 
- virtual idx_type get_num_int_par( void ) const override {
+ idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the number of string parameters
+ /** Get the number of string parameters.
+  *
+  * @return The number of string parameters.
+  */
+
+ idx_type get_num_str_par( void ) const override {
+  return( idx_type( strLastAlgPar ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -319,14 +430,39 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual int get_dflt_int_par( const idx_type par ) const override {
+ int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intScenarioId ): return 0;
+   case( intScenarioId ): return 0;
+   case( intUnregisterSolver ): return 0;
+   case( intLogVerb ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
 
 /*--------------------------------------------------------------------------*/
+
+ /// get the default value of a string parameter
+ /** Get the default value of the string parameter with given index. Please
+  * see the #str_par_type_SDDP_Greedy_S and #str_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::string & get_dflt_str_par( const idx_type par ) const override {
+
+  static const std::vector<std::string> default_values = { "" , "" };
+
+  if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
+   return default_values[ par - str_par_type_S::strLastAlgPar ];
+
+  return Solver::get_dflt_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// get a specific integer (int) numerical parameter
  /** Get a specific integer (int) numerical parameter. Please see the
   * #int_par_type_SDDP_Greedy_S and #int_par_type_S enumerations for a
@@ -337,14 +473,37 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual int get_int_par( const idx_type par ) const override {
+ int get_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intScenarioId ): return scenario_id;
+   case( intScenarioId ): return scenario_id;
+   case( intUnregisterSolver ): return f_unregister_solver;
+   case( intLogVerb ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
 
 /*--------------------------------------------------------------------------*/
+
+ /// get a specific string numerical parameter
+ /** Get a specific string numerical parameter. Please see the
+  * #str_par_type_SDDP_Greedy_S and #str_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::string & get_str_par( const idx_type par ) const override {
+  switch( par ) {
+   case( strInnerBC ): return f_inner_block_config_filename;
+   case( strInnerBSC ): return f_inner_block_solver_config_filename;
+  }
+  return Solver::get_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// returns the index of the int parameter with given string \p name
  /** This method takes a string, which is assumed to be the name of an int
   * parameter, and returns its index, i.e., the integer value that can be
@@ -358,13 +517,33 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type int_par_str2idx( const std::string & name ) const override {
+ idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
+  if( name == "intUnregisterSolver" ) return intUnregisterSolver;
   return Solver::int_par_str2idx( name );
  }
 
 /*--------------------------------------------------------------------------*/
- /// returns the string name of the int parameter with given index
+
+ /// returns the index of the string parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a string
+  * parameter, and returns its index, i.e., the integer value that can be
+  * used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type str_par_str2idx( const std::string & name ) const override {
+  if( name == "strInnerBC" ) return strInnerBC;
+  if( name == "strInnerBSC" ) return strInnerBSC;
+  return Solver::str_par_str2idx( name );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+/// returns the string name of the int parameter with given index
  /** This method takes an int parameter index, i.e., the integer value that
   * can be used in [set/get]_par() [see above] to set/get it, and returns its
   * "string name".
@@ -374,15 +553,38 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & int_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & int_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names = { "intScenarioId" };
+  static const std::vector<std::string> parameter_names =
+   { "intScenarioId" , "intUnregisterSolver" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
 
   return Solver::int_par_idx2str( idx );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the string name of the string parameter with given index
+ /** This method takes a string parameter index, i.e., the integer value that
+  * can be used in [set/get]_par() [see above] to set/get it, and returns its
+  * "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & str_par_idx2str( const idx_type idx ) const override {
+
+  static const std::vector<std::string> parameter_names =
+   { "strInnerBC" , "strInnerBSC" };
+
+  if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
+   return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
+
+  return Solver::str_par_idx2str( idx );
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -422,7 +624,7 @@ public:
   *         value that this method may return.
   */
 
- virtual int compute( bool changedvars = true ) override;
+ int compute( bool changedvars = true ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------- METHODS FOR CHANGING THE DATA OF THE SDDPGreedySolver ----------*/
@@ -451,11 +653,29 @@ public:
 /** @name Accessing the found solutions (if any)
  * @{ */
 
- virtual bool has_var_solution( void ) override;
+ bool has_var_solution( void ) override {
+  return f_has_var_solution;
+ }
 
 /*--------------------------------------------------------------------------*/
 
- virtual void get_var_solution( Configuration *solc = nullptr ) override;
+ void get_var_solution( Configuration *solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ OFValue get_lb( void ) override {
+  if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
+   return solution_value;
+  return( - std::numeric_limits<OFValue>::infinity() );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ OFValue get_ub( void ) override {
+  if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
+   return solution_value;
+  return( std::numeric_limits<OFValue>::infinity() );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -497,6 +717,45 @@ public:
   return scenario_id;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the status of the most recent call to compute()
+ /** Returns the status of the most recent call to compute().
+  *
+  * @return The status of the most recent call to compute().
+  */
+ Index get_status( void ) const {
+  return status_compute;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario to be considered
+ /** This method updates the sub-Blocks of the SDDPBlock with the data
+  * provided by the scenario whose id is given by the method
+  * get_scenario_id().
+  */
+ void set_scenario( void );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the initial state
+ /** This function sets the state of the subproblem at the first stage
+  * according to the initial state present in the SDDPBlock.
+  */
+ void set_initial_state( void );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the callback function
+ /** It sets the callback function that is called right before the sub-problem
+  * at each stage is solved. The parameter of the callback function is the
+  * stage associated with the sub-problem that will be solved.
+  */
+ void set_callback( std::function< void( Index ) > function ) {
+  callback = function;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -512,6 +771,43 @@ protected:
 
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();
+
+ /// Indicates whether the Solver of the inner Block must be unregister
+ bool f_unregister_solver = false;
+
+ /// Function to be called right before each sub-problem is solved
+ std::function< void( Index ) > callback;
+
+ /// Name of the default BlockConfig file for the inner Blocks
+ std::string f_inner_block_config_filename{};
+
+ /// Default BlockConfig for the inner Blocks
+ BlockConfig * f_inner_block_config = nullptr;
+
+ /// Name of the default BlockSolverConfig file for the inner Blocks
+ std::string f_inner_block_solver_config_filename{};
+
+ /// Default BlockConfig for the inner Blocks
+ BlockSolverConfig * f_inner_block_solver_config = nullptr;
+
+ /// Names of the BlockConfig file for the inner Blocks
+ std::vector< std::string > v_BC_filename;
+
+ /// BlockConfig for the inner Blocks
+ std::vector< BlockConfig * > v_BC;
+
+ /// Names of the BlockSolverConfig file for the inner Blocks
+ std::vector< std::string > v_BSC_filename;
+
+ /// BlockSolverConfig for the inner Blocks
+ std::vector< BlockSolverConfig * > v_BSC;
+
+ /// Indicates whether the inner Block of each BendersBFunction was configured
+ std::vector< bool > v_inner_block_configured;
+
+ /// Indicates whether the Solver of the inner Block of each BendersBFunction
+ /// was configured
+ std::vector< bool > v_inner_solver_configured;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -560,7 +856,7 @@ private:
   * given \p stage.
   *
   * @param[in] stage An Index in the interval [0, T-1], where T is the time
-  * horizon.
+  *            horizon.
   *
   * @return A pointer to the BendersBFunction associated with the given stage.
   */
@@ -593,24 +889,38 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- /// sets the scenario to be considered
- /** This method updates the sub-Blocks of the SDDPBlock with the data
-  * provided by the scenario whose id is given by the method
-  * get_scenario_id().
-  */
- void set_scenario( void );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the initial state
- /** This function sets the state of the subproblem at the first stage
-  * according to the initial state present in the SDDPBlock.
-  */
- void set_initial_state( void );
-
-/*--------------------------------------------------------------------------*/
-
  void process_outstanding_Modification( void );
+
+/*--------------------------------------------------------------------------*/
+
+ double get_sub_solution_value( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  auto sub_solver = get_sub_solver( stage );
+  if( sub_solver->is_var_feasible() )
+   return sub_solver->get_var_value();
+  else if( get_objective_sense( stage ) == Objective::eMin )
+   return sub_solver->get_ub();
+  else
+   return sub_solver->get_lb();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ int get_objective_sense( Index stage = 0 ) const {
+  assert( stage < get_time_horizon() );
+  auto benders_function = get_benders_function( stage );
+  auto inner_block = benders_function->get_inner_block();
+  assert( inner_block );
+  return inner_block->get_objective_sense();
+ }
+
+ /*--------------------------------------------------------------------------*/
+
+ void configure_inner_block( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ void unregister_solver_inner_block( Index stage );
 
 /*--------------------------------------------------------------------------*/
 
@@ -628,6 +938,15 @@ private:
 
  /// Indicates whether the initial state has already been set
  bool initial_state_is_set = false;
+
+ /// Indicates whether the initial state has already been set
+ bool f_has_var_solution = false;
+
+ /// The value of the solution (if any).
+ double solution_value = 0.0;
+
+ /// It indicates the level of verbosity of the log
+ int log_verbosity = 0;
 
 };   // end( class SDDPGreedySolver )
 

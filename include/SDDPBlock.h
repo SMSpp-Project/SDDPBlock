@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 06 - 03 - 2020
+ * \date 07 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -30,7 +30,8 @@
 
 #include "Block.h"
 #include "PolyhedralFunction.h"
-//#include "ScenarioSimulator.h"
+#include "ScenarioSimulator.h"
+#include "ScenarioSet.h"
 #include "StOpt/sddp/SimulatorSDDPBase.h"
 
 /*--------------------------------------------------------------------------*/
@@ -241,64 +242,29 @@ public:
   *   is used to construct the vector of DataMapping of the StochasticBlock
   *   described by the "StochasticBlock_t" group.
   *
+  * - The "NumPolyhedralFunctionsPerStage" dimension, containing the number of
+  *   PolyhedralFunction that are present at each stage. This dimension is
+  *   optional. If it is not provided, then we assume that there is a single
+  *   PolyhedralFunction at each stage.
+  *
   * - The AbstractPath group containing the description of a vector of
   *   AbstractPath as described in the AbstractPath class. The number of
-  *   AbstractPath must be equal to either 1 or "TimeHorizon - 1". If the number
-  *   of AbstractPath is "TimeHorizon - 1" then the i-th AbstractPath in this
-  *   vector must be the path to the PolyhedralFunction associated with the
-  *   i-th sub-Block of this SDDPBlock. The i-th AbstractPath is taken with
-  *   respect to the inner Block of the i-th sub-Block of this SDDPBlock. If
-  *   the number of AbstractPath in this vector is 1, then all paths are
-  *   assumed to be equal: for each i in {0, ..., TimeHorizon-1}, the provided
-  *   AbstractPath will be the path to the PolyhedralFunction associated with
-  *   the i-th sub-Block of this SDDPBlock (taken with respect to the inner
-  *   Block of this i-th sub-Block).
+  *   AbstractPath must be equal to either "NumPolyhedralFunctionsPerStage" or
+  *   "NumPolyhedralFunctionsPerStage * TimeHorizon". If the number of
+  *   AbstractPath is "NumPolyhedralFunctionsPerStage" then the i-th
+  *   PolyhedralFunction of each stage is given by the i-th AbstractPath. If
+  *   the number of AbstractPath is "NumPolyhedralFunctionsPerStage *
+  *   TimeHorizon" then the i-th PolyhedralFunction of stage t is given by the
+  *   AbstractPath at position "i + t * NumPolyhedralFunctionsPerStage" for
+  *   each t in {0, ..., TimeHorizon-1} and i in {0, ...,
+  *   NumPolyhedralFunctionsPerStage-1}.  An AbstractPath associated with a
+  *   stage t is taken with respect to the inner Block of the t-th sub-Block
+  *   of this SDDPBlock.
   *
-  * - The "NumberScenarios" dimension specifying the number of
-  *   scenarios.
+  * - The description of a ScenarioSet, as specified in the comments to
+  *   ScenarioSet::deserialize().
   *
-  * - The "ScenarioSize" dimension containing the size of a single
-  *   scenario, which spans all stages.
-  *
-  * - The "SubScenarioSize" variable, of type netCDF::NcUint64
-  *   and indexed over dimension "TimeHorizon". This dimension is
-  *   optional. If it is not provided, then all sub-scenarios are assumed to
-  *   have the same size, i.e.,
-  *
-  *     s_t = ScenarioSize / TimeHorizon
-  *
-  *   for all t in {0, ..., "TimeHorizon - 1"}, and "ScenarioSize" is a multiple
-  *   of "TimeHorizon". If this dimension is provided, then SubScenarioSize[t]
-  *   is the size of the sub-scenario associated with stage t, i.e., s_t =
-  *   SubScenarioSize[t], for each t in {0, ..., TimeHorizon-1}. In the latter
-  *   case, the following must hold:
-  *
-  *   \f[
-  *     \text{ScenarioSize} = \sum_{t = 0}^{\text{TimeHorizon} - 1}
-  *                           \text{SubScenarioSize}[t].
-  *   \f]
-  *
-  * - The two-dimensional variable "Scenarios" of type netCDF::NcDouble and
-  *   indexed over the dimensions "NumberScenarios" and "ScenarioSize",
-  *   containing the scenarios. The i-th row of "Scenarios" contains the i-th
-  *   scenario, so that Scenarios[i][j] is the j-th component of the i-th
-  *   scenario.
-  *
-  * - The "NumberRandomDataGroups" dimension containing the number of
-  *   groups of related random data within each sub-scenario. This dimension
-  *   is optional. If it is not provided, then we assume that there is a
-  *   single group of related random data. Also, this dimension is meaningful
-  *   only if all sub-scenarios have the same size.
-  *
-  * - The "SizeRandomDataGroups" variable, of type netCDF::Uint64 and indexed
-  *   over the "NumberRandomDataGroups" dimension, containing the size of each
-  *   group of related random data in each sub-scenario. For each i in {0,
-  *   ..., "NumberRandomDataGroups - 1"}, NumberRandomDataGroups[i] is the size
-  *   of the i-th group of a sub-scenario. This variable is optional. It is
-  *   required only if "NumberRandomDataGroups" is provided and
-  *   "NumberRandomDataGroups" > 1.
-  *
-  * - The "StateSize" variable, of type netCDF::Uint64 and being either a
+  * - The "StateSize" variable, of type netCDF::Uint and being either a
   *   scalar or a one-dimensional array indexed over "TimeHorizon" dimension,
   *   specifying the sizes of the states at each stage. If this variable is a
   *   scalar, then all states are assumed to have the same size given by
@@ -338,7 +304,7 @@ public:
   * @param group A netCDF::NcGroup holding the data describing this SDDPBlock.
   */
 
- void deserialize( netCDF::NcGroup & group ) override;
+ void deserialize( const netCDF::NcGroup & group ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------- METHODS FOR Saving THE DATA OF THE SDDPBlock -------------*/
@@ -354,7 +320,7 @@ public:
   * @param group The NcGroup in which this SDDPBlock will be serialized.
   */
 
- virtual void serialize( netCDF::NcGroup & group ) const override;
+ void serialize( netCDF::NcGroup & group ) const override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
@@ -367,7 +333,7 @@ public:
   *
   * @return The time horizon.
   */
- inline virtual std::size_t get_time_horizon() const {
+ virtual std::size_t get_time_horizon() const {
   return v_Block.size();
  }
 
@@ -380,8 +346,41 @@ public:
   * @return The vector of PolyhedralFunction.
   */
  const std::vector< PolyhedralFunction * > &
- get_polyhedral_functions( ) const {
+ get_polyhedral_functions() const {
   return v_polyhedral_functions;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns a PolyhedralFunction
+ /** This function returns a pointer to the i-th PolyhedralFunction of the
+  * given \p stage.
+  *
+  * @param stage A number between 0 and get_time_horizon() - 1.
+  *
+  * @param i If there are more than one PolyhedralFunction per stage, this
+  *        parameter informs the index of the desired PolyhedralFunction at
+  *        the given \p stage.
+  *
+  * @return A pointer to the i-th PolyhedralFunction of the given \p stage.
+  */
+ const PolyhedralFunction * get_polyhedral_function( Index stage ,
+                                                     Index i = 0 ) const {
+  assert( stage < get_time_horizon() );
+  assert( i < num_polyhedral_per_stage );
+  return v_polyhedral_functions[ num_polyhedral_per_stage * stage + i ];
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the number of PolyhedralFunction per stage
+ /** This function returns the number of PolyhedralFunction present at each
+  * stage.
+  *
+  * @return The number of PolyhedralFunction per stage.
+  */
+ Index get_num_polyhedral_function_per_stage() const {
+  return num_polyhedral_per_stage;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -398,6 +397,49 @@ public:
   */
  virtual StochasticBlock * get_sub_Block( Index i ) const;
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the admissible state associated with the given \p stage
+ /** This function returns an iterator to the vector containing the admissible
+  * state for the given \p stage.
+  *
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @return An iterator to the vector containing the admissible state for the
+  *         given \p stage. */
+
+ std::vector<double>::const_iterator get_admissible_state( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  return std::next( admissible_states.cbegin() ,
+                    admissible_state_begin[ stage ] );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the size of the admissible state associated with the given \p stage
+ /** This function returns the size of the admissible state associated with
+  * the given \p stage.
+  *
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @return The size of the admissible state for the given \p stage. */
+
+ Index get_admissible_state_size( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  if( stage == get_time_horizon() - 1 )
+   return admissible_states.size() - admissible_state_begin[ stage ];
+  else
+   return admissible_state_begin[ stage + 1 ] - admissible_state_begin[ stage ];
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the set of scenarios
+ /** This function returns the set of scenarios. */
+ const ScenarioSet & get_scenario_set() const {
+  return scenario_set;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -412,22 +454,36 @@ public:
 /** @name Methods describing the behavior of an SDDPBlock
  * @{ */
 
- /// update the cuts of the problem at the given stage
- /** This function updates the cuts of the problem at the given \p stage. The
+ /// add cuts of the problem at the given stage
+ /** This function adds cuts of the problem at the given \p stage. The
   * parameters must satisfy the following requirements:
   *
-  * 1. \p cuts must be a matrix with as many columns as there are cuts to be
+  * 1. \p A must be a matrix with as many columns as there are cuts to be
   *    added and the number of rows must be equal to the number of Variable
   *    defined in the BendersBlock associated with stage \p stage.
   *
-  * 2. \p stage must be an integer between 0 and get_time_horizon() - 1.
+  * 2. \p b must be a vector whose size is equal to the number of
+  *    rows of \p A. Teh cuts are given by Ax + b.
   *
-  * @param cuts An Eigen::ArrayXXd containing the cuts to be added.
+  * 3. \p stage must be an integer between 0 and get_time_horizon() - 1.
+  *
+  * @param A A matrix containing the coefficients of the cuts to be added.
+  *
+  * @param b A vector containing the constants of the cuts to be added.
   *
   * @param stage The stage whose cuts should be updated.
+  *
+  * @param replace_last_cuts Indicates whether the last cuts present in the
+  *        PolyhedralFunction associated with the given \p stage must be
+  *        removed.
   */
- void update_cuts( PolyhedralFunction::MultiVector && A ,
-                   PolyhedralFunction::RealVector & b , Index stage );
+ void add_cuts( PolyhedralFunction::MultiVector && A ,
+                PolyhedralFunction::RealVector && b , Index stage ,
+                bool replace_last_cuts );
+
+/*--------------------------------------------------------------------------*/
+
+ double get_future_cost( Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -439,8 +495,33 @@ public:
   * in {0, ..., N-1}.
   *
   * @param values The Eigen::ArrayXd containing the values of the Variable.
+  *
+  * @param stage The stage whose state Variable must be set.
   */
  void set_state( const Eigen::ArrayXd & values , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the values of the state Variable of the problem at the given stage
+ /** This function sets the values of the state Variable of the problem at the
+  * given \p stage. The size of the \p values array parameter must be equal to
+  * the number N of state Variable of the problem at the given \p stage, so
+  * that the value of the i-th state Variable will be values[ i ], for each i
+  * in {0, ..., N-1}.
+  *
+  * @param values The vector containing the values of the Variable.
+  *
+  * @param stage The stage whose state Variable must be set.
+  */
+ void set_state( const std::vector<double> & values , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the values of the state Variable of the problem at the given stage
+ /** This function sets the values of the state Variable of the problem at the
+  * given \p stage, according to the admissible state of this SDDPBlock.
+  */
+ void set_admissible_state( Index stage );
 
 /*--------------------------------------------------------------------------*/
 
@@ -448,9 +529,19 @@ public:
  /** This function updates the sub-Block at the given \p stage for the given
   * \p scenario.
   *
-  * @param scenario The scenario that must be set.
+  * @param scenario_id The id of the scenario that must be set.
   */
- void set_scenario( const Eigen::ArrayXd & scenario , Index stage );
+ void set_scenario( Index scenario_id , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// updates all sub-Block for the given scenario
+ /** This function updates all sub-Block for the given scenario \p
+  * scenario_id.
+  *
+  * @param scenario_id The id of the scenario that must be set.
+  */
+ void set_scenario( Index scenario_id );
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -462,11 +553,13 @@ protected:
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- virtual void print( std::ostream &output ) const override;
+ void print( std::ostream &output ) const override;
 
 /*--------------------------------------------------------------------------*/
 
- virtual void load( std::istream &input ) override {}
+ void load( std::istream &input ) override {
+  throw( std::logic_error( "SDDPBlock::load: method not implemented yet." ) );
+ }
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
@@ -475,47 +568,24 @@ protected:
  /// Pointers to the PolyhedralFunction of each sub-Block
  std::vector< PolyhedralFunction * > v_polyhedral_functions;
 
+ /// Number of PolyhedralFunctions for each stage
+ Index num_polyhedral_per_stage;
+
  /// Simulator for the forward step of the SDDP method
- // std::shared_ptr< ScenarioSimulator > simulator_forward;
+ std::shared_ptr< ScenarioSimulator > simulator_forward;
 
  /// Simulator for the backward step of the SDDP method
- // std::shared_ptr< ScenarioSimulator > simulator_backward;
+ std::shared_ptr< ScenarioSimulator > simulator_backward;
 
- /// Number of scenarios
- Index num_scenarios;
+ /// The set of scenarios
+ ScenarioSet scenario_set;
 
- /// The size of a scenario (spanning the whole time horizon)
- Index scenario_size;
+ /// The start index of each admissible state
+ /** For each t in {0, ..., TimeHorizon - 1}, admissible_state_begin[ t ] is
+  * the index in vector #admissible_states at which the admissible state for
+  * stage t begins. */
 
- /// The size of each sub-scenario
- /** A scenario is divided into sub-scenarios, each sub-scenario being
-  * associated with a time instant. This vector stores the size of each
-  * sub-scenario. For each t in {0, TimeHorizon -1}, sub_scenario_size[ t ] is
-  * the size of the sub-scenario associated with time t.
-  */
- std::vector< Index > sub_scenario_size;
-
- /// Matrix storing the scenarios
- /** The number of rows is the number of scenarios and the number of columns
-  * is the size of a scenario.
-  */
- boost::multi_array< double , 2 > scenarios;
-
- /// The number of groups of related random data
- Index num_random_data_groups;
-
- /// The size of each group of related random data
- /** If there are more than one group of related random data, then
-  * size_random_data_groups[ i ] is the size of the i-th group of related
-  * random data.
-  */
- std::vector< Index > size_random_data_groups;
-
- /// The size of each state
- /** For each t in {0, ..., TimeHorizon - 1}, state_size[ t ] is the size of
-  * the state for time t.
-  */
- std::vector< double > state_size;
+ std::vector< Index > admissible_state_begin;
 
  /// A vector containing the concatenation of states for each time instant
  std::vector< double > admissible_states;
@@ -547,7 +617,7 @@ private:
   *
   * @return A pointer to the Block that was deserialized.
   */
- Block * deserialize_sub_Block( netCDF::NcGroup & group , Index i );
+ Block * deserialize_sub_Block( const netCDF::NcGroup & group , Index i );
 
 /*--------------------------------------------------------------------------*/
 

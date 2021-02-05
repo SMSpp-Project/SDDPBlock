@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 29 - 05 - 2020
+ * \date 22 - 01 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -22,6 +22,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include "BendersBlock.h"
+#include "BlockSolverConfig.h"
+#include "CDASolver.h"
 #include "FRealObjective.h"
 #include "SDDPBlock.h"
 #include "SDDPGreedySolver.h"
@@ -44,6 +46,36 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 /*--------------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::set_Block( Block * block ) {
+
+ if( f_Block == block )
+  return;
+
+ if( f_Block ) {
+  // TODO clean
+  v_inner_block_configured.clear();
+  v_inner_solver_configured.clear();
+ }
+
+ Solver::set_Block( block );
+
+ if( ! f_Block )
+  return;
+
+ SDDPBlock * sddp_block;
+ if( ! ( sddp_block = dynamic_cast< SDDPBlock * >( block ) ) )
+  throw( std::invalid_argument( "SDDPGreedySolver::set_Block: given Block "
+                                "is not an SDDPBlock." ) );
+
+ v_inner_block_configured.assign( sddp_block->get_time_horizon() , false );
+ v_inner_solver_configured.assign( sddp_block->get_time_horizon() , false );
+
+}  // end( SDDPGreedySolver::set_Block )
+
+/*--------------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -56,24 +88,34 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  auto time_horizon = get_time_horizon();
  status_compute = Solver::kLowPrecision;
  fault_stage = Inf<Index>();
+ solution_value = 0.0;
+ f_has_var_solution = false;
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
+
+  if( f_log && log_verbosity )
+   *f_log << "Solving problem at stage " << stage << std::endl;
 
   if( stage > 0 ) {
    set_state( get_solution( stage - 1 ) , stage );
   }
 
+  if( callback ) callback( stage );
+
+  configure_inner_block( stage );
+
   auto sub_status = solve( stage , true );
 
   if( sub_status == Solver::kInfeasible ) {
    fault_stage = stage;
-   status_compute = ( stage == 0 ) ? kInfeasible : kSubproblemInfeasible;
+   if( stage == 0 ) status_compute = kInfeasible;
+   else status_compute = kSubproblemInfeasible;
    break;
   }
   else if( sub_status == Solver::kUnbounded ) {
-    fault_stage = stage;
-    status_compute = Solver::kUnbounded;
-    break;
+   fault_stage = stage;
+   status_compute = Solver::kUnbounded;
+   break;
   }
   else if( sub_status >= Solver::kError ) {
    fault_stage = stage;
@@ -86,12 +128,25 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    break;
   }
   else if( sub_status == Solver::kStopTime || sub_status == Solver::kStopIter ) {
+   solution_value += get_sub_solution_value( stage );
    if( fault_stage == Inf<Index>() ) {
     fault_stage = stage;
     status_compute = sub_status;
    }
   }
+  else {
+   solution_value += get_sub_solution_value( stage );
+  }
+
+  if( f_unregister_solver )
+   unregister_solver_inner_block( stage );
  }
+
+ f_has_var_solution =
+  ( status_compute == Solver::kOK ) ||
+  ( status_compute == Solver::kLowPrecision ) ||
+  ( status_compute == Solver::kStopIter ) ||
+  ( status_compute == Solver::kStopTime );
 
  return status_compute;
 }
@@ -108,14 +163,6 @@ SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon( void ) const {
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
 
-bool SDDPGreedySolver::has_var_solution( void ) {
- return ( status_compute == Solver::kLowPrecision ) ||
-  ( status_compute == Solver::kStopIter ) ||
-  ( status_compute == Solver::kStopTime );
-}
-
-/*--------------------------------------------------------------------------*/
-
 void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
  /* During the call to compute(), every Block associated with a stage in {0,
   * ..., T-2} has its solutions written in it. Therefore, we only need to
@@ -123,25 +170,129 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
 
  auto solver = get_sub_solver( get_time_horizon() - 1 );
 
+ if( ! solver )
+  return; // The Solver must have been unregistered (but the Solution should
+          // have already been written into the Block)
+
  if( ! solver->has_var_solution() )
   throw( std::logic_error( "SDDPGreedySolver::get_var_solution: subproblem "
                            "at the last stage does not have a solution." ) );
- else
+ else {
   solver->get_var_solution();
+
+  // TODO make SDDPGreedySolver a CDASolver?
+  for( Index t = 0 ; t < get_time_horizon() ; ++t ) {
+   auto solver = get_sub_solver( t );
+   if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) ) {
+    //assert( cda_solver->has_dual_solution() );
+    if( cda_solver->has_dual_solution() )
+     cda_solver->get_dual_solution();
+   }
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+void SDDPGreedySolver::configure_inner_block( Index stage ) {
+
+ if( v_inner_block_configured[ stage ] && v_inner_solver_configured[ stage ] )
+  return;
+
+ auto benders_function = get_benders_function( stage );
+ auto inner_block = benders_function->get_inner_block();
+
+ // BlockConfig
+
+ if( ! v_inner_block_configured[ stage ] ) {
+
+  if( ( ! f_inner_block_config ) &&
+      ( ! f_inner_block_config_filename.empty() ) ) {
+   auto c = Configuration::deserialize( f_inner_block_config_filename );
+   if( ! ( f_inner_block_config = dynamic_cast< BlockConfig * >( c ) ) ) {
+    delete c;
+    throw( std::invalid_argument
+           ( "SDDPGreedySolver::configure_inner_block: file " +
+             f_inner_block_config_filename + " is not a BlockConfig." ) );
+   }
+  }
+
+  if( f_inner_block_config ) {
+   f_inner_block_config->apply( inner_block );
+   v_inner_block_configured[ stage ] = true;
+  }
+ }
+
+ // BlockSolverConfig
+
+ if( ! v_inner_solver_configured[ stage ] ) {
+
+  if( ( ! f_inner_block_solver_config ) &&
+      ( ! f_inner_block_solver_config_filename.empty() ) ) {
+   auto c = Configuration::deserialize( f_inner_block_solver_config_filename );
+   if( ! ( f_inner_block_solver_config =
+           dynamic_cast< BlockSolverConfig * >( c ) ) ) {
+    delete c;
+    throw( std::invalid_argument
+           ( "SDDPGreedySolver::configure_inner_block: file " +
+             f_inner_block_solver_config_filename +
+             " is not a BlockSolverConfig." ) );
+   }
+  }
+
+  if( f_inner_block_solver_config ) {
+   f_inner_block_solver_config->apply( inner_block );
+   v_inner_solver_configured[ stage ] = true;
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::unregister_solver_inner_block( Index stage ) {
+
+ auto benders_function = get_benders_function( stage );
+ auto inner_block = benders_function->get_inner_block();
+
+ // BlockSolverConfig
+
+ BlockSolverConfig * inner_block_solver_config = nullptr;
+
+ if( v_BSC.size() > stage && v_BSC[ stage ] )
+  inner_block_solver_config = v_BSC[ stage ]->clone();
+ else if( f_inner_block_solver_config )
+  inner_block_solver_config = f_inner_block_solver_config->clone();
+
+ if( inner_block_solver_config ) {
+  inner_block_solver_config->clear();
+  inner_block_solver_config->apply( inner_block );
+  delete inner_block_solver_config;
+ }
+ else {
+  inner_block->unregister_Solvers();
+ }
+
+ v_inner_solver_configured[ stage ] = false;
+}
+
+/*--------------------------------------------------------------------------*/
+
 int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
 
  auto benders_function = get_benders_function( stage );
+
  auto status = benders_function->compute();
+
  auto solver = benders_function->get_solver();
 
- if( solver->has_var_solution() && write_solution ) {
-  solver->get_var_solution();
+ if( write_solution ) {
+  if( solver->has_var_solution() )
+   solver->get_var_solution();
+  if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) )
+   if( cda_solver->has_dual_solution() )
+    cda_solver->get_dual_solution();
  }
 
  return status;
@@ -165,7 +316,7 @@ BendersBFunction * SDDPGreedySolver::get_benders_function( Index stage ) const {
 
  auto benders_block = static_cast< BendersBlock * >
   ( static_cast< SDDPBlock * >( f_Block )->
-    get_sub_Block( get_time_horizon() - 1 )->get_inner_block() );
+    get_sub_Block( stage )->get_inner_block() );
 
  auto objective = static_cast< FRealObjective * >
   ( benders_block->get_objective() );
@@ -182,14 +333,27 @@ std::vector<double> SDDPGreedySolver::get_solution
   throw( std::invalid_argument( "SDDPGreedySolver::get_solution: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- const auto polyhedral_function =
-  static_cast< SDDPBlock * >( f_Block )->get_polyhedral_functions()[ stage ];
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
 
- std::vector<double> solution( polyhedral_function->get_num_active_var() );
+ Index solution_size = 0;
+ for( Index i = 0 ;
+      i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
+  solution_size +=
+   sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
+ }
 
- Index i = 0;
- for( const auto & variable : * polyhedral_function ) {
-  solution[ i++ ] = static_cast< const ColVariable & >( variable ).get_value();
+ std::vector<double> solution;
+ solution.reserve( solution_size );
+
+ for( Index i = 0 ;
+      i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
+  const auto polyhedral_function =
+   sddp_block->get_polyhedral_function( stage , i );
+
+  for( const auto & variable : * polyhedral_function ) {
+   solution.push_back
+    ( static_cast< const ColVariable & >( variable ).get_value() );
+  }
  }
  return solution;
 }

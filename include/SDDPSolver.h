@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 12 - 2019
+ * \date 01 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -34,6 +34,7 @@
 
 #include <boost/bimap.hpp>
 #include <Eigen/Dense>
+#include "BlockSolverConfig.h"
 #include "ScenarioSimulator.h"
 #include "Solver.h"
 #include "StOpt/sddp/OptimizerSDDPBase.h"
@@ -204,6 +205,23 @@ public:
  *  @{ */
 
 /*--------------------------------------------------------------------------*/
+ /// public enum for the possible return values of compute()
+ /** Public enum "extending" Solver::sol_type with more detailed values
+  * specific to SDDPSolver. */
+
+ enum sol_type_SDDP_S {
+  kCurveCross = sol_type::kLastSolverError
+  ///< backward and forward curves are crossing
+  /**< The convergence of the method is checked every #intNStepConv iterations
+   * by computing a "special" forward value. See #intNStepConv for
+   * details. The kCurveCross status is returned when the difference between
+   * the most recent backward value and the "special" forward value. When the
+   * sign of this difference changes with respect to that that was computed
+   * for the first time, the method returns this status.
+   */
+ };  // end( sol_type_SDDP_S )
+
+/*--------------------------------------------------------------------------*/
  /// public enum for the int algorithmic parameters
  /** Public enum describing the different types of algorithmic
   * parameters of "int" type that the SDDP solver has, besides those
@@ -213,7 +231,7 @@ public:
  enum int_par_type_SDDP_S {
 
   intNStepConv = int_par_type_S::intLastAlgPar ,
-  ///< Frequency in which the convergence is checked
+  ///< Frequency at which the convergence is checked
   /**< The method stops when either the maximum number of iterations
    * is reached (an iteration performs one backward pass and one (or
    * two) forward pass(es); see parameter #intMaxIter for the maximum
@@ -237,7 +255,7 @@ public:
    * given by the intNStepConv parameter. At such an iteration, an
    * extra forward pass is performed, in which the number of
    * simulations considered is given by the value of the parameter
-   * #intNbSimulCheckForSimu. \f$ \bar{z}_{k} \f$ is the upper bound
+   * #intNbSimulCheckForConv. \f$ \bar{z}_{k} \f$ is the upper bound
    * computed by this forward pass. The default value for
    * intNStepConv is 1. */
 
@@ -250,18 +268,30 @@ public:
    * time is displayed at every step. The default value for
    * intPrintTime is 1. */
 
-  intNbSimulCheckForSimu ,
+  intNbSimulCheckForConv ,
   ///< Number of simulations considered when checking convergence
   /**< This parameter determines the number of simulations that must
    * be considered during the forward pass that computes the upper
    * bound used for checking convergence. See the comments for the
    * parameter #intNStepConv for more details. The default value for
-   * intNbSimulCheckForSimu is 1. */
+   * intNbSimulCheckForConv is 1. */
+
+  intNbSimulBackward ,
+  ///< Number of simulations considered in the backward pass
+  /**< This parameter determines the number of simulations that must be
+   * considered during the backward pass. By default, this number is equal to
+   * the number of scenarios. */
+
+  intNbSimulForward ,
+  ///< Number of simulations considered in the forward pass
+  /**< This parameter determines the number of simulations that must be
+   * considered during the forward pass. By default, this number is
+   * the minimum between 3 and the number of scenarios. */
 
   intLastAlgPar
-  ///< first allowed new double parameter for derived classes
+  ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
-   * to extend the set of double algorithmic parameters. */
+   * to extend the set of int algorithmic parameters. */
 
  };  // end( int_par_type_SDDP_S )
 
@@ -276,10 +306,10 @@ public:
 
   dblAccuracy = dbl_par_type_S::dblLastAlgPar ,
   ///< relative accuracy for declaring a solution optimal
-  /**< The algorithmic parameter for setting the *relative* accuracy
-   * required to the solution of the SDDPBlock. Please see the
-   * comments of the #intNStepConv parameter for a detailed
-   * explanation of its meaning. */
+  /**< The algorithmic parameter for setting the *relative* accuracy required
+   * to the solution of the SDDPBlock. Please see the comments of the
+   * #intNStepConv parameter for a detailed explanation of its meaning. The
+   * default value for dblAccuracy is 1.0e-4. */
 
   dblLastAlgPar
   ///< first allowed new double parameter for derived classes
@@ -312,6 +342,18 @@ public:
   /**< Name of the file in which the visited states will be stored.
    * The default value is "visited_states.sddp". */
 
+  strInnerBC ,
+  ///< name of the file containing the default BlockConfig for the inner Block
+  /**< Name of the file containing the default BlockConfig that will be
+   * applied to the inner Block of each BendersBFunction.
+   */
+
+  strInnerBSC ,
+  ///< name of the file containing the default BlockSolverConfig for inner Block
+  /**< Name of the file containing the default BlockSolverConfig that will be
+   * applied to the inner Block of each BendersBFunction.
+   */
+
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -336,7 +378,7 @@ public:
   convergence_frequency = get_dflt_int_par( intNStepConv );
   print_cpu_time = get_dflt_int_par( intPrintTime );
   number_simulations_for_convergence =
-   get_dflt_int_par( intNbSimulCheckForSimu );
+   get_dflt_int_par( intNbSimulCheckForConv );
 
   // double
 
@@ -348,6 +390,10 @@ public:
   cuts_filename = get_dflt_str_par( strCutsFilename );
   visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
 
+  // vector
+
+  // number_meshes = get_dflt_vint_par( vecMeshForReg ); // TODO
+
   // SDDPOptimizer
 
   sddp_optimizer = std::make_shared<SDDPOptimizer>( this );
@@ -355,8 +401,86 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ void set_Block( Block * block ) override {
+  if( f_Block == block )  // registering to the same Block
+   return;                // cowardly and silently return
+
+  Solver::set_Block( block );
+
+  if( ! block )
+   return;
+
+  auto sddp_block = dynamic_cast< SDDPBlock * >( block );
+
+  if( ! sddp_block )
+   throw( std::invalid_argument( "SDDPSolver::set_Block: An SDDPSolver can "
+                                 "only be attached to an SDDPBlock." ) );
+
+  const auto & scenario_set = sddp_block->get_scenario_set();
+  std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+   set_scenarios( scenario_set );
+
+  // BlockConfig for the inner Blocks
+  if( ( ! f_inner_block_config ) &&
+      ( ! f_inner_block_config_filename.empty() ) ) {
+   auto c = Configuration::deserialize( f_inner_block_config_filename );
+   if( ! ( f_inner_block_config = dynamic_cast< BlockConfig * >( c ) ) ) {
+    delete c;
+    throw( std::invalid_argument
+           ( "SDDPSolver::configure_inner_block: file " +
+             f_inner_block_config_filename + " is not a BlockConfig." ) );
+   }
+  }
+
+  // BlockSolverConfig for the inner Blocks
+  if( ( ! f_inner_block_solver_config ) &&
+      ( ! f_inner_block_solver_config_filename.empty() ) ) {
+   auto c = Configuration::deserialize( f_inner_block_solver_config_filename );
+   if( ! ( f_inner_block_solver_config =
+           dynamic_cast< BlockSolverConfig * >( c ) ) ) {
+    delete c;
+    throw( std::invalid_argument
+           ( "SDDPSolver::configure_inner_block: file " +
+             f_inner_block_solver_config_filename +
+             " is not a BlockSolverConfig." ) );
+   }
+  }
+
+  // Configure the inner Blocks
+  if( f_inner_block_config || f_inner_block_solver_config ) {
+
+   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+    auto benders_function = get_benders_function( stage );
+
+    if( ! benders_function )
+     throw( std::invalid_argument
+            ( "SDDPSolver::set_Block: The BendersBFunction at stage " +
+              std::to_string( stage ) + " is not present." ) );
+
+    auto inner_block = benders_function->get_inner_block();
+
+    if( ! inner_block )
+     throw( std::invalid_argument
+            ( "SDDPSolver::set_Block: The inner Block of the BendersBFunction "
+              " at stage " + std::to_string( stage ) + " is not present." ) );
+
+    if( f_inner_block_config )
+     f_inner_block_config->apply( inner_block );
+
+    if( f_inner_block_solver_config )
+     f_inner_block_solver_config->apply( inner_block );
+   }
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// destructor
- virtual ~SDDPSolver() { }
+ virtual ~SDDPSolver() {
+  delete f_inner_block_config;
+  delete f_inner_block_solver_config;
+ }
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -375,7 +499,11 @@ public:
   *
   * - #intPrintTime
   *
-  * - #intNbSimulCheckForSimu
+  * - #intNbSimulCheckForConv
+  *
+  * - #intNbSimulBackward
+  *
+  * - #intNbSimulForward
   *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -385,13 +513,23 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const int value ) override {
+ void set_par( const idx_type par , const int value ) override {
   switch( par ) {
   case( intMaxIter ): maximum_number_iterations = value; return;
   case( intNStepConv ): convergence_frequency = value; return;
   case( intPrintTime ): print_cpu_time = value; return;
-  case( intNbSimulCheckForSimu ):
+  case( intNbSimulCheckForConv ):
    number_simulations_for_convergence = value; return;
+  case( intNbSimulBackward ):
+   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    set_number_simulations_backward( value );
+   return;
+  case( intNbSimulForward ):
+   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+    set_number_simulations_forward( value );
+   return;
+  case( intLogVerb ):
+   log_verbosity = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -404,8 +542,6 @@ public:
   *
   * - #dblAccuracy
   *
-  * - #dblLastAlgPar
-  *
   * Please refer to the #dbl_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -414,7 +550,7 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const double value ) override {
+ void set_par( const idx_type par , const double value ) override {
   if( par == dblAccuracy ) {
    accuracy = value;
    return;
@@ -434,7 +570,9 @@ public:
   *
   * - #strVisitedStatesFilename
   *
-  * - #strLastAlgPar
+  * - #strInnerBC
+  *
+  * - #strInnerBSC
   *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -444,12 +582,13 @@ public:
   * @param value The value for the given parameter.
   */
 
- virtual void set_par( const idx_type par , const std::string & value )
-  override {
+ void set_par( const idx_type par , const std::string & value ) override {
   switch( par ) {
-  case( strRegressorsFilename ): regressors_filename = value; return;
-  case( strCutsFilename ): cuts_filename = value; return;
-  case( strVisitedStatesFilename ): visited_states_filename = value; return;
+   case( strRegressorsFilename ): regressors_filename = value; return;
+   case( strCutsFilename ): cuts_filename = value; return;
+   case( strVisitedStatesFilename ): visited_states_filename = value; return;
+   case( strInnerBC ): f_inner_block_config_filename = value; return;
+   case( strInnerBSC ): f_inner_block_solver_config_filename = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -466,7 +605,7 @@ public:
   * @return The number of int parameters.
   */
 
- virtual idx_type get_num_int_par( void ) const override {
+ idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
  }
 
@@ -477,7 +616,7 @@ public:
   * @return The number of double parameters.
   */
 
- virtual idx_type get_num_dbl_par( void ) const override {
+ idx_type get_num_dbl_par( void ) const override {
   return( idx_type( dblLastAlgPar ) );
  }
 
@@ -488,27 +627,50 @@ public:
   * @return The number of string parameters.
   */
 
- virtual idx_type get_num_str_par( void ) const override {
+ idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of an int parameter
- /** Get the default value of the int parameter with given index.
-  * Please see the #int_par_type_SDDP_S and #int_par_type_S
-  * enumerations for a detailed explanation of the possible
-  * parameters.
+ /** Get the default value of the int parameter with given index.  Please see
+  * the #int_par_type_SDDP_S and #int_par_type_S enumerations for a detailed
+  * explanation of the possible parameters. This function returns the
+  * following values depending on the desired parameter:
+  *
+  * - #intNStepConv: 1
+  *
+  * - #intPrintTime: 1
+  *
+  * - #intNbSimulCheckForConv: 1
+  *
+  * - #intNbSimulBackward: given by
+  *   SDDPOptimizer::get_dflt_number_simulations_backward()
+  *
+  * - #intNbSimulForward: given by
+  *   SDDPOptimizer::get_dflt_number_simulations_forward()
+  *
+  * - #intLogVerb: 0
+  *
+  * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
   *
   * @return The default value of the given parameter.
   */
 
- virtual int get_dflt_int_par( const idx_type par ) const override {
+ int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intNStepConv ): return 1;
-  case( intPrintTime ): return 1;
-  case( intNbSimulCheckForSimu ): return 1;
+   case( intNStepConv ): return 1;
+   case( intPrintTime ): return 1;
+   case( intNbSimulCheckForConv ): return 1;
+   case( intNbSimulBackward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_dflt_number_simulations_backward();
+   case( intNbSimulForward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_dflt_number_simulations_forward();
+   case( intLogVerb ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -525,8 +687,8 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual double get_dflt_dbl_par( const idx_type par ) const override {
-  if( par == dblAccuracy ) return 1.0e-8;
+ double get_dflt_dbl_par( const idx_type par ) const override {
+  if( par == dblAccuracy ) return 1.0e-4;
   return Solver::get_dflt_dbl_par( par );
  }
 
@@ -542,11 +704,10 @@ public:
   * @return The default value of the given parameter.
   */
 
- virtual const std::string & get_dflt_str_par( const idx_type par )
-  const override {
+ const std::string & get_dflt_str_par( const idx_type par ) const override {
 
   static const std::vector<std::string> default_values =
-   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" };
+   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -565,12 +726,19 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual int get_int_par( const idx_type par ) const override {
+ int get_int_par( const idx_type par ) const override {
   switch( par ) {
-  case( intMaxIter ): return maximum_number_iterations;
-  case( intNStepConv ): return convergence_frequency;
-  case( intPrintTime ): return print_cpu_time;
-  case( intNbSimulCheckForSimu ): return number_simulations_for_convergence;
+   case( intMaxIter ): return maximum_number_iterations;
+   case( intNStepConv ): return convergence_frequency;
+   case( intPrintTime ): return print_cpu_time;
+   case( intNbSimulCheckForConv ): return number_simulations_for_convergence;
+   case( intNbSimulBackward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_number_simulations_backward();
+   case( intNbSimulForward ):
+    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     get_number_simulations_forward();
+   case( intLogVerb ): return log_verbosity;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -586,7 +754,7 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual double get_dbl_par( const idx_type par ) const override {
+ double get_dbl_par( const idx_type par ) const override {
   if( par == dblAccuracy )
    return accuracy;
   return( get_dflt_dbl_par( par ) );
@@ -603,11 +771,13 @@ public:
   * @return The value of the given parameter.
   */
 
- virtual const std::string & get_str_par( const idx_type par ) const override {
+ const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
-  case( strRegressorsFilename ): return regressors_filename;
-  case( strCutsFilename ): return cuts_filename;
-  case( strVisitedStatesFilename ): return visited_states_filename;
+   case( strRegressorsFilename ): return regressors_filename;
+   case( strCutsFilename ): return cuts_filename;
+   case( strVisitedStatesFilename ): return visited_states_filename;
+   case( strInnerBC ): return f_inner_block_config_filename;
+   case( strInnerBSC ): return f_inner_block_solver_config_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -626,10 +796,12 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type int_par_str2idx( const std::string & name ) const override {
+ idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intNStepConv" ) return intNStepConv;
   if( name == "intPrintTime" ) return intPrintTime;
-  if( name == "intNbSimulCheckForSimu" ) return intNbSimulCheckForSimu;
+  if( name == "intNbSimulCheckForConv" ) return intNbSimulCheckForConv;
+  if( name == "intNbSimulBackward" ) return intNbSimulBackward;
+  if( name == "intNbSimulForward" ) return intNbSimulForward;
   return Solver::int_par_str2idx( name );
  }
 
@@ -644,7 +816,7 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type dbl_par_str2idx( const std::string & name ) const override {
+ idx_type dbl_par_str2idx( const std::string & name ) const override {
   if( name == "dblAccuracy" ) return dblAccuracy;
   return Solver::dbl_par_str2idx( name );
  }
@@ -660,10 +832,12 @@ public:
   * @return The index of the parameter with the given \p name.
   */
 
- virtual idx_type str_par_str2idx( const std::string & name ) const override {
+ idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strRegressorsFilename" ) return strRegressorsFilename;
   if( name == "strCutsFilename" ) return strCutsFilename;
   if( name == "strVisitedStatesFilename" ) return strVisitedStatesFilename;
+  if( name == "strInnerBC" ) return strInnerBC;
+  if( name == "strInnerBSC" ) return strInnerBSC;
   return Solver::str_par_str2idx( name );
  }
 
@@ -678,11 +852,11 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & int_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "intNStepConv", "intPrintTime", "intNbSimulCheckForSimu" };
+   { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
+     "intNbSimulBackward" , "intNbSimulForward" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -701,8 +875,7 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & dbl_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & dbl_par_idx2str( const idx_type idx ) const override {
   static const std::string dblAccuracy_name = "dblAccuracy";
   if( idx == dblAccuracy ) return dblAccuracy_name;
   return Solver::dbl_par_idx2str( idx );
@@ -719,11 +892,11 @@ public:
   * @return The name of the parameter with the given index \p idx.
   */
 
- virtual const std::string & str_par_idx2str( const idx_type idx )
-  const override {
+ const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" };
+   { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
+     "strInnerBC" , "strInnerBSC" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -741,7 +914,7 @@ public:
  /**
   */
 
- virtual int compute( bool changedvars = true ) override;
+ int compute( bool changedvars = true ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
@@ -749,8 +922,28 @@ public:
 /** @name Accessing the found solutions (if any)
  * @{ */
 
- virtual void get_var_solution( Configuration *solc = nullptr ) override {
+ void get_var_solution( Configuration *solc = nullptr ) override {
   // TODO
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_lb( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ double get_ub( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ double get_backward_value( void ) const {
+  return backward_value;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_forward_value( void ) const {
+  return forward_value;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -782,11 +975,35 @@ public:
   */
  SDDPBlock::Index get_time_horizon() const;
 
+/*--------------------------------------------------------------------------*/
+
+/// returns the solution associated with the problem at the given stage
+/** This function returns the solution of the problem associated with the
+ * given \p stage, which is part of the state variables of the next stage.
+ *
+ * @param stage The stage whose solution is required.
+ *
+ * @return The array containing the solution of the problem at the given
+ *         stage.
+ */
+
+ template< class T = Eigen::ArrayXd >
+ T get_solution( SDDPBlock::Index stage ) const;
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
 protected:
+
+/// returns a pointer to the BendersBFunction associated with the given \p stage
+/** This function returns a pointer to the BendersBFunction associated with
+ * the given \p stage, which must be an integer between 0 and
+ * get_time_horizon() - 1.
+ *
+ * @param stage An index between 0 and get_time_horizon() - 1.
+ */
+ BendersBFunction * get_benders_function( SDDPBlock::Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
@@ -794,19 +1011,19 @@ protected:
 
  /// Initial state
  /** The initial state at the beginning of the simulation. */
- Eigen::ArrayXd initial_state; //p_initialState;
+ Eigen::ArrayXd initial_state;
 
  /// Number of meshes in each direction
  /** This array stores the number of meshes in each direction. The
   * i-th component of this array contains the number of meshes
   * (number of steps) at direction i. */
- Eigen::ArrayXi number_meshes; // p_meshForReg;
+ Eigen::ArrayXi number_meshes;
 
  /// The cuts used at the last time step
  /** The cuts used at the last time step: when the final value
   * function is zero, the last cut is given by an all zero array of
   * size nbstate + 1. */
- StOpt::SDDPFinalCut final_cut; // p_finalCut
+ StOpt::SDDPFinalCut final_cut;
 
  /// Number of iterations performed by the method
  /** Number of iterations performed by the method at the last call of
@@ -825,6 +1042,9 @@ protected:
   */
  double accuracy_achieved;
 
+ /// It indicates the level of verbosity of the log
+ int log_verbosity = 0;
+
  // PARAMETERS
 
  /// Name of the file in which regressors will be stored
@@ -835,6 +1055,18 @@ protected:
 
  /// Name of the file in which the visited states will be stored
  std::string visited_states_filename;
+
+ /// Name of the default BlockConfig file for the inner Blocks
+ std::string f_inner_block_config_filename;
+
+ /// Default BlockConfig for the inner Blocks
+ BlockConfig * f_inner_block_config = nullptr;
+
+ /// Name of the default BlockSolverConfig file for the inner Blocks
+ std::string f_inner_block_solver_config_filename;
+
+ /// Default BlockConfig for the inner Blocks
+ BlockSolverConfig * f_inner_block_solver_config = nullptr;
 
  /// Maximum number of iterations that the method should perform
  int maximum_number_iterations;
@@ -858,6 +1090,9 @@ protected:
   * comments about the dblAccuracy parameter for more details. */
  double accuracy;
 
+ /// Status returned by compute()
+ int status = kUnEval;
+
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -868,8 +1103,23 @@ private:
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void update_cuts( const Eigen::ArrayXXd & cuts ,
-                   SDDPBlock::Index stage ) const;
+/// add cuts to the sub-problem at the given stage
+/** This function adds cuts to the sub-problem at the given \p stage.
+ *
+ * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
+ *        a matrix with as many columns as there are cuts to be added and the
+ *        number of rows must be equal to one plus the number of Variable
+ *        defined in the BendersBlock associated with stage \p stage.
+ *
+ * @param stage The stage at which cuts should be updated, which must be an
+ *        integer between 0 and get_time_horizon() - 1.
+ *
+ * @param range The indices of the cuts in \p cuts that should be added.
+ */
+
+ void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ,
+                bool backward , Block::Range range =
+                std::make_pair( 0 , Inf<SDDPBlock::Index>() )  ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -878,21 +1128,25 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- void set_scenario( const Eigen::ArrayXd & scenario ,
+ void set_scenario( SDDPBlock::Index scenario_id ,
                     SDDPBlock::Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
- void solve( SDDPBlock::Index stage );
+ void process_outstanding_Modification();
 
 /*--------------------------------------------------------------------------*/
 
- Eigen::ArrayXd get_solution( SDDPBlock::Index stage ) const;
+/// solves the subproblem associated with the given stage
+/** This function solves the subproblem associated with the given \p stage,
+ * which must be an integer between 0 and get_time_horizon() - 1.
+ *
+ * @param stage The stage whose associated subproblem must be solved.
+ */
+ double solve( SDDPBlock::Index stage );
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
-/*--------------------------------------------------------------------------*/
-
 /*--------------------------------------------------------------------------*/
 
  class SDDPOptimizer : public StOpt::OptimizerSDDPBase {
@@ -907,18 +1161,20 @@ private:
    */
   SDDPOptimizer( SDDPSolver * solver = nullptr ) {
    sddp_solver = solver;
+   simulator_backward = std::make_shared< ScenarioSimulator >( true );
+   simulator_forward = std::make_shared< ScenarioSimulator >( false );
   }
 
 /*--------------------------------------------------------------------------*/
 
-  virtual Eigen::ArrayXd oneStepBackward
+  Eigen::ArrayXd oneStepBackward
   ( const StOpt::SDDPCutOptBase & p_linCut,
     const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & p_aState,
     const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
 
 /*--------------------------------------------------------------------------*/
 
-  virtual double oneStepForward
+  double oneStepForward
   ( const Eigen::ArrayXd &p_aParticle, Eigen::ArrayXd &p_state,
     Eigen::ArrayXd &p_stateToStore,
     const StOpt::SDDPCutOptBase &p_linCut,
@@ -952,8 +1208,7 @@ private:
    *
    * @param date_next Another stage.
    */
-  virtual void updateDates
-  ( const double & date, const double & date_next ) override;
+  void updateDates( const double & date, const double & date_next ) override;
 
 /*--------------------------------------------------------------------------*/
 
@@ -975,7 +1230,7 @@ private:
    * @return An initial state for the optimization problem
    * associated with the given stage.
    */
-  virtual Eigen::ArrayXd oneAdmissibleState( const double & stage ) override;
+  Eigen::ArrayXd oneAdmissibleState( const double & stage ) override;
 
 /*--------------------------------------------------------------------------*/
 
@@ -987,7 +1242,7 @@ private:
    *
    * @return The size of the state vector.
    */
-  virtual int getStateSize() const override {
+  int getStateSize() const override {
    return sddp_solver->initial_state.size();
   }
 
@@ -999,7 +1254,7 @@ private:
    *
    * @return The simulator associated with the backward pass.
    */
-  virtual std::shared_ptr< StOpt::SimulatorSDDPBase >
+  std::shared_ptr< StOpt::SimulatorSDDPBase >
   getSimulatorBackward() const override {
    return simulator_backward;
   }
@@ -1012,7 +1267,7 @@ private:
    *
    * @return The simulator associated with the forward pass.
    */
-  virtual std::shared_ptr< StOpt::SimulatorSDDPBase >
+  std::shared_ptr< StOpt::SimulatorSDDPBase >
   getSimulatorForward() const override {
    return simulator_forward;
   }
@@ -1031,11 +1286,69 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
-  double get_objective_function_value( const double & stage ) const;
+  void set_scenarios( const ScenarioSet & scenario_set ) {
+   simulator_backward->set_scenarios( scenario_set );
+   simulator_forward->set_scenarios( scenario_set );
+
+   if( simulator_backward->getNbSimul() == 0 )
+    simulator_backward->set_number_simulations
+     ( get_dflt_number_simulations_backward() );
+
+   if( simulator_forward->getNbSimul() == 0 )
+    simulator_forward->set_number_simulations
+     ( get_dflt_number_simulations_forward() );
+  }
 
 /*--------------------------------------------------------------------------*/
 
+  /// returns the (pointer to the) Block associated with the given stage
+  /** This method takes a double as parameter, representing a stage, and
+   * returns a pointer to the Block associated with this stage.
+   *
+   * @param[in] stage A number in the interval [0, T-1], where T is the time
+   *            horizon. Although the parameter is of type double, its value
+   *            must be actually an integer.
+   *
+   * @return A pointer to the Block associated with the given stage.
+   */
+
   StochasticBlock * get_block( const double & stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+  int get_number_simulations_backward() const {
+   return simulator_backward->getNbSimul();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_number_simulations_forward() const {
+   return simulator_forward->getNbSimul();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  void set_number_simulations_backward( int number_simulations ) {
+   simulator_backward->set_number_simulations( number_simulations );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  void set_number_simulations_forward( int number_simulations ) {
+   simulator_forward->set_number_simulations( number_simulations );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_dflt_number_simulations_backward() const {
+   return simulator_backward->get_number_scenarios();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_dflt_number_simulations_forward() const {
+   return std::min( 3u , simulator_forward->get_number_scenarios() );
+  }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1051,11 +1364,64 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ class CutController {
+
+ public:
+
+  CutController() {
+   reset();
+  }
+
+  /// returns true if and only if cuts should be added
+  bool add_cuts( SDDPBlock::Index stage ,
+                 SDDPBlock::Index time_horizon ) const {
+   if( stage == time_horizon - 1 && ( ! first_subproblem ) )
+    return false;
+   return true;
+  }
+
+  /// returns true if and only if cuts should be removed
+  bool remove_cuts( SDDPBlock::Index stage , SDDPBlock::Index time_horizon ,
+                    bool backward ) const {
+   if( stage == time_horizon - 1 )
+    // No cut must be removed at the last stage, because they are added only
+    // once.
+    return false;
+   else if( backward && stage != previous_stage )
+    return false;
+   return true;
+  }
+
+  void backward_pass( SDDPBlock::Index stage ) {
+   previous_stage = stage;
+   first_subproblem = false;
+  }
+
+  void reset() {
+   previous_stage = Inf<SDDPBlock::Index>();
+   first_subproblem = true;
+  }
+
+  bool first_subproblem = true;
+  SDDPBlock::Index previous_stage;
+ };
+
+/*--------------------------------------------------------------------------*/
+
  friend SDDPOptimizer;
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+ /// the value of the last backward pass
+ double backward_value;
+
+ /// the value obtained during the forward pass when checking for convergence
+ double forward_value;
+
+ /// controls how we deal with adding and removing cuts
+ CutController cut_controller;
 
  std::shared_ptr< StOpt::OptimizerSDDPBase > sddp_optimizer;
 
