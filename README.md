@@ -39,6 +39,11 @@ find_package(SDDPBlock)
 target_link_libraries(<my_target> SMS++::SDDPBlock)
 ```
 
+## Getting help
+
+If you need support, you want to submit bugs or propose a new feature, you can
+[open a new issue](https://gitlab.com/smspp/sddpblock/-/issues/new).
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of
@@ -65,7 +70,7 @@ see the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-The code is currently provided free of charge for academic purposes only.
+The code is currently provided free of charge under an open-source license.
 As such, it is provided "*as is*", without any explicit or implicit warranty
 that it will properly behave or it will suit your needs. The Authors of
 the code cannot be considered liable, either directly or indirectly, for
