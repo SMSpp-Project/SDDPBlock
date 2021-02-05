@@ -1,6 +1,6 @@
 # SDDPBlock
 
-SMS++ Block and Solver for multistage linear stochastic programming problems.
+SMS++ Block and Solver for multistage stochastic programming problems.
 
 ## Getting started
 
@@ -9,6 +9,7 @@ These instructions will let you build SDDPBlock on your system.
 ### Requirements
 
 - [SMS++ StochasticBlock](https://gitlab.com/smspp/stochasticblock)
+- [STochastic OPTimization library (StOpt)](https://gitlab.com/stochastic-control/StOpt)
 
 ### Build and install with CMake
 
@@ -53,14 +54,10 @@ conduct, and the process for submitting merge requests to us.
 
 ### Current Lead Authors
 
-- **Antonio Frangioni**  
+- **Rafael Durbano Lobato**  
   *Operations Research Group*  
   Dipartimento di Informatica  
   Università di Pisa
-
-- **Rafael Durbano Lobato**  
-  Department of Applied Mathematics  
-  State University of Campinas, Brazil
 
 ## License
 
