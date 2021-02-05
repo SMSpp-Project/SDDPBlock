@@ -108,7 +108,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
   if( sub_status == Solver::kInfeasible ) {
    fault_stage = stage;
-   status_compute = ( stage == 0 ) ? kInfeasible : kSubproblemInfeasible;
+   if( stage == 0 ) status_compute = kInfeasible;
+   else status_compute = kSubproblemInfeasible;
    break;
   }
   else if( sub_status == Solver::kUnbounded ) {

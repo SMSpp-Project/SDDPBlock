@@ -2,7 +2,6 @@
 /*---------------------- File SDDPGreedySolver.h ---------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @file
-
  * Header file for the SDDPGreedySolver class, implementing the Solver
  * interface, for multistage programming problems defined by the
  * SDDPBlock. The SDDPGreedySolver implements a greedy strategy to try to
