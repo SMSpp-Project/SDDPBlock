@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 31 - 01 - 2021
+ * \date 03 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -219,17 +219,25 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****"
             << std::endl;
-  *log << "  stage:         " << current_stage << std::endl;
-  *log << "  simulation_id: " << simulation_id << std::endl;
-  *log << "  particle:      (";
+  *log << "  Stage:         " << current_stage << std::endl;
+  *log << "  Simulation id: " << simulation_id << std::endl;
+  *log << "  Particle:      (";
   for( decltype( particle.size() ) i = 0 ; i < particle.size() ; ++i ) {
    if( i > 0 ) *log << ", ";
    *log << particle( i );
   }
   *log << ")" << std::endl;
 
-  if( sddp_solver->log_verbosity >= 20 )
-   *log << "  state:         " << *std::get<0>( state ) << std::endl;
+  if( sddp_solver->log_verbosity >= 20 ) {
+   *log << "  State:         (";
+   const auto & state_variables = * std::get<0>( state );
+   for( decltype( state_variables.size() ) i = 0 ;
+        i < state_variables.size() ; ++i ) {
+    if( i > 0 ) *log << ", ";
+    *log << state_variables( i );
+   }
+   *log << ")" << std::endl;
+  }
  }
 
  /* "particle" contains the random quantities in which the regression over the
@@ -284,7 +292,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   * the linearization of the BendersBFunction associated with the i-th state
   * variable. */
 
- auto number_state_variables = std::get<0>( state )->size();
+ const auto number_state_variables = std::get<0>( state )->size();
  Eigen::ArrayXd linearization( number_state_variables + 1 );
 
  auto benders_function = sddp_solver->get_benders_function( current_stage );
@@ -297,11 +305,12 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   {
    const auto alpha = benders_function->get_linearization_constant();
    if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
-    *( sddp_solver->f_log ) << "  alpha:           " << alpha << std::endl;
-    *( sddp_solver->f_log ) << "  objective value: " << objective_value
+    *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
+    *( sddp_solver->f_log ) << "    alpha:        " << alpha << std::endl;
+    *( sddp_solver->f_log ) << "    objective:    " << objective_value
                             << std::endl;
     if( sddp_solver->log_verbosity >= 0 ) {
-     *( sddp_solver->f_log ) << "  linearization coefficients:\n    (";
+     *( sddp_solver->f_log ) << "    coefficients: (";
      for( decltype( linearization.size() ) i = 1 ;
           i < linearization.size() ; ++i ) {
       if( i > 1 ) *( sddp_solver->f_log ) << ", ";
@@ -312,20 +321,21 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
    }
 
    double gy = 0;
-   auto state_variables = std::get<0>( state ).get();
-   for( decltype( ( *state_variables ).size() ) j = 0 ;
-        j < ( *state_variables ).size() ; ++j )
-    gy += linearization( j + 1 ) * ( *state_variables )( j );
+   const auto & state_variables = * std::get<0>( state ).get();
+   for( decltype( state_variables.size() ) j = 0 ;
+        j < state_variables.size() ; ++j )
+    gy += linearization( j + 1 ) * state_variables( j );
    const double epsilon = 1.0e-8;
    const auto max_diff = std::max( epsilon , epsilon *
                                    std::min( abs( objective_value ),
                                              abs( alpha + gy ) ) );
    if( std::abs( objective_value - ( alpha + gy ) ) > max_diff ) {
     std::cerr << "Wrong linearization in SDDPSolver:" << std::endl;
-    std::cerr << "obj   = " << std::setprecision( 20 )
+    std::cerr << "  objective: " << std::setprecision( 20 )
               << objective_value << std::endl;
-    std::cerr << "alpha = " << std::setprecision( 20 ) << alpha << std::endl;
-    std::cerr << "gy    = " << std::setprecision( 20 ) << gy << std::endl;
+    std::cerr << "  alpha:     " << std::setprecision( 20 )
+              << alpha << std::endl;
+    std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
    }
   }
 #endif
@@ -534,16 +544,22 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepForward *****"
             << std::endl;
-  *log << "  stage:         " << current_stage << std::endl;
-  *log << "  simulation_id: " << simulation_id << std::endl;
-  *log << "  particle:      (";
+  *log << "  Stage:         " << current_stage << std::endl;
+  *log << "  Simulation id: " << simulation_id << std::endl;
+  *log << "  Particle:      (";
   for( decltype( particle.size() ) i = 0 ; i < particle.size() ; ++i ) {
    if( i > 0 ) *log << ", ";
    *log << particle( i );
   }
   *log << ")" << std::endl;
-  if( sddp_solver->log_verbosity >= 20 )
-   *log << "  state:         " << state << std::endl;
+  if( sddp_solver->log_verbosity >= 20 ) {
+   *log << "  State:         (";
+   for( decltype( state.size() ) i = 0 ; i < state.size() ; ++i ) {
+    if( i > 0 ) *log << ", ";
+    *log << state( i );
+   }
+   *log << ")" << std::endl;
+  }
  }
 
  /********/
@@ -596,9 +612,15 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  auto solution = sddp_solver->get_solution( current_stage );
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
-  *( sddp_solver->f_log ) << "  objective: " << objective_value << std::endl;
-  if( sddp_solver->log_verbosity >= 20 )
-   *( sddp_solver->f_log ) << "  solution:  " << solution << std::endl;
+  *( sddp_solver->f_log ) << "  Objective: " << objective_value << std::endl;
+  if( sddp_solver->log_verbosity >= 20 ) {
+   *( sddp_solver->f_log ) << "  Solution:  (";
+   for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
+    if( i > 0 ) *( sddp_solver->f_log ) << ", ";
+    *( sddp_solver->f_log ) << solution( i );
+   }
+   *( sddp_solver->f_log ) << ")" << std::endl;
+  }
  }
 
  // Store in state the current state, i.e, ( x_t, w_t^{dep} ).
