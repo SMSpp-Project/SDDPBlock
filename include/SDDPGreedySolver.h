@@ -895,13 +895,17 @@ private:
 
  double get_sub_solution_value( Index stage ) const {
   assert( stage < get_time_horizon() );
+  double solution_value = 0;
   auto sub_solver = get_sub_solver( stage );
   if( sub_solver->is_var_feasible() )
-   return sub_solver->get_var_value();
+   solution_value = sub_solver->get_var_value();
   else if( get_objective_sense( stage ) == Objective::eMin )
-   return sub_solver->get_ub();
+   solution_value = sub_solver->get_ub();
   else
-   return sub_solver->get_lb();
+   solution_value = sub_solver->get_lb();
+  const auto future_cost = static_cast< SDDPBlock * >( f_Block )->
+   get_future_cost( stage );
+  return solution_value - future_cost;
  }
 
 /*--------------------------------------------------------------------------*/
