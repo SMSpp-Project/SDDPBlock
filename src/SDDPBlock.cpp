@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 07 - 01 - 2021
+ * \date 18 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -285,27 +285,12 @@ StochasticBlock * SDDPBlock::get_sub_Block( Index i ) const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
-                          PolyhedralFunction::RealVector && b ,
-                          Index stage , bool replace_last_cuts ) {
+                          PolyhedralFunction::RealVector && b , Index stage ) {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::add_cuts: invalid stage index: " +
                                 std::to_string( stage ) ) );
 
- if( replace_last_cuts ) {
-  /*
-  const auto num_cuts = b.size();
-  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
-  assert( num_rows >= num_cuts );
-  Range range( num_rows - num_cuts , num_rows );
-  v_polyhedral_functions[ stage ]->modify_rows( std::move( A ) , b , range );
-  */
-
-  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
-  v_polyhedral_functions[ stage ]->delete_rows( Range( 0 , num_rows ) );
-  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
- }
- else
-  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
+ v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -356,7 +341,7 @@ void SDDPBlock::set_admissible_state( Index stage ) {
 
 void SDDPBlock::set_scenario( Index scenario_id ) {
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
-  this->set_scenario( scenario_id ,  stage );
+  this->set_scenario( scenario_id , stage );
 }
 
 /*--------------------------------------------------------------------------*/

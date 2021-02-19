@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 03 - 02 - 2021
+ * \date 18 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -73,7 +73,7 @@ int SDDPSolver::compute( bool changedvars ) {
  boost::iostreams::stream< boost::iostreams::null_sink >
   null_sink( ( boost::iostreams::null_sink() ) );
  std::ostream * output_stream = & null_sink;
- if( f_log && log_verbosity >= 5 )
+ if( f_log && log_verbosity >= 2 )
   output_stream = f_log;
 
  auto time_horizon = get_time_horizon();
@@ -110,7 +110,11 @@ int SDDPSolver::compute( bool changedvars ) {
  StOpt::SDDPFinalCut final_cut
   ( Eigen::ArrayXXd::Zero( initial_state.size() + 1 , 1 ) );
 
- cut_controller.reset();
+ // Store the number of cuts currently present at each stage
+ number_initial_cuts.resize( get_time_horizon() );
+ for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
+  number_initial_cuts[ stage ] =
+   static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage );
 
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
@@ -209,13 +213,13 @@ void SDDPSolver::process_outstanding_Modification() {
 /*--------------------------------------------------------------------------*/
 
 Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
-( const StOpt::SDDPCutOptBase &p_linCut,
+( const StOpt::SDDPCutOptBase & sddp_cut ,
   const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & state,
   const Eigen::ArrayXd & particle, const int & simulation_id ) const {
 
  auto current_stage = date_next;
 
- if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****"
             << std::endl;
@@ -228,7 +232,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   }
   *log << ")" << std::endl;
 
-  if( sddp_solver->log_verbosity >= 20 ) {
+  if( sddp_solver->log_verbosity >= 10 ) {
    *log << "  State:         (";
    const auto & state_variables = * std::get<0>( state );
    for( decltype( state_variables.size() ) i = 0 ;
@@ -243,7 +247,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* "particle" contains the random quantities in which the regression over the
   * expectation of the value function will be based */
 
- auto cuts = p_linCut.getCutsAssociatedToTheParticle( std::get<1>( state ) );
+ auto cuts = sddp_cut.getCutsAssociatedToTheParticle( std::get<1>( state ) );
 
  /* For each scenario j used in the forward pass (for j+1 in
   * {1, ..., G, ..., (n+1)G}), cuts(:, j) is a cut such that
@@ -252,16 +256,10 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   *
   * cuts(i, j) = beta_{i-1, t+1}^j, for i in {1, ..., nbstate}
   *
-  * Add these cuts to the Block associated with time p_dateNext.
+  * Add these cuts to the Block associated with the current_stage.
   */
 
- if( current_stage == sddp_solver->get_time_horizon() - 1 )
-  sddp_solver->add_cuts( cuts , current_stage , true );
- else {
-  Block::Index first_cut = 0;
-  sddp_solver->add_cuts( cuts , current_stage , true ,
-                         Block::Range( first_cut , cuts.cols() ) );
- }
+ sddp_solver->add_cuts( cuts , current_stage );
 
  /*******************/
  /* STATE VARIABLES */
@@ -304,12 +302,12 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 #ifdef BENDERSBFUNCTION_DEBUG
   {
    const auto alpha = benders_function->get_linearization_constant();
-   if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
+   if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
     *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
     *( sddp_solver->f_log ) << "    alpha:        " << alpha << std::endl;
     *( sddp_solver->f_log ) << "    objective:    " << objective_value
                             << std::endl;
-    if( sddp_solver->log_verbosity >= 0 ) {
+    if( sddp_solver->log_verbosity >= 30 ) {
      *( sddp_solver->f_log ) << "    coefficients: (";
      for( decltype( linearization.size() ) i = 1 ;
           i < linearization.size() ; ++i ) {
@@ -325,12 +323,17 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
    for( decltype( state_variables.size() ) j = 0 ;
         j < state_variables.size() ; ++j )
     gy += linearization( j + 1 ) * state_variables( j );
-   const double epsilon = 1.0e-8;
-   const auto max_diff = std::max( epsilon , epsilon *
-                                   std::min( abs( objective_value ),
-                                             abs( alpha + gy ) ) );
-   if( std::abs( objective_value - ( alpha + gy ) ) > max_diff ) {
-    std::cerr << "Wrong linearization in SDDPSolver:" << std::endl;
+   const double epsilon = 1.0e-4;
+   const auto scale =
+    std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
+   const auto diff = std::abs( objective_value - ( alpha + gy ) );
+   if( diff > epsilon * scale ) {
+    std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
+              << "was not achieved:" << std::endl;
+    std::cerr << "  precision required: " << std::setprecision( 20 )
+              << epsilon << std::endl;
+    std::cerr << "  precision achieved: " << std::setprecision( 20 )
+              << ( diff / scale ) << std::endl;
     std::cerr << "  objective: " << std::setprecision( 20 )
               << objective_value << std::endl;
     std::cerr << "  alpha:     " << std::setprecision( 20 )
@@ -352,8 +355,6 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                            "linearization is available." ) );
  }
 
- sddp_solver->cut_controller.backward_pass( current_stage );
-
  return linearization;
 }
 
@@ -366,39 +367,43 @@ SDDPBlock::Index SDDPSolver::get_time_horizon( void ) const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
-                           SDDPBlock::Index stage , bool backward ,
-                           Block::Range range ) const {
-
- if( ! cut_controller.add_cuts( stage , get_time_horizon() ) )
-  return;
+                           SDDPBlock::Index stage ) const {
 
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::add_cuts: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- /* The first element is the function value, and all the other elements are
-  * the coefficients. */
+ auto number_cuts_added =
+  static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage ) -
+  number_initial_cuts[ stage ];
+
+ /* StOpt provides all cuts that were ever generated. We consider only the
+  * last ones when updating the cuts. We are assuming that the new cuts
+  * provided by StOpt appear in the last columns of the matrix "cuts". */
+
+ if( cuts.cols() == number_cuts_added )
+  return; // all cuts are already there
+
+ assert( cuts.cols() >= number_cuts_added );
 
  PolyhedralFunction::MultiVector A;
  PolyhedralFunction::RealVector b;
 
- range.second = std::min< decltype( cuts.cols() ) >( range.second ,
-                                                     cuts.cols() );
+ auto number_cuts_to_add = cuts.cols() - number_cuts_added;
 
- if( range.second <= range.first )
-  return;
+ A.resize( number_cuts_to_add );
+ b.resize( number_cuts_to_add );
 
- auto num_cuts = range.second - range.first;
+ /* Each column in "cuts" contains a cut. The first element is the function
+  * value, and all the other elements are the coefficients. */
 
- A.resize( num_cuts );
- b.resize( num_cuts );
-
- for( decltype( num_cuts ) cut = range.first ; cut < range.second ; ++cut ) {
-  auto i = cut - range.first;
+ for( Index k = 0 ; k < number_cuts_to_add ; ++k ) {
+  const auto i = number_cuts_to_add - k - 1;
+  const auto col = cuts.cols() - k - 1;
   A[ i ].resize( cuts.rows() - 1 );
-  b[ i ] = cuts( 0 , cut );
+  b[ i ] = cuts( 0 , col );
   for( decltype( A[ i ].size() ) j = 0 ; j < A[ i ].size() ; ++j ) {
-   A[ i ][ j ] = cuts( j + 1 , cut );
+   A[ i ][ j ] = cuts( j + 1 , col );
   }
  }
 
@@ -412,10 +417,8 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   }
  }
 
- const bool replace_last_cuts = true;
-
  static_cast< SDDPBlock * >( f_Block )->add_cuts
-  ( std::move( A ) , std::move( b ) , stage , replace_last_cuts );
+  ( std::move( A ) , std::move( b ) , stage );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -540,7 +543,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  auto current_stage = date;
 
- if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepForward *****"
             << std::endl;
@@ -552,7 +555,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    *log << particle( i );
   }
   *log << ")" << std::endl;
-  if( sddp_solver->log_verbosity >= 20 ) {
+  if( sddp_solver->log_verbosity >= 10 ) {
    *log << "  State:         (";
    for( decltype( state.size() ) i = 0 ; i < state.size() ; ++i ) {
     if( i > 0 ) *log << ", ";
@@ -560,26 +563,6 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    }
    *log << ")" << std::endl;
   }
- }
-
- /********/
- /* CUTS */
- /********/
-
- // Retrieve the cuts.
- auto cuts = sddp_cut.getCutsAssociatedToAParticle( particle );
-
- /* StOpt provides all cuts that were ever generated. We consider only
-  * the last ones when updating the cuts. */
-
- // Update the cuts in the Block associated with the current stage.
-
- if( current_stage == sddp_solver->get_time_horizon() - 1 )
-  sddp_solver->add_cuts( cuts , current_stage , false );
- else {
-  Block::Index first_cut = 0;
-  sddp_solver->add_cuts( cuts , current_stage , false ,
-                         Block::Range( first_cut , cuts.cols() ) );
  }
 
  /***************/
@@ -611,9 +594,9 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  auto solution = sddp_solver->get_solution( current_stage );
 
- if( sddp_solver->f_log && sddp_solver->log_verbosity ) {
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   *( sddp_solver->f_log ) << "  Objective: " << objective_value << std::endl;
-  if( sddp_solver->log_verbosity >= 20 ) {
+  if( sddp_solver->log_verbosity >= 10 ) {
    *( sddp_solver->f_log ) << "  Solution:  (";
    for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
     if( i > 0 ) *( sddp_solver->f_log ) << ", ";

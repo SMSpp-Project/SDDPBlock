@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 01 - 02 - 2021
+ * \date 18 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1117,9 +1117,7 @@ private:
  * @param range The indices of the cuts in \p cuts that should be added.
  */
 
- void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ,
-                bool backward , Block::Range range =
-                std::make_pair( 0 , Inf<SDDPBlock::Index>() )  ) const;
+ void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1364,50 +1362,6 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- class CutController {
-
- public:
-
-  CutController() {
-   reset();
-  }
-
-  /// returns true if and only if cuts should be added
-  bool add_cuts( SDDPBlock::Index stage ,
-                 SDDPBlock::Index time_horizon ) const {
-   if( stage == time_horizon - 1 && ( ! first_subproblem ) )
-    return false;
-   return true;
-  }
-
-  /// returns true if and only if cuts should be removed
-  bool remove_cuts( SDDPBlock::Index stage , SDDPBlock::Index time_horizon ,
-                    bool backward ) const {
-   if( stage == time_horizon - 1 )
-    // No cut must be removed at the last stage, because they are added only
-    // once.
-    return false;
-   else if( backward && stage != previous_stage )
-    return false;
-   return true;
-  }
-
-  void backward_pass( SDDPBlock::Index stage ) {
-   previous_stage = stage;
-   first_subproblem = false;
-  }
-
-  void reset() {
-   previous_stage = Inf<SDDPBlock::Index>();
-   first_subproblem = true;
-  }
-
-  bool first_subproblem = true;
-  SDDPBlock::Index previous_stage;
- };
-
-/*--------------------------------------------------------------------------*/
-
  friend SDDPOptimizer;
 
 /*--------------------------------------------------------------------------*/
@@ -1420,8 +1374,8 @@ private:
  /// the value obtained during the forward pass when checking for convergence
  double forward_value;
 
- /// controls how we deal with adding and removing cuts
- CutController cut_controller;
+ /// the number of cuts already present at each stage when compute() is called
+ std::vector< Index > number_initial_cuts;
 
  std::shared_ptr< StOpt::OptimizerSDDPBase > sddp_optimizer;
 

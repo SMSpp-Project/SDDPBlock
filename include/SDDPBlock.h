@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 07 - 01 - 2021
+ * \date 18 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -471,18 +471,24 @@ public:
   *
   * @param b A vector containing the constants of the cuts to be added.
   *
-  * @param stage The stage whose cuts should be updated.
-  *
-  * @param replace_last_cuts Indicates whether the last cuts present in the
-  *        PolyhedralFunction associated with the given \p stage must be
-  *        removed.
-  */
+  * @param stage The stage whose cuts should be updated. */
+
  void add_cuts( PolyhedralFunction::MultiVector && A ,
-                PolyhedralFunction::RealVector && b , Index stage ,
-                bool replace_last_cuts );
+                PolyhedralFunction::RealVector && b , Index stage );
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the number of cuts currently present at the given \p stage
+ Index get_number_cuts( Index stage ) const {
+  if( stage >= get_time_horizon() )
+   throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
+                                 "index: " + std::to_string( stage ) ) );
+  return v_polyhedral_functions[ stage ]->get_nrows();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the current future cost at the given \p stage
  double get_future_cost( Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
