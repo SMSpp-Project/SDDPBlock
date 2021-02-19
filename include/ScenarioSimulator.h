@@ -8,7 +8,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 12 - 2020
+ * \date 18 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -101,14 +101,14 @@ public:
   *        backward sweep. */
 
  ScenarioSimulator( const ScenarioSet & scenario_set , const bool backward ) :
-  SimulatorSDDPBase() , backward_simulator( backward ){
+  SimulatorSDDPBase() , backward_simulator( backward ) {
   const auto number_scenarios = scenario_set.size();
-  if( number_simulations == 0 ) {
-   if( backward_simulator )
-    set_number_simulations( number_scenarios );
-   else
-    set_number_simulations( std::min( 3u , number_scenarios ) );
-  }
+
+  if( backward_simulator )
+   set_number_simulations( number_scenarios );
+  else
+   set_number_simulations( std::min( 3u , number_scenarios ) );
+
   set_scenarios( scenario_set );
   random_number_engine.seed( initial_seed );
  }
@@ -127,6 +127,36 @@ public:
  /// defines the number of simulations to be produced
  void set_number_simulations( int n ) {
   number_simulations = n;
+  indices_selected_particles.resize( number_simulations );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// indicates if the sampling of scenarios must be with or without replacement
+ /** This function determines if the sampling of scenarios must be done with
+  * or without replacement.
+  *
+  * @param with_replacement If true, the sampling is done with
+  *        replacement. Otherwise, the sampling is done without
+  *        replacement. */
+
+ void set_sampling_replacement( bool with_replacement ) {
+  sampling_with_replacement = with_replacement;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// indicates if the sampling must be done at at time instant
+ /** This function determines if the sampling of scenarios must be done at
+  * each time instant as opposed to only at time 0 (for a forward simulator)
+  * or time get_number_dates() - 1 (for a backard simulator).
+  *
+  * @param resampling If true, the sampling is done at each time step within
+  *        updateDateIndex(). If false, the sampling is performed only at
+  *        extreme time steps. */
+
+ void set_intermediate_sampling( bool intermediate_sampling ) {
+  this->intermediate_sampling = intermediate_sampling;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -138,7 +168,8 @@ public:
 
   const auto num_scenarios = scenario_set.size();
 
-  set_number_particles( num_scenarios );
+  distribution = std::uniform_int_distribution< Index >
+   ( 0 , num_scenarios - 1 );
 
   const auto time_horizon = scenario_set.get_time_horizon();
 
@@ -209,15 +240,15 @@ public:
 
  void updateDateIndex( const int & date_index ) override {
   current_date_index = date_index;
+
   if( backward_simulator ) {
-   // When the number of simulations is equal to the number of scenarios,
-   // there is no need to shuffle, since all scenarios will be considered.
-   if( getNbSimul() != get_number_scenarios() )
-    shuffle();
+   if( ( current_date_index == get_number_dates() - 1 ) ||
+       intermediate_sampling )
+    sample();
   }
   else {
-   if( getNbSimul() != get_number_scenarios() )
-    shuffle();
+   if( ( current_date_index == 0 ) || intermediate_sampling )
+    sample();
   }
  }
 
@@ -246,14 +277,14 @@ public:
 
  Eigen::MatrixXd getParticles() const override {
 
-  assert( number_simulations <= indices_selected_particles.size() );
+  assert( number_simulations == indices_selected_particles.size() );
 
   Eigen::MatrixXd particles( all_particles[ current_date_index ].rows() ,
                              number_simulations );
 
   for( int i = 0 ; i < number_simulations ; ++i ) {
-   particles.col( i ) =
-    all_particles[ current_date_index ].col( indices_selected_particles[ i ] );
+   particles.col( i ) = all_particles[ current_date_index ].col
+    ( indices_selected_particles[ i ] );
   }
 
   return particles;
@@ -299,7 +330,7 @@ public:
 
  /// returns the index of the scenario associated with the given simulation id
  Index get_scenario_index( Index simulation_id ) const {
-  assert( simulation_id < get_number_scenarios() );
+  assert( simulation_id < indices_selected_particles.size() );
   return indices_selected_particles[ simulation_id ];
  }
 
@@ -316,7 +347,9 @@ public:
 
  /// returns the total number of scenarios available
  Index get_number_scenarios() const {
-  return indices_selected_particles.size();
+  if( all_particles.empty() )
+   return 0;
+  return all_particles.front().cols();
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -331,20 +364,6 @@ protected:
 /** @name Protected methods
     @{ */
 
- /// defines the number of particles
- /** This function updates the \p indices_selected_particles vector according
-  * to the given number of particles.
-  *
-  * @param number_particles The new number particles. */
-
- void set_number_particles( Index number_particles ) {
-  indices_selected_particles.resize( number_particles );
-  std::iota( indices_selected_particles.begin() ,
-             indices_selected_particles.end() , 0 );
- }
-
-/*--------------------------------------------------------------------------*/
-
  /// returns the number of dates, which is equal to the time horizon
  Index get_number_dates() const {
   return all_particles.size();
@@ -352,11 +371,40 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
- /// shuffles the indices of the selected particles
- void shuffle() {
-  std::shuffle( indices_selected_particles.begin() ,
-                indices_selected_particles.end() ,
-                random_number_engine );
+ /// sample the particles
+ void sample() {
+  indices_selected_particles.resize( number_simulations );
+
+  if( sampling_with_replacement ) {
+   std::generate( indices_selected_particles.begin() ,
+                  indices_selected_particles.end() ,
+                  [ this ]() { return this->distribution
+                    ( this->random_number_engine ); } );
+   std::sort( indices_selected_particles.begin() ,
+              indices_selected_particles.end() );
+  }
+  else {
+   const auto number_scenarios = get_number_scenarios();
+
+   assert( number_simulations <= number_scenarios );
+
+   if( number_simulations == number_scenarios ) {
+    std::iota( indices_selected_particles.begin() ,
+               indices_selected_particles.end() , 0 );
+   }
+   else {
+
+    if( indices_all_particles.size() != number_scenarios ) {
+     indices_all_particles.resize( number_scenarios );
+     std::iota( indices_all_particles.begin() ,
+                indices_all_particles.end() , 0 );
+    }
+
+    std::sample( indices_all_particles.begin() , indices_all_particles.end() ,
+                 indices_selected_particles.begin() ,
+                 number_simulations , random_number_engine );
+   }
+  }
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -377,9 +425,13 @@ protected:
 
  /// The vector containing the indices of the particles
  /** This is a vector containing the indices of all particles, i.e., contains
-  * the set {0, 1, ..., number_scenarios - 1}. When the time is reset, this
-  * vector is shuffled so that the first getNbSimul() positions contain the
-  * indices of the particles that must be considered. */
+  * the set {0, 1, ..., number_scenarios - 1}. */
+
+ std::vector< Index > indices_all_particles;
+
+/*--------------------------------------------------------------------------*/
+
+ /// The vector containing the indices of the selected particles
 
  std::vector< Index > indices_selected_particles;
 
@@ -388,17 +440,26 @@ protected:
  /// The index associated with the current date
  int current_date_index = 0;
 
- // The number of simulations to be produced
+ /// The number of simulations to be produced
  int number_simulations = 0;
 
- // Indicates whether this is a simulator for the SDDP backward sweep
- bool backward_simulator;
+ /// Indicates whether this is a simulator for the SDDP backward sweep
+ bool backward_simulator = true;
 
- // Random number engine to select the simulations
+ /// Random number engine to select the simulations
  std::mt19937 random_number_engine;
 
- // Initial seed for the random number engine
+ /// Initial seed for the random number engine
  unsigned int initial_seed = 93645u;
+
+ /// Indicates whether the sampling must be performed with replacement
+ bool sampling_with_replacement = false;
+
+ /// Indicates whether a new sample must be drawn at each time instant
+ bool intermediate_sampling = false;
+
+ /// Distribution for selecting the particles
+ std::uniform_int_distribution< Index > distribution;
 
 };   // end( class ScenarioSimulator )
 
