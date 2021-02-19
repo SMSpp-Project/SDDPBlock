@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 02 - 2021
+ * \date 19 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -116,6 +116,9 @@ int SDDPSolver::compute( bool changedvars ) {
   number_initial_cuts[ stage ] =
    static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage );
 
+ current_iteration = 0;
+ previous_pass_was_backward = false;
+
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
@@ -152,6 +155,9 @@ int SDDPSolver::compute( bool changedvars ) {
   status = kStopIter;
  else
   status = kError; // TODO
+
+ if( output_frequency > 0 )
+  output_future_cost_functions( f_output_filename );
 
  return status;
 }
@@ -355,6 +361,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                            "linearization is available." ) );
  }
 
+ sddp_solver->previous_pass_was_backward = true;
+
  return linearization;
 }
 
@@ -535,6 +543,47 @@ T SDDPSolver::get_solution( SDDPBlock::Index stage ) const {
 
 /*--------------------------------------------------------------------------*/
 
+void SDDPSolver::output_future_cost_functions( const std::string & filename )
+ const {
+
+ const auto & functions =
+  static_cast< SDDPBlock *>( f_Block )->get_polyhedral_functions();
+ if( functions.empty() )
+  return;
+
+ std::ofstream output( filename , std::ios::out );
+
+ const char separator_character = ',';
+ const auto num_var = functions.front()->get_num_active_var();
+
+ output << "Timestep";
+ for( Index i = 0 ; i < num_var ; ++i ) {
+  output << separator_character << "a_" << std::to_string( i );
+ }
+ output << separator_character << "b" << std::endl;
+
+ for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+  const auto & b = functions[ stage ]->get_b();
+  const auto & A = functions[ stage ]->get_A();
+
+  assert( b.size() == A.size() );
+
+  for( Index i = 0 ; i < b.size() ; ++i ) {
+   output << stage;
+   for( Index j = 0 ; j < A[ i ].size() ; ++j )
+    output << separator_character << std::setprecision( 20 ) << A[ i ][ j ];
+   output << separator_character << std::setprecision( 20 ) << b[ i ]
+          << std::endl;
+  }
+ }
+
+ output.close();
+
+}
+
+/*--------------------------------------------------------------------------*/
+
 double SDDPSolver::SDDPOptimizer::oneStepForward
 ( const Eigen::ArrayXd & particle , Eigen::ArrayXd &state ,
   Eigen::ArrayXd & state_to_store ,
@@ -615,6 +664,18 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  state_to_store.resize( solution.size() );
  state_to_store << solution;
+
+ /****************************/
+ /* UPDATE CONTROL VARIABLES */
+ /****************************/
+
+ if( sddp_solver->previous_pass_was_backward ) {
+  if( sddp_solver->output_frequency > 0 &&
+      ( sddp_solver->current_iteration % sddp_solver->output_frequency == 0 ) )
+   sddp_solver->output_future_cost_functions( sddp_solver->f_output_filename );
+  sddp_solver->current_iteration++;
+  sddp_solver->previous_pass_was_backward = false;
+ }
 
  /*************************/
  /* RETURN SOLUTION VALUE */

@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 02 - 2021
+ * \date 19 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -288,6 +288,14 @@ public:
    * considered during the forward pass. By default, this number is
    * the minimum between 3 and the number of scenarios. */
 
+  intOutputFrequency ,
+  ///< The frequency in which the future cost functions are output
+  /**< This parameter determines the frequency in which the approximations to
+   * the future cost functions are output. If it is positive, these
+   * approximations are output every #intOutputFrequency iterations and once
+   * at the end of compute() to the file specified by the #strOutputFile
+   * parameter. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -345,14 +353,18 @@ public:
   strInnerBC ,
   ///< name of the file containing the default BlockConfig for the inner Block
   /**< Name of the file containing the default BlockConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
 
   strInnerBSC ,
   ///< name of the file containing the default BlockSolverConfig for inner Block
   /**< Name of the file containing the default BlockSolverConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
+
+  strOutputFile ,
+  ///< name of the file to which the future cost functions will be output
+  /**< Name of the file to which the approximations to the future cost
+   * functions are output. See #intOutputFrequency for controlling if and
+   * when these approximations are output. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -379,6 +391,7 @@ public:
   print_cpu_time = get_dflt_int_par( intPrintTime );
   number_simulations_for_convergence =
    get_dflt_int_par( intNbSimulCheckForConv );
+  output_frequency = get_dflt_int_par( intOutputFrequency );
 
   // double
 
@@ -389,6 +402,7 @@ public:
   regressors_filename = get_dflt_str_par( strRegressorsFilename );
   cuts_filename = get_dflt_str_par( strCutsFilename );
   visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
+  f_output_filename = get_dflt_str_par( strOutputFile );
 
   // vector
 
@@ -515,21 +529,23 @@ public:
 
  void set_par( const idx_type par , const int value ) override {
   switch( par ) {
-  case( intMaxIter ): maximum_number_iterations = value; return;
-  case( intNStepConv ): convergence_frequency = value; return;
-  case( intPrintTime ): print_cpu_time = value; return;
-  case( intNbSimulCheckForConv ):
-   number_simulations_for_convergence = value; return;
-  case( intNbSimulBackward ):
-   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-    set_number_simulations_backward( value );
-   return;
-  case( intNbSimulForward ):
-   std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-    set_number_simulations_forward( value );
-   return;
-  case( intLogVerb ):
-   log_verbosity = value; return;
+   case( intMaxIter ): maximum_number_iterations = value; return;
+   case( intNStepConv ): convergence_frequency = value; return;
+   case( intPrintTime ): print_cpu_time = value; return;
+   case( intNbSimulCheckForConv ):
+    number_simulations_for_convergence = value; return;
+   case( intNbSimulBackward ):
+    std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     set_number_simulations_backward( value );
+    return;
+   case( intNbSimulForward ):
+    std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+     set_number_simulations_forward( value );
+    return;
+   case( intLogVerb ):
+    log_verbosity = value; return;
+   case( intOutputFrequency ):
+    output_frequency = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -574,6 +590,8 @@ public:
   *
   * - #strInnerBSC
   *
+  * - #strOutputFile
+  *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -589,6 +607,7 @@ public:
    case( strVisitedStatesFilename ): visited_states_filename = value; return;
    case( strInnerBC ): f_inner_block_config_filename = value; return;
    case( strInnerBSC ): f_inner_block_solver_config_filename = value; return;
+   case( strOutputFile ): f_output_filename = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -652,6 +671,8 @@ public:
   *
   * - #intLogVerb: 0
   *
+  * - #intOutputFrequency: 0
+  *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
@@ -671,6 +692,7 @@ public:
     return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      get_dflt_number_simulations_forward();
    case( intLogVerb ): return 0;
+   case( intOutputFrequency ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -707,7 +729,7 @@ public:
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
   static const std::vector<std::string> default_values =
-   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" , "" , "" };
+   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -739,6 +761,7 @@ public:
     return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      get_number_simulations_forward();
    case( intLogVerb ): return log_verbosity;
+   case( intOutputFrequency ): return output_frequency;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -778,6 +801,7 @@ public:
    case( strVisitedStatesFilename ): return visited_states_filename;
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
+   case( strOutputFile ): return f_output_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -802,6 +826,7 @@ public:
   if( name == "intNbSimulCheckForConv" ) return intNbSimulCheckForConv;
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
+  if( name == "intOutputFrequency" ) return intOutputFrequency;
   return Solver::int_par_str2idx( name );
  }
 
@@ -838,6 +863,7 @@ public:
   if( name == "strVisitedStatesFilename" ) return strVisitedStatesFilename;
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
+  if( name == "strOutputFile" ) return strOutputFile;
   return Solver::str_par_str2idx( name );
  }
 
@@ -856,7 +882,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
-     "intNbSimulBackward" , "intNbSimulForward" };
+     "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -896,7 +922,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
-     "strInnerBC" , "strInnerBSC" };
+     "strInnerBC" , "strInnerBSC" , "strOutputFile" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1059,6 +1085,9 @@ protected:
  /// Name of the default BlockConfig file for the inner Blocks
  std::string f_inner_block_config_filename;
 
+ /// Name of the file to which the future cost functions are output
+ std::string f_output_filename;
+
  /// Default BlockConfig for the inner Blocks
  BlockConfig * f_inner_block_config = nullptr;
 
@@ -1085,6 +1114,9 @@ protected:
   * we have to check the convergence by comparing the outcome given
   * by the forward pass and the one given by the backward pass. */
  int number_simulations_for_convergence;
+
+ /// The frequency in which the future cost functions are output
+ int output_frequency;
 
  /** Relative accuracy for declaring a solution optimal. See the
   * comments about the dblAccuracy parameter for more details. */
@@ -1114,8 +1146,7 @@ private:
  * @param stage The stage at which cuts should be updated, which must be an
  *        integer between 0 and get_time_horizon() - 1.
  *
- * @param range The indices of the cuts in \p cuts that should be added.
- */
+ * @param range The indices of the cuts in \p cuts that should be added. */
 
  void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ) const;
 
@@ -1135,13 +1166,24 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
-/// solves the subproblem associated with the given stage
-/** This function solves the subproblem associated with the given \p stage,
- * which must be an integer between 0 and get_time_horizon() - 1.
- *
- * @param stage The stage whose associated subproblem must be solved.
- */
+ /// solves the subproblem associated with the given stage
+ /** This function solves the subproblem associated with the given \p stage,
+  * which must be an integer between 0 and get_time_horizon() - 1.
+  *
+  * @param stage The stage whose associated subproblem must be solved. */
+
  double solve( SDDPBlock::Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// output the future cost functions
+ /** This function outputs the approximations to the future cost functions to
+  * the file with the given name.
+  *
+  * @param filename The name of the file to which the functions will be
+  *        output. */
+
+ void output_future_cost_functions( const std::string & filename ) const;
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
@@ -1373,6 +1415,12 @@ private:
 
  /// the value obtained during the forward pass when checking for convergence
  double forward_value;
+
+ /// the number of the current iteration
+ int current_iteration = 0;
+
+ /// indicates whether the previous pass was backward
+ bool previous_pass_was_backward = false;
 
  /// the number of cuts already present at each stage when compute() is called
  std::vector< Index > number_initial_cuts;
