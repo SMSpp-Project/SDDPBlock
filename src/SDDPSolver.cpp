@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 19 - 02 - 2021
+ * \date 23 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -110,6 +110,22 @@ int SDDPSolver::compute( bool changedvars ) {
  StOpt::SDDPFinalCut final_cut
   ( Eigen::ArrayXXd::Zero( initial_state.size() + 1 , 1 ) );
 
+ // Meshes for regression
+ Eigen::ArrayXi mesh_discretization_array;
+ if( mesh_provided() ) {
+  auto simulator = std::static_pointer_cast< ScenarioSimulator >
+   ( sddp_optimizer->getSimulatorBackward() );
+  const auto particle_length = simulator->get_particle_length();
+  if( mesh_discretization.size() != particle_length )
+   throw( std::logic_error
+         ( "SDDPSolver::compute: simulation particle has dimension " +
+           std::to_string( particle_length ) + " but given mesh discretization "
+           "has dimension " + std::to_string( mesh_discretization.size() ) ) );
+  mesh_discretization_array.resize( mesh_discretization.size() );
+  for( Index i = 0 ; i < mesh_discretization.size() ; ++i )
+   mesh_discretization_array( i ) = mesh_discretization[ i ];
+ }
+
  // Store the number of cuts currently present at each stage
  number_initial_cuts.resize( get_time_horizon() );
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
@@ -123,8 +139,8 @@ int SDDPSolver::compute( bool changedvars ) {
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
   ( sddp_optimizer , number_simulations_for_convergence , initial_state ,
-    final_cut , dates , number_meshes , regressors_filename , cuts_filename ,
-    visited_states_filename , number_iterations_performed ,
+    final_cut , dates , mesh_discretization_array , regressors_filename ,
+    cuts_filename , visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
     print_cpu_time );
 
@@ -220,26 +236,39 @@ void SDDPSolver::process_outstanding_Modification() {
 
 Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 ( const StOpt::SDDPCutOptBase & sddp_cut ,
-  const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & state,
-  const Eigen::ArrayXd & particle, const int & simulation_id ) const {
+  const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
+  const Eigen::ArrayXd & particle , const int & simulation_id ) const {
 
  auto current_stage = date_next;
 
+ /* The last argument is the simulation id indicating in which scenario the
+  * resolution will be done. */
+
+ Index scenario_index = 0;
+ if( current_stage > 0 )
+  scenario_index = simulator_backward->get_scenario_index( simulation_id );
+
+ // Log
+
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   auto log = sddp_solver->f_log;
-  *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****"
-            << std::endl;
-  *log << "  Stage:         " << current_stage << std::endl;
-  *log << "  Simulation id: " << simulation_id << std::endl;
-  *log << "  Particle:      (";
-  for( decltype( particle.size() ) i = 0 ; i < particle.size() ; ++i ) {
-   if( i > 0 ) *log << ", ";
-   *log << particle( i );
+  *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****" << std::endl;
+  *log << "  Stage:          " << current_stage << std::endl;
+  *log << "  Scenario index: " << scenario_index << std::endl;
+  if( current_stage > 0 ) {
+   *log << "  Simulation id:  " << simulation_id << std::endl;
+   if( sddp_solver->log_verbosity >= 4 ) {
+    *log << "  Particle:       (";
+    for( decltype( particle.size() ) i = 0 ; i < particle.size() ; ++i ) {
+     if( i > 0 ) *log << ", ";
+     *log << particle( i );
+    }
+    *log << ")" << std::endl;
+   }
   }
-  *log << ")" << std::endl;
 
   if( sddp_solver->log_verbosity >= 10 ) {
-   *log << "  State:         (";
+   *log << "  State:          (";
    const auto & state_variables = * std::get<0>( state );
    for( decltype( state_variables.size() ) i = 0 ;
         i < state_variables.size() ; ++i ) {
@@ -250,20 +279,12 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   }
  }
 
- /* "particle" contains the random quantities in which the regression over the
-  * expectation of the value function will be based */
+ /***************/
+ /* ADDING CUTS */
+ /***************/
 
- auto cuts = sddp_cut.getCutsAssociatedToTheParticle( std::get<1>( state ) );
-
- /* For each scenario j used in the forward pass (for j+1 in
-  * {1, ..., G, ..., (n+1)G}), cuts(:, j) is a cut such that
-  *
-  * cuts(0, j) = alpha_{t+1}^j
-  *
-  * cuts(i, j) = beta_{i-1, t+1}^j, for i in {1, ..., nbstate}
-  *
-  * Add these cuts to the Block associated with the current_stage.
-  */
+ const auto cuts = sddp_cut.getCutsAssociatedToTheParticle
+  ( std::get<1>( state ) );
 
  sddp_solver->add_cuts( cuts , current_stage );
 
@@ -277,19 +298,21 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* RANDOM DATA */
  /***************/
 
- /* The last argument is the simulation id indicating in which scenario the
-  * resolution will be done. */
-
- auto scenario_index = simulator_backward->get_scenario_index( simulation_id );
  sddp_solver->set_scenario( scenario_index , current_stage );
 
- // Solve the problem
+ /**************************/
+ /* SOLVING THE SUBPROBLEM */
+ /**************************/
 
  auto objective_value = sddp_solver->solve( current_stage );
 
- /* This function returns a one-dimensional array whose size is the number of
-  * state variables plus one and that contains a linearization of the
-  * BendersBFunction. The first component contains the value of the
+ /**********************************/
+ /* CONSTRUCTING THE LINEARIZATION */
+ /**********************************/
+
+ /* The oneStepBackard function returns a one-dimensional array whose size is
+  * the number of state variables plus one and that contains a linearization
+  * of the BendersBFunction. The first component contains the value of the
   * BendersBFunction and the remaining components contain the coefficients of
   * the linearization of the bendersBFunction. For i in {1, ...,
   * number_state_variables}, linearization( i ) contains the coefficient of
@@ -305,14 +328,17 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   linearization( 0 ) = objective_value;
   benders_function->get_linearization_coefficients( linearization.data() + 1 );
 
+  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+   *( sddp_solver->f_log ) << "  Objective:      " << objective_value
+                           << std::endl;
+  }
+
 #ifdef BENDERSBFUNCTION_DEBUG
   {
    const auto alpha = benders_function->get_linearization_constant();
    if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
     *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
     *( sddp_solver->f_log ) << "    alpha:        " << alpha << std::endl;
-    *( sddp_solver->f_log ) << "    objective:    " << objective_value
-                            << std::endl;
     if( sddp_solver->log_verbosity >= 30 ) {
      *( sddp_solver->f_log ) << "    coefficients: (";
      for( decltype( linearization.size() ) i = 1 ;
@@ -381,32 +407,49 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   throw( std::invalid_argument( "SDDPSolver::add_cuts: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- auto number_cuts_added =
-  static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage ) -
-  number_initial_cuts[ stage ];
+ // Number of cuts that will be added. In principle, all given cuts are added.
+ auto number_cuts_to_be_added = cuts.cols();
 
- /* StOpt provides all cuts that were ever generated. We consider only the
-  * last ones when updating the cuts. We are assuming that the new cuts
-  * provided by StOpt appear in the last columns of the matrix "cuts". */
+ // If a mesh has been provided, all cuts are replaced by the given ones
+ auto remove_current_cuts = true;
 
- if( cuts.cols() == number_cuts_added )
-  return; // all cuts are already there
+ if( ! mesh_provided() ) {
 
- assert( cuts.cols() >= number_cuts_added );
+  // Total number of cuts previously added by StOpt
+  auto number_cuts_previously_added =
+   static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage ) -
+   number_initial_cuts[ stage ];
+
+  assert( cuts.cols() >= number_cuts_previously_added );
+
+  /* StOpt provides all cuts that were ever generated. Since no mesh has been
+   * provided, we can consider only the most recent cuts (since the previous
+   * ones have already been added before). We are assuming that the new cuts
+   * provided by StOpt appear in the last columns of the matrix "cuts". */
+
+  if( cuts.cols() == number_cuts_previously_added )
+   return; // all cuts are already there
+
+  // Add only the most recent cuts
+  number_cuts_to_be_added = cuts.cols() - number_cuts_previously_added;
+
+  // and keep the current ones
+  remove_current_cuts = false;
+ }
+
+ // Store the given cuts in A and b
 
  PolyhedralFunction::MultiVector A;
  PolyhedralFunction::RealVector b;
 
- auto number_cuts_to_add = cuts.cols() - number_cuts_added;
+ A.resize( number_cuts_to_be_added );
+ b.resize( number_cuts_to_be_added );
 
- A.resize( number_cuts_to_add );
- b.resize( number_cuts_to_add );
+ /* Each column in "cuts" contains a cut. The first element is the constant
+  * term of the cut, and all the other elements are the coefficients. */
 
- /* Each column in "cuts" contains a cut. The first element is the function
-  * value, and all the other elements are the coefficients. */
-
- for( Index k = 0 ; k < number_cuts_to_add ; ++k ) {
-  const auto i = number_cuts_to_add - k - 1;
+ for( Index k = 0 ; k < number_cuts_to_be_added ; ++k ) {
+  const auto i = number_cuts_to_be_added - k - 1;
   const auto col = cuts.cols() - k - 1;
   A[ i ].resize( cuts.rows() - 1 );
   b[ i ] = cuts( 0 , col );
@@ -414,6 +457,8 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
    A[ i ][ j ] = cuts( j + 1 , col );
   }
  }
+
+ // Log
 
  if( f_log && log_verbosity >= 30 ) {
   *f_log << "  Adding the following cuts:" << std::endl;
@@ -425,8 +470,10 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   }
  }
 
+ // Finally add the cuts
+
  static_cast< SDDPBlock * >( f_Block )->add_cuts
-  ( std::move( A ) , std::move( b ) , stage );
+  ( std::move( A ) , std::move( b ) , stage , remove_current_cuts );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -514,6 +561,7 @@ double SDDPSolver::solve( SDDPBlock::Index stage ) {
   throw( std::logic_error( "SDDPSolver::solve: the sub-problem at stage " +
                            std::to_string( stage ) + " has no solution." ) );
  }
+
  solver->get_var_solution(); // TODO Use Configuration to request only the
                              // active Variables of the PolyhedralFunction
 
@@ -592,20 +640,34 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  auto current_stage = date;
 
+ // Index of the scenario to be considered
+
+ Index scenario_index = 0;
+ if( current_stage > 0 )
+  scenario_index = simulator_forward->get_scenario_index( simulation_id );
+
+ // Log
+
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepForward *****"
             << std::endl;
-  *log << "  Stage:         " << current_stage << std::endl;
-  *log << "  Simulation id: " << simulation_id << std::endl;
-  *log << "  Particle:      (";
-  for( decltype( particle.size() ) i = 0 ; i < particle.size() ; ++i ) {
-   if( i > 0 ) *log << ", ";
-   *log << particle( i );
+  *log << "  Stage:          " << current_stage << std::endl;
+  *log << "  Scenario index: " << scenario_index << std::endl;
+  if( current_stage > 0 ) {
+   *log << "  Simulation id:  " << simulation_id << std::endl;
+   if( sddp_solver->log_verbosity >= 4 ) {
+    *log << "  Particle:       (";
+    for( decltype( particle.size() ) i = 0 ; i < particle.size() ; ++i ) {
+     if( i > 0 ) *log << ", ";
+     *log << particle( i );
+    }
+    *log << ")" << std::endl;
+   }
   }
-  *log << ")" << std::endl;
+
   if( sddp_solver->log_verbosity >= 10 ) {
-   *log << "  State:         (";
+   *log << "  State:          (";
    for( decltype( state.size() ) i = 0 ; i < state.size() ; ++i ) {
     if( i > 0 ) *log << ", ";
     *log << state( i );
@@ -615,10 +677,23 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  }
 
  /***************/
+ /* ADDING CUTS */
+ /***************/
+
+ if( sddp_solver->mesh_provided() && ( current_stage != 0 ) ) {
+  /* Cuts are added if and only if meshes were provided and the current stage
+   * is not the first one. There is a single mesh associated with the first
+   * stage and the cuts have already been added during the backward pass. The
+   * array "particle" contains the random quantities on which the regression
+   * over the expectation of the value function will be based. */
+  const auto cuts = sddp_cut.getCutsAssociatedToAParticle( particle );
+  sddp_solver->add_cuts( cuts , current_stage );
+ }
+
+ /***************/
  /* RANDOM DATA */
  /***************/
 
- auto scenario_index = simulator_forward->get_scenario_index( simulation_id );
  sddp_solver->set_scenario( scenario_index , current_stage );
 
  /*********************************/

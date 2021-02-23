@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 02 - 2021
+ * \date 23 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -471,10 +471,15 @@ public:
   *
   * @param b A vector containing the constants of the cuts to be added.
   *
-  * @param stage The stage whose cuts should be updated. */
+  * @param stage The stage whose cuts should be updated.
+  *
+  * @param remove_current_cuts If true, all cuts currently part of the given
+  *        \p stage are removed before the given cuts are added. If false, the
+  *        current cuts are kept. */
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
-                PolyhedralFunction::RealVector && b , Index stage );
+                PolyhedralFunction::RealVector && b , Index stage ,
+                bool remove_current_cuts );
 
 /*--------------------------------------------------------------------------*/
 

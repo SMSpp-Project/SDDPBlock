@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 19 - 02 - 2021
+ * \date 23 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -294,7 +294,7 @@ public:
    * the future cost functions are output. If it is positive, these
    * approximations are output every #intOutputFrequency iterations and once
    * at the end of compute() to the file specified by the #strOutputFile
-   * parameter. */
+   * parameter. The default value for this parameter is 0. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -373,6 +373,30 @@ public:
 
  };  // end( str_par_type_SDDP_S )
 
+/*--------------------------------------------------------------------------*/
+ /// public enum for the vector-of-int parameters
+ /** Public enum describing the different algorithmic parameters of
+  * vector-of-int type that SDDPSolver has in addition to these of
+  * Solver. The value vintLastAlgPar is provided so that the list can be
+  * easily further extended by derived classes. */
+
+ enum vint_par_type_SDDP_S {
+
+  vintMeshDiscretization = vint_par_type_S::vintLastAlgPar ,
+  ///< number of meshes in each direction
+  /**< The algorithmic parameter for setting the discretization of the meshes,
+   * which is a vector containing the number of meshes (number of steps) in
+   * each direction. The size of this vector must be equal to the dimension of
+   * a simulation particle and its i-th component contains the number of
+   * meshes (number of steps) at the i-th direction. */
+
+  vintLastAlgPar
+  ///< first allowed new int parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * vector-of-int parameters. */
+
+ };  // end( vint_par_type_SDDP_S )
+
 /**@} ----------------------------------------------------------------------*/
 /*---------------- CONSTRUCTING AND DESTRUCTING SDDPSolver -----------------*/
 /*--------------------------------------------------------------------------*/
@@ -382,31 +406,9 @@ public:
  /// constructor
  SDDPSolver( void ) {
 
-  // Default values of the parameters
+  // Set the parameters to their default values
 
-  // int
-
-  maximum_number_iterations = get_dflt_int_par( intMaxIter );
-  convergence_frequency = get_dflt_int_par( intNStepConv );
-  print_cpu_time = get_dflt_int_par( intPrintTime );
-  number_simulations_for_convergence =
-   get_dflt_int_par( intNbSimulCheckForConv );
-  output_frequency = get_dflt_int_par( intOutputFrequency );
-
-  // double
-
-  accuracy = get_dflt_dbl_par( dblAccuracy );
-
-  // string
-
-  regressors_filename = get_dflt_str_par( strRegressorsFilename );
-  cuts_filename = get_dflt_str_par( strCutsFilename );
-  visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
-  f_output_filename = get_dflt_str_par( strOutputFile );
-
-  // vector
-
-  // number_meshes = get_dflt_vint_par( vecMeshForReg ); // TODO
+  set_default_parameters();
 
   // SDDPOptimizer
 
@@ -612,6 +614,30 @@ public:
   Solver::set_par( par , value );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// set the vector-of-int paramaters of SDDPSolver
+ /** Set a given vector-of-int paramater. Besides considering the vector-of-int
+  * parameters defined in #vint_par_type_S, this function also accepts the
+  * following parameters:
+  *
+  * - #vintMeshDiscretization
+  *
+  * Please refer to the #vint_par_type_SDDP_S enumeration for a detailed
+  * description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( idx_type par , std::vector< int > && value ) override {
+  if( par == vintMeshDiscretization ) {
+   mesh_discretization = value;
+   return;
+  }
+  Solver::set_par( par , value );
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
@@ -648,6 +674,17 @@ public:
 
  idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// get the number of vector-of-int parameters
+ /** Get the number of vector-of-int  parameters.
+  *
+  * @return The number of vector-of-int parameters.
+  */
+
+ idx_type get_num_vint_par( void ) const override {
+  return( idx_type( vintLastAlgPar ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -738,6 +775,33 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// get the default value of a vector-of-int parameter
+ /** Get the default value of the vector-of-int parameter with given index.
+  * Please see the #vint_par_type_SDDP_S and #vint_par_type_S enumerations for
+  * a detailed explanation of the possible parameters. This function returns
+  * the following values depending on the desired parameter:
+  *
+  * - #vintMeshDiscretization: an empty vector
+  *
+  * For any other parameter, see Solver::get_dflt_vint_par().
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::vector< int > & get_dflt_vint_par( const idx_type par )
+  const override {
+  const static std::vector< int > empty;
+
+  if( par == vintMeshDiscretization ) {
+   return empty;
+  }
+
+  return Solver::get_dflt_vint_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
  /// get a specific integer (int) numerical parameter
  /** Get a specific integer (int) numerical parameter. Please see the
   * #int_par_type_SDDP_S and #int_par_type_S enumerations for a
@@ -806,6 +870,23 @@ public:
   return Solver::get_str_par( par );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// get a specific vector-of-int parameter
+ /** Get a specific vector-of-int parameter. Please see the
+  * #vint_par_type_SDDP_S and #vint_par_type_S enumerations for a detailed
+  * explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::vector< int > & get_vint_par( const idx_type par ) const override {
+  if( par == vintMeshDiscretization )
+   return mesh_discretization;
+  return Solver::get_vint_par( par );
+ }
+
 /*--------------------------------------------------------------------------*/
  /// returns the index of the int parameter with given string \p name
  /** This method takes a string, which is assumed to be the name of an int
@@ -865,6 +946,22 @@ public:
   if( name == "strInnerBSC" ) return strInnerBSC;
   if( name == "strOutputFile" ) return strOutputFile;
   return Solver::str_par_str2idx( name );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// returns the index of the vector-of-int parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a
+  * vector-of-int parameter, and returns its index, i.e., the integer value
+  * that can be used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type vint_par_str2idx( const std::string & name ) const override {
+  if( name == "vintMeshDiscretization" ) return vintMeshDiscretization;
+  return Solver::vint_par_str2idx( name );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -930,6 +1027,25 @@ public:
   return Solver::str_par_idx2str( idx );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// returns the string name of the vector-of-int parameter with given index
+ /** This method takes a vector-of-int parameter index, i.e., the integer
+  * value that can be used in [set/get]_par() [see above] to set/get it, and
+  * returns its "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & vint_par_idx2str( const idx_type idx ) const override {
+  static const std::vector<std::string> parameter_names =
+   { "vintMeshDiscretization" };
+  if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
+   return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
+  return Solver::vint_par_idx2str( idx );
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
@@ -948,9 +1064,13 @@ public:
 /** @name Accessing the found solutions (if any)
  * @{ */
 
- void get_var_solution( Configuration *solc = nullptr ) override {
-  // TODO
- }
+ /// this function has an empty implementation (and thus does nothing)
+ /** This function has an empty implementation (and thus does nothing). The
+  * solution produced by the SDDPSolver is in the form of cuts to the
+  * PolyhedralFunction of the SDDPBlock. These cuts are added during
+  * compute() and therefore no task needs to be performed here. */
+
+ void get_var_solution( Configuration *solc = nullptr ) override { }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1040,10 +1160,10 @@ protected:
  Eigen::ArrayXd initial_state;
 
  /// Number of meshes in each direction
- /** This array stores the number of meshes in each direction. The
-  * i-th component of this array contains the number of meshes
-  * (number of steps) at direction i. */
- Eigen::ArrayXi number_meshes;
+ /** This vector stores the mesh discretization in each direction. The i-th
+  * component of this vector contains the number of meshes (number of steps)
+  * at direction i. */
+ std::vector< int > mesh_discretization;
 
  /// The cuts used at the last time step
  /** The cuts used at the last time step: when the final value
@@ -1152,6 +1272,15 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns true if a valid mesh discretization has been provided
+ bool mesh_provided() const {
+  return ( ! mesh_discretization.empty() ) &&
+   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
+                []( auto i ){ return i > 0; } );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  void set_state( const Eigen::ArrayXd & state ,
                  SDDPBlock::Index stage ) const;
 
@@ -1184,6 +1313,41 @@ private:
   *        output. */
 
  void output_future_cost_functions( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the parameters of the SDDPSolver to their default values
+ /** This function sets the parameters of the SDDPSolver to their default
+  * values. */
+
+ void set_default_parameters() {
+
+  // int
+
+  maximum_number_iterations = get_dflt_int_par( intMaxIter );
+  convergence_frequency = get_dflt_int_par( intNStepConv );
+  print_cpu_time = get_dflt_int_par( intPrintTime );
+  number_simulations_for_convergence =
+   get_dflt_int_par( intNbSimulCheckForConv );
+  output_frequency = get_dflt_int_par( intOutputFrequency );
+
+  // double
+
+  accuracy = get_dflt_dbl_par( dblAccuracy );
+
+  // string
+
+  regressors_filename = get_dflt_str_par( strRegressorsFilename );
+  cuts_filename = get_dflt_str_par( strCutsFilename );
+  visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
+  f_inner_block_config_filename = get_dflt_str_par( strInnerBC );
+  f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
+  f_output_filename = get_dflt_str_par( strOutputFile );
+
+  // vector
+
+  mesh_discretization = get_dflt_vint_par( vintMeshDiscretization );
+}
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
