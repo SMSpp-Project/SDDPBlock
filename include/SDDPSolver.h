@@ -296,6 +296,16 @@ public:
    * at the end of compute() to the file specified by the #strOutputFile
    * parameter. The default value for this parameter is 0. */
 
+  intFirstStageScenarioIndex ,
+  ///< The index of the scenario to be considered at the first stage
+  /**< This parameter specifies the index of the scenario that must be
+   * considered while solving the subproblem at the first stage. If it is
+   * negative, it means that no scenario must be set while solving the
+   * sub-problem at the first stage (i.e., the data for that subproblem has
+   * already been set, except possibly the initial state). If it is
+   * nonnegative, it must be a number between 0 and the total number of
+   * scenarios minus 1. By default, its value is 0. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -421,11 +431,11 @@ public:
   vdblInitialState ,
   ///< the initial state
   /**< The parameter for setting the initial state, i.e., the state to be
-   * considered in the problem of the first stage. The size of this vector
+   * considered in the subproblem of the first stage. The size of this vector
    * must be equal to the number of state variables and the i-th element in
    * this vector will be the value of the i-th state variable of the first
-   * stage problem. By default, this vector is empty and the initial state is
-   * taken to be the admissible state at time 0 given by the SDDPBlock. */
+   * stage subproblem. By default, this vector is empty and the initial state
+   * is taken to be the admissible state at time 0 given by the SDDPBlock. */
 
   vdblLastAlgPar
   ///< first allowed new vector-of-double parameter for derived classes
@@ -558,6 +568,8 @@ public:
   *
   * - #intNbSimulForward
   *
+  * - #intFirstStageScenarioIndex
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -581,10 +593,10 @@ public:
     std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      set_number_simulations_forward( value );
     return;
-   case( intLogVerb ):
-    log_verbosity = value; return;
-   case( intOutputFrequency ):
-    output_frequency = value; return;
+   case( intLogVerb ): log_verbosity = value; return;
+   case( intOutputFrequency ): output_frequency = value; return;
+   case( intFirstStageScenarioIndex ):
+    first_stage_scenario_index = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -784,6 +796,8 @@ public:
   *
   * - #intOutputFrequency: 0
   *
+  * - #intFirstStageScenarioIndex: 0
+  *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
@@ -804,6 +818,7 @@ public:
      get_dflt_number_simulations_forward();
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
+   case( intFirstStageScenarioIndex ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -929,6 +944,7 @@ public:
      get_number_simulations_forward();
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
+   case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1031,6 +1047,7 @@ public:
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
+  if( name == "intFirstStageScenarioIndex" ) return intFirstStageScenarioIndex;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1119,7 +1136,8 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
-     "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" };
+     "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
+     "intFirstStageScenarioIndex" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1282,13 +1300,13 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
-/// returns the solution associated with the problem at the given stage
-/** This function returns the solution of the problem associated with the
+/// returns the solution associated with the subproblem at the given stage
+/** This function returns the solution of the subproblem associated with the
  * given \p stage, which is part of the state variables of the next stage.
  *
  * @param stage The stage whose solution is required.
  *
- * @return The array containing the solution of the problem at the given
+ * @return The array containing the solution of the subproblem at the given
  *         stage.
  */
 
@@ -1355,7 +1373,8 @@ protected:
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
 
- // PARAMETERS
+ /// Index of the scenario to be considered at the first stage
+ int first_stage_scenario_index;
 
  /// Name of the file in which regressors will be stored
  std::string regressors_filename;
@@ -1419,8 +1438,8 @@ private:
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-/// add cuts to the sub-problem at the given stage
-/** This function adds cuts to the sub-problem at the given \p stage.
+/// add cuts to the subproblem at the given stage
+/** This function adds cuts to the subproblem at the given \p stage.
  *
  * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
  *        a matrix with as many columns as there are cuts to be added and the
@@ -1494,6 +1513,7 @@ private:
   number_simulations_for_convergence =
    get_dflt_int_par( intNbSimulCheckForConv );
   output_frequency = get_dflt_int_par( intOutputFrequency );
+  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioIndex );
 
   // double
 
@@ -1529,9 +1549,9 @@ private:
   /// constructor taking a pointer to an SDDPSolver
   /** Constructs an SDDPOptimizer associated with the given SDDPSolver.
    *
-   * @param solver A pointer to an SDDPSolver. This parameter is
-   * optional and its default value is nullptr.
-   */
+   * @param solver A pointer to an SDDPSolver. This parameter is optional and
+   *        its default value is nullptr. */
+
   SDDPOptimizer( SDDPSolver * solver = nullptr ) {
    sddp_solver = solver;
    simulator_backward = std::make_shared< ScenarioSimulator >( true );
@@ -1556,22 +1576,22 @@ private:
 /*--------------------------------------------------------------------------*/
 
   /// updates this SDDPOptimizer for a new stage
-  /** This function updates this SDDPOptimizer for a new stage. The
-   * \p date and \p date_next parameters have different meanings in
-   * the backward and forward steps:
+  /** This function updates this SDDPOptimizer for a new stage. The \p date
+   * and \p date_next parameters have different meanings in the backward and
+   * forward steps:
    *
-   * - In a backward step, the optimization problem that must be
-   *   solved is that associated with the stage \p date_next. The
-   *   parameter \p date indicates, therefore, the previous stage.
+   * - In a backward step, the optimization subproblem that must be solved is
+   *   that associated with the stage \p date_next. The parameter \p date
+   *   indicates, therefore, the previous stage.
    *
-   * - In a forward step, the optimization problem that must be
-   *   solved is that associated with the stage \p date. The
-   *   parameter \p date_next indicates, therefore, the next stage.
+   * - In a forward step, the optimization subproblem that must be solved is
+   *   that associated with the stage \p date. The parameter \p date_next
+   *   indicates, therefore, the next stage.
    *
-   *   We assume that the given arguments correspond to consecutive
-   *   stages, i.e., \p date_next == \p date + 1. Moreover, we
-   *   assume that -1 <= \p date < T, where T is the time
-   *   horizon. Also, the following conditions should hold:
+   *   We assume that the given arguments correspond to consecutive stages,
+   *   i.e., \p date_next == \p date + 1. Moreover, we assume that -1 <= \p
+   *   date < T, where T is the time horizon. Also, the following conditions
+   *   should hold:
    *
    * -# -1 <= \p date <= T - 2 for any backward step;
    *
@@ -1579,30 +1599,27 @@ private:
    *
    * @param date A stage.
    *
-   * @param date_next Another stage.
-   */
+   * @param date_next Another stage. */
+
   void updateDates( const double & date, const double & date_next ) override;
 
 /*--------------------------------------------------------------------------*/
 
-  /// returns an initial state for the problem at the given stage
-  /** This function must return an initial state for the
-   * optimization problem associated with the given date. If the
-   * given date is t, then the optimization problem associated with
-   * time t has variables x_t and depends on the state (x_{t-1},
-   * w_{t-1}^{dep}). Thus, this function must return an array
-   * containing values for x_{t-1} and w_{t-1}^{dep}. Notice that
-   * the subvector w_{t-1}^{dep} is only present in the state if
-   * some random variables of the problem associated with time t
-   * depend on the random variables w_{t-1}^{dep} of the problem at
-   * stage t-1.
+  /// returns an initial state for the subproblem at the given stage
+  /** This function must return an initial state for the optimization
+   * subproblem associated with the given date. If the given date is t, then
+   * the optimization subproblem associated with time t has variables x_t and
+   * depends on the state (x_{t-1}, w_{t-1}^{dep}). Thus, this function must
+   * return an array containing values for x_{t-1} and w_{t-1}^{dep}. Notice
+   * that the subvector w_{t-1}^{dep} is only present in the state if some
+   * random variables of the subproblem associated with time t depend on the
+   * random variables w_{t-1}^{dep} of the subproblem at stage t-1.
    *
-   * @param stage The stage for which an initial state must be
-   * provided.
+   * @param stage The stage for which an initial state must be provided.
    *
-   * @return An initial state for the optimization problem
-   * associated with the given stage.
-   */
+   * @return An initial state for the optimization subproblem associated with
+   *         the given stage. */
+
   Eigen::ArrayXd oneAdmissibleState( const double & stage ) override;
 
 /*--------------------------------------------------------------------------*/
@@ -1613,8 +1630,8 @@ private:
    * at a time t is given by (x_t, w_t^{dep}), then this function
    * should return the size of x_t plus the size of w_t^{dep}.
    *
-   * @return The size of the state vector.
-   */
+   * @return The size of the state vector. */
+
   int getStateSize() const override {
    return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
     get_admissible_state_size( 0 );
@@ -1626,8 +1643,8 @@ private:
   /** This function returns the simulator that is used during the
    * backward pass.
    *
-   * @return The simulator associated with the backward pass.
-   */
+   * @return The simulator associated with the backward pass. */
+
   std::shared_ptr< StOpt::SimulatorSDDPBase >
   getSimulatorBackward() const override {
    return simulator_backward;
@@ -1636,11 +1653,11 @@ private:
 /*--------------------------------------------------------------------------*/
 
   /// returns the simulator for the forward pass
-  /** This function returns the simulator that is used during the
-   * forward pass.
+  /** This function returns the simulator that is used during the forward
+   * pass.
    *
-   * @return The simulator associated with the forward pass.
-   */
+   * @return The simulator associated with the forward pass. */
+
   std::shared_ptr< StOpt::SimulatorSDDPBase >
   getSimulatorForward() const override {
    return simulator_forward;
@@ -1649,11 +1666,11 @@ private:
 /*--------------------------------------------------------------------------*/
 
   /// set the SDDPSolver with which this SDDPOptimizer will be associated
-  /** This method is used to set the (pointer to the) SDDPSolver
-   * with which this SDDPOptimizer will be associated.
+  /** This method is used to set the (pointer to the) SDDPSolver with which
+   * this SDDPOptimizer will be associated.
    *
-   * @param solver A pointer to an SDDPSolver.
-   */
+   * @param solver A pointer to an SDDPSolver. */
+
   void set_solver( SDDPSolver * solver ) {
    sddp_solver = solver;
   }
@@ -1683,8 +1700,7 @@ private:
    *            horizon. Although the parameter is of type double, its value
    *            must be actually an integer.
    *
-   * @return A pointer to the Block associated with the given stage.
-   */
+   * @return A pointer to the Block associated with the given stage. */
 
   StochasticBlock * get_block( const double & stage ) const;
 

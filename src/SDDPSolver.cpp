@@ -193,11 +193,11 @@ int SDDPSolver::compute( bool changedvars ) {
    ( std::move( A ) , std::move( b ) , get_time_horizon() - 1 );
  }
 
- /* The cuts for the problem at the last stage have just been added. StOpt
+ /* The cuts for the subproblem at the last stage have just been added. StOpt
   * requires a StOpt::SDDPFinalCut as argument, representing the cuts for the
   * last stage. So, we create a dummy one, which will be ignored within
-  * oneStepBackward() and oneStepForward() when the problem at the last stage
-  * is being solved. */
+  * oneStepBackward() and oneStepForward() when the subproblem at the last
+  * stage is being solved. */
 
  StOpt::SDDPFinalCut final_cut
   ( Eigen::ArrayXXd::Zero( number_state_variables + 1 , 1 ) );
@@ -368,9 +368,15 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* The last argument is the simulation id indicating in which scenario the
   * resolution will be done. */
 
- Index scenario_index = 0;
+ Index scenario_index = sddp_solver->first_stage_scenario_index;
  if( current_stage > 0 )
   scenario_index = simulator_backward->get_scenario_index( simulation_id );
+
+ /* In the first stage, the scenario will not be set if the given scenario
+  * index is negative. */
+
+ const bool scenario_provided = ( current_stage > 0 ) ||
+  ( sddp_solver->first_stage_scenario_index >= 0 );
 
  // Log
 
@@ -378,7 +384,9 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****" << std::endl;
   *log << "  Stage:          " << current_stage << std::endl;
-  *log << "  Scenario index: " << scenario_index << std::endl;
+  *log << "  Scenario index: ";
+  if( scenario_provided ) *log << scenario_index << std::endl;
+  else *log << "none" << std::endl;
   if( current_stage > 0 ) {
    *log << "  Simulation id:  " << simulation_id << std::endl;
    if( sddp_solver->log_verbosity >= 4 ) {
@@ -426,7 +434,10 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* RANDOM DATA */
  /***************/
 
- sddp_solver->set_scenario( scenario_index , current_stage );
+ /* In the first stage, the scenario is not set if the given scenario index is
+  * negative. */
+ if( scenario_provided )
+  sddp_solver->set_scenario( scenario_index , current_stage );
 
  /**************************/
  /* SOLVING THE SUBPROBLEM */
@@ -533,9 +544,15 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  // Index of the scenario to be considered
 
- Index scenario_index = 0;
+ Index scenario_index = sddp_solver->first_stage_scenario_index;
  if( current_stage > 0 )
   scenario_index = simulator_forward->get_scenario_index( simulation_id );
+
+ /* In the first stage, the scenario will not be set if the given scenario
+  * index is negative. */
+
+ const bool scenario_provided = ( current_stage > 0 ) ||
+  ( sddp_solver->first_stage_scenario_index >= 0 );
 
  // Log
 
@@ -544,7 +561,9 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepForward *****"
             << std::endl;
   *log << "  Stage:          " << current_stage << std::endl;
-  *log << "  Scenario index: " << scenario_index << std::endl;
+  *log << "  Scenario index: ";
+  if( scenario_provided ) *log << scenario_index << std::endl;
+  else *log << "none" << std::endl;
   if( current_stage > 0 ) {
    *log << "  Simulation id:  " << simulation_id << std::endl;
    if( sddp_solver->log_verbosity >= 4 ) {
@@ -588,7 +607,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* RANDOM DATA */
  /***************/
 
- sddp_solver->set_scenario( scenario_index , current_stage );
+ if( scenario_provided )
+  sddp_solver->set_scenario( scenario_index , current_stage );
 
  /*********************************/
  /* VARIABLES FROM PREVIOUS STAGE */
@@ -604,7 +624,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  /* The objective_value takes into account the value of the future cost
   * function. For all stages other than the last one, we subtract the value of
-  * the future cost function from objective_value. The problem at the last
+  * the future cost function from objective_value. The subproblem at the last
   * stage, however, has a fixed future cost and it is kept as it is considered
   * part of the cost of that stage. */
 
@@ -786,7 +806,7 @@ SDDPSolver::get_benders_function( SDDPBlock::Index stage ) const {
 double SDDPSolver::solve( SDDPBlock::Index stage ) {
 
  /* Solving the subproblem consists in evaluating the Objective of the
-  * BendersBFunction associated with the problem of the given stage. */
+  * BendersBFunction associated with the subproblem of the given stage. */
 
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::solve: invalid "
@@ -809,25 +829,25 @@ double SDDPSolver::solve( SDDPBlock::Index stage ) {
 
   std::string message;
   if( status == kUnbounded )
-   message = " The sub-problem is unbounded.";
+   message = " The subproblem is unbounded.";
   else if( status == kInfeasible )
-   message = " The sub-problem is infeasible.";
+   message = " The subproblem is infeasible.";
   else if( status == kError )
-   message = " An error occurred while solving the sub-problem.";
+   message = " An error occurred while solving the subproblem.";
   else if( status == kStopTime )
-   message = " A time limit has been reached while solving the sub-problem.";
+   message = " A time limit has been reached while solving the subproblem.";
   else if( status == kStopIter )
    message = " A maximum number of iterations has been reached while solving "
-    "the sub-problem.";
+    "the subproblem.";
 
-  throw( std::logic_error( "SDDPSolver::solve: the sub-problem at stage " +
+  throw( std::logic_error( "SDDPSolver::solve: the subproblem at stage " +
                            std::to_string( stage ) + " was not solved." +
                            message ) );
  }
 
  auto solver = benders_function->get_solver();
  if( ! solver->has_var_solution() ) {
-  throw( std::logic_error( "SDDPSolver::solve: the sub-problem at stage " +
+  throw( std::logic_error( "SDDPSolver::solve: the subproblem at stage " +
                            std::to_string( stage ) + " has no solution." ) );
  }
 
