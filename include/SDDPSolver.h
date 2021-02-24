@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 02 - 2021
+ * \date 24 - 02 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -391,11 +391,39 @@ public:
    * meshes (number of steps) at the i-th direction. */
 
   vintLastAlgPar
-  ///< first allowed new int parameter for derived classes
+  ///< first allowed new vector-of-int parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
    * vector-of-int parameters. */
 
  };  // end( vint_par_type_SDDP_S )
+
+/*--------------------------------------------------------------------------*/
+ /// public enum for the vector-of-double parameters
+ /** Public enum describing the different algorithmic parameters of
+  * vector-of-double type that SDDPSolver has in addition to these of
+  * Solver. The value vdblLastAlgPar is provided so that the list can be
+  * easily further extended by derived classes. */
+
+ enum vdbl_par_type_SDDP_S {
+
+  vdblLastStageCuts = vdbl_par_type_S::vdblLastAlgPar ,
+  ///< the cuts to be used at the last stage
+  /**< The parameter for setting the cuts to be used at the last time
+  * instant. Each cut is represented by a vector whose size is equal to m + 1,
+  * where m is the number of state variables. The m first elements of a cut
+  * are the coefficients for the state variables and the last element is the
+  * constant of that cut. The vector #vdblLastStageCuts can store multiple
+  * cuts and its size must be a multiple of m + 1. If it is non-empty and has
+  * size k * (m + 1), then it contains k cuts and the i-th cut is given by the
+  * elements between the indices i * ( m + 1 ) and ( i + 1 ) * ( m + 1 ) -
+  * 1. By default, this vector is empty. */
+
+  vdblLastAlgPar
+  ///< first allowed new vector-of-double parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * vector-of-double parameters. */
+
+ };  // end( vdbl_par_type_SDDP_S )
 
 /**@} ----------------------------------------------------------------------*/
 /*---------------- CONSTRUCTING AND DESTRUCTING SDDPSolver -----------------*/
@@ -638,6 +666,30 @@ public:
   Solver::set_par( par , value );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// set the vector-of-double paramaters of SDDPSolver
+ /** Set a given vector-of-double paramater. Besides considering the
+  * vector-of-double parameters defined in #vdbl_par_type_S, this function
+  * also accepts the following parameters:
+  *
+  * - #vdblLastStageCuts
+  *
+  * Please refer to the #vdbl_par_type_SDDP_S enumeration for a detailed
+  * description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( idx_type par , std::vector< double > && value ) override {
+  if( par == vdblLastStageCuts ) {
+   last_stage_cuts = value;
+   return;
+  }
+  Solver::set_par( par , value );
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
@@ -685,6 +737,17 @@ public:
 
  idx_type get_num_vint_par( void ) const override {
   return( idx_type( vintLastAlgPar ) );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// get the number of vector-of-double parameters
+ /** Get the number of vector-of-double  parameters.
+  *
+  * @return The number of vector-of-double parameters.
+  */
+
+ idx_type get_num_vdbl_par( void ) const override {
+  return( idx_type( vdblLastAlgPar ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -802,6 +865,33 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// get the default value of a vector-of-double parameter
+ /** Get the default value of the vector-of-double parameter with given index.
+  * Please see the #vdbl_par_type_SDDP_S and #vdbl_par_type_S enumerations for
+  * a detailed explanation of the possible parameters. This function returns
+  * the following values depending on the desired parameter:
+  *
+  * - #vdblMeshDiscretization: an empty vector
+  *
+  * For any other parameter, see Solver::get_dflt_vdbl_par().
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
+  const override {
+  const static std::vector< double > empty;
+
+  if( par == vdblLastStageCuts ) {
+   return empty;
+  }
+
+  return Solver::get_dflt_vdbl_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
  /// get a specific integer (int) numerical parameter
  /** Get a specific integer (int) numerical parameter. Please see the
   * #int_par_type_SDDP_S and #int_par_type_S enumerations for a
@@ -887,6 +977,24 @@ public:
   return Solver::get_vint_par( par );
  }
 
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// get a specific vector-of-double parameter
+ /** Get a specific vector-of-double parameter. Please see the
+  * #vdbl_par_type_SDDP_S and #vdbl_par_type_S enumerations for a detailed
+  * explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::vector< double > & get_vdbl_par( const idx_type par )
+  const override {
+  if( par == vdblLastStageCuts )
+   return last_stage_cuts;
+  return Solver::get_vdbl_par( par );
+ }
+
 /*--------------------------------------------------------------------------*/
  /// returns the index of the int parameter with given string \p name
  /** This method takes a string, which is assumed to be the name of an int
@@ -962,6 +1070,22 @@ public:
  idx_type vint_par_str2idx( const std::string & name ) const override {
   if( name == "vintMeshDiscretization" ) return vintMeshDiscretization;
   return Solver::vint_par_str2idx( name );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// returns the index of the vector-of-double parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a
+  * vector-of-double parameter, and returns its index, i.e., the double value
+  * that can be used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type vdbl_par_str2idx( const std::string & name ) const override {
+  if( name == "vdblLastStageCuts" ) return vdblLastStageCuts;
+  return Solver::vdbl_par_str2idx( name );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1044,6 +1168,25 @@ public:
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
    return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
   return Solver::vint_par_idx2str( idx );
+ }
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// returns the string name of the vector-of-double parameter with given index
+ /** This method takes a vector-of-double parameter index, i.e., the double
+  * value that can be used in [set/get]_par() [see above] to set/get it, and
+  * returns its "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
+  static const std::vector<std::string> parameter_names =
+   { "vdblLastStageCuts" };
+  if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
+   return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
+  return Solver::vdbl_par_idx2str( idx );
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -1165,11 +1308,16 @@ protected:
   * at direction i. */
  std::vector< int > mesh_discretization;
 
- /// The cuts used at the last time step
- /** The cuts used at the last time step: when the final value
-  * function is zero, the last cut is given by an all zero array of
-  * size nbstate + 1. */
- StOpt::SDDPFinalCut final_cut;
+ /// The cuts to be used at the last time instant
+ /** This vector stores the cuts to be used at the last time instant. Each cut
+  * is represented by a vector whose size is equal to m + 1, where m is the
+  * number of state variables. The m first elements of a cut are the
+  * coefficients for the state variables and the last element is the constant
+  * of that cut. The vector #last_stage_cuts can store multiple cuts and its
+  * size must be a multiple of m + 1. If it is non-empty and has size k * (m +
+  * 1), then it contains k cuts and the i-th cut is given by the elements
+  * between the indices i * ( m + 1 ) and ( i + 1 ) * ( m + 1 ) - 1. */
+ std::vector< double > last_stage_cuts;
 
  /// Number of iterations performed by the method
  /** Number of iterations performed by the method at the last call of
