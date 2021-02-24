@@ -109,8 +109,28 @@ int SDDPSolver::compute( bool changedvars ) {
  /* INITIAL STATE */
  /*****************/
 
- if( ! initial_state.size() ) // TODO add a parameter to set initial_state
-  initial_state = sddp_optimizer->oneAdmissibleState( 0 );
+ const auto number_state_variables = sddp_optimizer->getStateSize();
+
+ Eigen::ArrayXd initial_state_array;
+
+ if( initial_state.empty() ) {
+  // No initial state has been provided. Use the admissible state at time 0 as
+  // the initial state.
+  initial_state_array = sddp_optimizer->oneAdmissibleState( 0 );
+ }
+ else {
+  if( initial_state.size() != number_state_variables ) {
+   throw( std::logic_error
+          ( "SDDPSolver::compute: the size of the given initial state (" +
+            std::to_string( initial_state.size() ) + ") is different from the "
+            "size of the admissible state ("
+            + std::to_string( number_state_variables ) + ")" ) );
+  }
+
+  initial_state_array.resize( initial_state.size() );
+  for( Index i = 0 ; i < initial_state.size() ; ++i )
+   initial_state_array( i ) = initial_state[ i ];
+ }
 
  /***************************/
  /* CUTS FOR THE LAST STAGE */
@@ -123,15 +143,15 @@ int SDDPSolver::compute( bool changedvars ) {
 
  PolyhedralFunction::MultiVector A;
  PolyhedralFunction::RealVector b;
- const auto number_of_states = initial_state.size();
 
  if( ! last_stage_cuts.empty() ) {
 
-  if( last_stage_cuts.size() % ( number_of_states + 1 ) != 0 )
+  if( last_stage_cuts.size() % ( number_state_variables + 1 ) != 0 )
    throw( std::logic_error( "SDDPSolver::compute: Invalid size of the cuts "
                             "for the last stage." ) );
 
-  const auto number_of_cuts = last_stage_cuts.size() / ( number_of_states + 1 );
+  const auto number_of_cuts =
+   last_stage_cuts.size() / ( number_state_variables + 1 );
 
   // Pack the cuts
 
@@ -139,9 +159,9 @@ int SDDPSolver::compute( bool changedvars ) {
   b.resize( number_of_cuts );
 
   for( Index i = 0 ; i < number_of_cuts ; ++i ) {
-   const auto begin = i * ( number_of_states + 1 );
-   b[ i ] = last_stage_cuts[ begin + number_of_states ];
-   A[ i ].resize( number_of_states );
+   const auto begin = i * ( number_state_variables + 1 );
+   b[ i ] = last_stage_cuts[ begin + number_state_variables ];
+   A[ i ].resize( number_state_variables );
    for( decltype( A[ i ].size() ) j = 0 ; j < A[ i ].size() ; ++j )
     A[ i ][ j ] = last_stage_cuts[ begin + j ];
   }
@@ -163,7 +183,7 @@ int SDDPSolver::compute( bool changedvars ) {
            << " be used for the last stage." << std::endl;
    b.resize( 1 , 0 );
    A.resize( 1 );
-   A.front().resize( number_of_states , 0 );
+   A.front().resize( number_state_variables , 0 );
   }
  }
 
@@ -180,7 +200,7 @@ int SDDPSolver::compute( bool changedvars ) {
   * is being solved. */
 
  StOpt::SDDPFinalCut final_cut
-  ( Eigen::ArrayXXd::Zero( initial_state.size() + 1 , 1 ) );
+  ( Eigen::ArrayXXd::Zero( number_state_variables + 1 , 1 ) );
 
  /* In some situations, we can avoid adding the cuts every time in
   * oneStepBackward() and oneStepForward(). One of these situations, for
@@ -230,7 +250,7 @@ int SDDPSolver::compute( bool changedvars ) {
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
-  ( sddp_optimizer , number_simulations_for_convergence , initial_state ,
+  ( sddp_optimizer , number_simulations_for_convergence , initial_state_array ,
     final_cut , dates , mesh_discretization_array , regressors_filename ,
     cuts_filename , visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,

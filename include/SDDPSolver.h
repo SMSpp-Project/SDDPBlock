@@ -418,6 +418,15 @@ public:
   * elements between the indices i * ( m + 1 ) and ( i + 1 ) * ( m + 1 ) -
   * 1. By default, this vector is empty. */
 
+  vdblInitialState ,
+  ///< the initial state
+  /**< The parameter for setting the initial state, i.e., the state to be
+   * considered in the problem of the first stage. The size of this vector
+   * must be equal to the number of state variables and the i-th element in
+   * this vector will be the value of the i-th state variable of the first
+   * stage problem. By default, this vector is empty and the initial state is
+   * taken to be the admissible state at time 0 given by the SDDPBlock. */
+
   vdblLastAlgPar
   ///< first allowed new vector-of-double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -674,6 +683,8 @@ public:
   *
   * - #vdblLastStageCuts
   *
+  * - #vdblInitialState
+  *
   * Please refer to the #vdbl_par_type_SDDP_S enumeration for a detailed
   * description of each of them.
   *
@@ -683,9 +694,9 @@ public:
   */
 
  void set_par( idx_type par , std::vector< double > && value ) override {
-  if( par == vdblLastStageCuts ) {
-   last_stage_cuts = value;
-   return;
+  switch( par ) {
+   case( vdblLastStageCuts ): last_stage_cuts = value; return;
+   case( vdblInitialState ): initial_state = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -873,6 +884,8 @@ public:
   *
   * - #vdblMeshDiscretization: an empty vector
   *
+  * - #vdblInitialState: an empty vector
+  *
   * For any other parameter, see Solver::get_dflt_vdbl_par().
   *
   * @param par The parameter whose default value is desired.
@@ -884,7 +897,7 @@ public:
   const override {
   const static std::vector< double > empty;
 
-  if( par == vdblLastStageCuts ) {
+  if( par == vdblLastStageCuts || par == vdblInitialState ) {
    return empty;
   }
 
@@ -990,8 +1003,10 @@ public:
 
  const std::vector< double > & get_vdbl_par( const idx_type par )
   const override {
-  if( par == vdblLastStageCuts )
-   return last_stage_cuts;
+  switch( par ) {
+   case( vdblLastStageCuts ): return last_stage_cuts;
+   case( vdblInitialState ): return initial_state;
+  }
   return Solver::get_vdbl_par( par );
  }
 
@@ -1085,6 +1100,7 @@ public:
 
  idx_type vdbl_par_str2idx( const std::string & name ) const override {
   if( name == "vdblLastStageCuts" ) return vdblLastStageCuts;
+  if( name == "vdblInitialState" ) return vdblInitialState;
   return Solver::vdbl_par_str2idx( name );
  }
 
@@ -1183,7 +1199,7 @@ public:
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
   static const std::vector<std::string> parameter_names =
-   { "vdblLastStageCuts" };
+   { "vdblLastStageCuts" , "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
    return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
   return Solver::vdbl_par_idx2str( idx );
@@ -1300,7 +1316,7 @@ protected:
 
  /// Initial state
  /** The initial state at the beginning of the simulation. */
- Eigen::ArrayXd initial_state;
+ std::vector< double > initial_state;
 
  /// Number of meshes in each direction
  /** This vector stores the mesh discretization in each direction. The i-th
@@ -1492,10 +1508,15 @@ private:
   f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
   f_output_filename = get_dflt_str_par( strOutputFile );
 
-  // vector
+  // vector of int
 
   mesh_discretization = get_dflt_vint_par( vintMeshDiscretization );
-}
+
+  // vector of double
+
+  last_stage_cuts = get_dflt_vdbl_par( vdblLastStageCuts );
+  initial_state = get_dflt_vdbl_par( vdblInitialState );
+ }
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
@@ -1595,7 +1616,8 @@ private:
    * @return The size of the state vector.
    */
   int getStateSize() const override {
-   return sddp_solver->initial_state.size();
+   return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
+    get_admissible_state_size( 0 );
   }
 
 /*--------------------------------------------------------------------------*/
