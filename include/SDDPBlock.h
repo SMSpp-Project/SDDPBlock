@@ -479,7 +479,7 @@ public:
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,
-                bool remove_current_cuts = false );
+                Index number_cuts_to_keep = Inf< Index >() );
 
 /*--------------------------------------------------------------------------*/
 

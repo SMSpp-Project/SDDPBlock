@@ -286,16 +286,17 @@ StochasticBlock * SDDPBlock::get_sub_Block( Index i ) const {
 
 void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
                           PolyhedralFunction::RealVector && b , Index stage ,
-                          bool remove_current_cuts ) {
+                          Index number_cuts_to_keep ) {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::add_cuts: invalid stage index: " +
                                 std::to_string( stage ) ) );
 
- if( remove_current_cuts ) {
-  // Remove all cuts currently there
-  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
-  v_polyhedral_functions[ stage ]->delete_rows( Range( 0 , num_rows) );
- }
+ const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
+
+ // Possibly remove the last (num_rows - number_cuts_to_keep) cuts
+ if( number_cuts_to_keep < num_rows )
+  v_polyhedral_functions[ stage ]->
+   delete_rows( Range( number_cuts_to_keep , num_rows) );
 
  // Add the given cuts
  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );

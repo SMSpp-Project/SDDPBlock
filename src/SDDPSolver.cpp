@@ -118,7 +118,8 @@ int SDDPSolver::compute( bool changedvars ) {
 
  /* The cuts to be used at the last time instant. If any cuts are provided,
   * they are added to the last stage right now and do not need to be passed to
-  * StOpt. */
+  * StOpt. Notice that any cut that is currently at the last stage are kept
+  * there. */
 
  PolyhedralFunction::MultiVector A;
  PolyhedralFunction::RealVector b;
@@ -158,8 +159,8 @@ int SDDPSolver::compute( bool changedvars ) {
    if( f_log )
     *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has been"
            << " provided and the PolyhedralFunction at the last stage has no"
-           << " bound and no row (cut). By default, the all-zero cut for the "
-           << "last stage will then be used." << std::endl;
+           << " bound and no row (cut). By default, the all-zero cut will then "
+           << " be used for the last stage." << std::endl;
    b.resize( 1 , 0 );
    A.resize( 1 );
    A.front().resize( number_of_states , 0 );
@@ -169,7 +170,7 @@ int SDDPSolver::compute( bool changedvars ) {
  if( ! A.empty() ) {
   // Add the cuts to the last stage
   static_cast< SDDPBlock * >( f_Block )->add_cuts
-   ( std::move( A ) , std::move( b ) , get_time_horizon() - 1 , false );
+   ( std::move( A ) , std::move( b ) , get_time_horizon() - 1 );
  }
 
  /* The cuts for the problem at the last stage have just been added. StOpt
@@ -656,10 +657,13 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
                                 "stage index: " + std::to_string( stage ) ) );
 
  // Number of cuts that will be added. In principle, all given cuts are added.
+
  auto number_cuts_to_be_added = cuts.cols();
 
- // If a mesh has been provided, all cuts are replaced by the given ones
- auto remove_current_cuts = true;
+ /* If a mesh has been provided, all cuts are replaced by the given ones, but
+  * the initial cuts (those there were present at the time StOpt was called)
+  * are kept. */
+ auto number_cuts_to_keep = number_initial_cuts[ stage ];
 
  if( ! mesh_provided() ) {
 
@@ -682,7 +686,7 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
   number_cuts_to_be_added = cuts.cols() - number_cuts_previously_added;
 
   // and keep the current ones
-  remove_current_cuts = false;
+  number_cuts_to_keep = Inf< Index >();
  }
 
  // Store the given cuts in A and b
@@ -718,7 +722,7 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
  // Finally add the cuts
 
  static_cast< SDDPBlock * >( f_Block )->add_cuts
-  ( std::move( A ) , std::move( b ) , stage , remove_current_cuts );
+  ( std::move( A ) , std::move( b ) , stage , number_cuts_to_keep );
 }
 
 /*--------------------------------------------------------------------------*/
