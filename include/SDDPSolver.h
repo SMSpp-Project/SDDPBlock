@@ -285,8 +285,7 @@ public:
   intNbSimulForward ,
   ///< Number of simulations considered in the forward pass
   /**< This parameter determines the number of simulations that must be
-   * considered during the forward pass. By default, this number is
-   * the minimum between 3 and the number of scenarios. */
+   * considered during the forward pass. By default, this number is 1. */
 
   intOutputFrequency ,
   ///< The frequency in which the future cost functions are output
@@ -789,8 +788,7 @@ public:
   * - #intNbSimulBackward: given by
   *   SDDPOptimizer::get_dflt_number_simulations_backward()
   *
-  * - #intNbSimulForward: given by
-  *   SDDPOptimizer::get_dflt_number_simulations_forward()
+  * - #intNbSimulForward: 1
   *
   * - #intLogVerb: 0
   *
@@ -813,9 +811,7 @@ public:
    case( intNbSimulBackward ):
     return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
      get_dflt_number_simulations_backward();
-   case( intNbSimulForward ):
-    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-     get_dflt_number_simulations_forward();
+   case( intNbSimulForward ): return 1;
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioIndex ): return 0;
@@ -1686,8 +1682,7 @@ private:
      ( get_dflt_number_simulations_backward() );
 
    if( simulator_forward->getNbSimul() == 0 )
-    simulator_forward->set_number_simulations
-     ( get_dflt_number_simulations_forward() );
+    simulator_forward->set_number_simulations( 1 );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1732,12 +1727,6 @@ private:
 
   int get_dflt_number_simulations_backward() const {
    return simulator_backward->get_number_scenarios();
-  }
-
-/*--------------------------------------------------------------------------*/
-
-  int get_dflt_number_simulations_forward() const {
-   return std::min( 3u , simulator_forward->get_number_scenarios() );
   }
 
 /*--------------------------------------------------------------------------*/
