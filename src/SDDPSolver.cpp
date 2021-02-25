@@ -177,10 +177,10 @@ int SDDPSolver::compute( bool changedvars ) {
   if( ( ! polyhedral_function->is_bound_set() ) &&
       ( polyhedral_function->get_nrows() == 0 ) ) {
    if( f_log )
-    *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has been"
-           << " provided and the PolyhedralFunction at the last stage has no"
-           << " bound and no row (cut). By default, the all-zero cut will then "
-           << " be used for the last stage." << std::endl;
+    *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has "
+           << "been provided and\nthe PolyhedralFunction at the last stage "
+           << "has no bound and no row (cut). By\ndefault, the all-zero cut"
+           << " will then be used for the last stage." << std::endl;
    b.resize( 1 , 0 );
    A.resize( 1 );
    A.front().resize( number_state_variables , 0 );
@@ -445,6 +445,11 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
  auto objective_value = sddp_solver->solve( current_stage );
 
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+  *( sddp_solver->f_log ) << "  Objective:      " << objective_value
+                          << std::endl;
+ }
+
  /**********************************/
  /* CONSTRUCTING THE LINEARIZATION */
  /**********************************/
@@ -466,11 +471,6 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  if( benders_function->has_linearization( true ) ) {
   linearization( 0 ) = objective_value;
   benders_function->get_linearization_coefficients( linearization.data() + 1 );
-
-  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
-   *( sddp_solver->f_log ) << "  Objective:      " << objective_value
-                           << std::endl;
-  }
 
   // Debugging the BendersBFunction
 
