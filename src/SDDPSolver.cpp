@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 24 - 02 - 2021
+ * \date 06 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -111,14 +111,13 @@ int SDDPSolver::compute( bool changedvars ) {
 
  const auto number_state_variables = sddp_optimizer->getStateSize();
 
- Eigen::ArrayXd initial_state_array;
+ Eigen::ArrayXd initial_state_array =
+  Eigen::ArrayXd::Zero( number_state_variables );
 
- if( initial_state.empty() ) {
-  // No initial state has been provided. Use the admissible state at time 0 as
-  // the initial state.
-  initial_state_array = sddp_optimizer->oneAdmissibleState( 0 );
- }
- else {
+ if( ! initial_state.empty() ) {
+  /* If an initial state for the first stage is provided, then the initial
+   * state for the first stage is updated to the given one. */
+
   if( initial_state.size() != number_state_variables ) {
    throw( std::logic_error
           ( "SDDPSolver::compute: the size of the given initial state (" +
@@ -127,9 +126,11 @@ int SDDPSolver::compute( bool changedvars ) {
             + std::to_string( number_state_variables ) + ")" ) );
   }
 
-  initial_state_array.resize( initial_state.size() );
   for( Index i = 0 ; i < initial_state.size() ; ++i )
    initial_state_array( i ) = initial_state[ i ];
+
+  // Set the initial state for the first stage
+  set_state( initial_state_array , 0 );
  }
 
  /***************************/
@@ -428,7 +429,11 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* STATE VARIABLES */
  /*******************/
 
- sddp_solver->set_state( * std::get<0>( state ).get() , current_stage );
+ if( current_stage > 0 ) {
+  /* The initial state for the first stage problem is set only once, in the
+   * beggining of compute(). */
+  sddp_solver->set_state( * std::get<0>( state ).get() , current_stage );
+ }
 
  /***************/
  /* RANDOM DATA */
@@ -614,7 +619,11 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* VARIABLES FROM PREVIOUS STAGE */
  /*********************************/
 
- sddp_solver->set_state( state , current_stage );
+ if( current_stage > 0 ) {
+  /* The initial state for the first stage problem is set only once, in the
+   * beggining of compute(). */
+  sddp_solver->set_state( state , current_stage );
+ }
 
  /**************************/
  /* SOLVING THE SUBPROBLEM */

@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 24 - 02 - 2021
+ * \date 06 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -419,13 +419,13 @@ public:
   ///< the cuts to be used at the last stage
   /**< The parameter for setting the cuts to be used at the last time
   * instant. Each cut is represented by a vector whose size is equal to m + 1,
-  * where m is the number of state variables. The m first elements of a cut
+  * where m is the number of state variables. The first m elements of a cut
   * are the coefficients for the state variables and the last element is the
-  * constant of that cut. The vector #vdblLastStageCuts can store multiple
-  * cuts and its size must be a multiple of m + 1. If it is non-empty and has
-  * size k * (m + 1), then it contains k cuts and the i-th cut is given by the
-  * elements between the indices i * ( m + 1 ) and ( i + 1 ) * ( m + 1 ) -
-  * 1. By default, this vector is empty. */
+  * constant term of that cut. The vector #vdblLastStageCuts can store
+  * multiple cuts and its size must be a multiple of m + 1. If it is non-empty
+  * and has size k * (m + 1), then it contains k cuts and the i-th cut is
+  * given by the elements between the indices i * ( m + 1 ) and ( i + 1 ) * (
+  * m + 1 ) - 1. By default, this vector is empty. */
 
   vdblInitialState ,
   ///< the initial state
