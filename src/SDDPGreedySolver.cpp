@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 22 - 01 - 2021
+ * \date 07 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -83,13 +83,16 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
  set_scenario();
- set_initial_state();
 
  auto time_horizon = get_time_horizon();
  status_compute = Solver::kLowPrecision;
  fault_stage = Inf<Index>();
  solution_value = 0.0;
  f_has_var_solution = false;
+
+ // Initial state for the first stage problem
+ if( ( time_horizon > 0 ) && ( ! initial_state.empty() ) )
+  set_state( initial_state , 0 );
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
@@ -156,7 +159,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 /*--------------------------------------------------------------------------*/
 
 SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon( void ) const {
-  return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+ return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -376,7 +379,6 @@ void SDDPGreedySolver::process_outstanding_Modification( void ) {
   auto mod = v_mod.front();  // pick (a reference to) the first Modification
   v_mod.pop_front();
   scenario_is_set = false;
-  initial_state_is_set = false;
  }
 }
 
@@ -386,15 +388,6 @@ void SDDPGreedySolver::set_scenario( void ) {
  if( ! scenario_is_set ) {
   static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id );
   scenario_is_set = true;
- }
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPGreedySolver::set_initial_state( void ) {
- if( ! initial_state_is_set ) {
-  static_cast< SDDPBlock * >( f_Block )->set_admissible_state( 0 );
-  initial_state_is_set = true;
  }
 }
 

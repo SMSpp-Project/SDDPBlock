@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 22 - 01 - 2021
+ * \date 07 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -293,6 +293,33 @@ public:
 
  };  // end( str_par_type_SDDP_Greedy_S )
 
+/*--------------------------------------------------------------------------*/
+
+ /// public enum for the vector-of-double parameters
+ /** Public enum describing the different algorithmic parameters of
+  * vector-of-double type that SDDPGreedySolver has in addition to these of
+  * Solver. The value vdblLastAlgPar is provided so that the list can be
+  * easily further extended by derived classes. */
+
+ enum vdbl_par_type_SDDP_Greedy_S {
+
+  vdblInitialState = vdbl_par_type_S::vdblLastAlgPar ,
+  ///< the initial state for the first stage problem
+  /**< The parameter for setting the initial state, i.e., the initial state to
+   * be considered in the subproblem of the first stage. The size of this
+   * vector must be equal to the size of the initial state and the i-th
+   * element in this vector will be the value of the i-th initial state
+   * variable of the first stage subproblem. If this vector is empty, no
+   * initial state is set for the first stage problem. By default, this vector
+   * is empty. */
+
+  vdblLastAlgPar
+  ///< first allowed new vector-of-double parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * vector-of-double parameters. */
+
+ };  // end( vdbl_par_type_SDDP_Greedy_S )
+
 /**@} ----------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
 /*--------------------------------------------------------------------------*/
@@ -392,6 +419,30 @@ public:
   Solver::set_par( par , value );
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// set the vector-of-double paramaters of SDDPGreedySolver
+ /** Set a given vector-of-double paramater. Besides considering the
+  * vector-of-double parameters defined in #vdbl_par_type_S, this function
+  * also accepts the following parameters:
+  *
+  * - #vdblInitialState
+  *
+  * Please refer to the #vdbl_par_type_SDDP_Greedy_S enumeration for a
+  * detailed description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( idx_type par , std::vector< double > && value ) override {
+  switch( par ) {
+   case( vdblInitialState ): initial_state = value; return;
+  }
+  Solver::set_par( par , value );
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
@@ -417,6 +468,17 @@ public:
 
  idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the number of vector-of-double parameters
+ /** Get the number of vector-of-double  parameters.
+  *
+  * @return The number of vector-of-double parameters.
+  */
+
+ idx_type get_num_vdbl_par( void ) const override {
+  return( idx_type( vdblLastAlgPar ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -462,6 +524,33 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// get the default value of a vector-of-double parameter
+ /** Get the default value of the vector-of-double parameter with given index.
+  * Please see the #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S
+  * enumerations for a detailed explanation of the possible parameters. This
+  * function returns the following values depending on the desired parameter:
+  *
+  * - #vdblInitialState: an empty vector
+  *
+  * For any other parameter, see Solver::get_dflt_vdbl_par().
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
+  const override {
+  const static std::vector< double > empty;
+
+  if( par == vdblInitialState ) {
+   return empty;
+  }
+
+  return Solver::get_dflt_vdbl_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
 
  /// get a specific integer (int) numerical parameter
  /** Get a specific integer (int) numerical parameter. Please see the
@@ -504,6 +593,26 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// get a specific vector-of-double parameter
+ /** Get a specific vector-of-double parameter. Please see the
+  * #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::vector< double > & get_vdbl_par( const idx_type par )
+  const override {
+  switch( par ) {
+   case( vdblInitialState ): return initial_state;
+  }
+  return Solver::get_vdbl_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// returns the index of the int parameter with given string \p name
  /** This method takes a string, which is assumed to be the name of an int
   * parameter, and returns its index, i.e., the integer value that can be
@@ -539,6 +648,23 @@ public:
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
   return Solver::str_par_str2idx( name );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the index of the vector-of-double parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a
+  * vector-of-double parameter, and returns its index, i.e., the double value
+  * that can be used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type vdbl_par_str2idx( const std::string & name ) const override {
+  if( name == "vdblInitialState" ) return vdblInitialState;
+  return Solver::vdbl_par_str2idx( name );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -585,6 +711,26 @@ public:
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
 
   return Solver::str_par_idx2str( idx );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the string name of the vector-of-double parameter with given index
+ /** This method takes a vector-of-double parameter index, i.e., the double
+  * value that can be used in [set/get]_par() [see above] to set/get it, and
+  * returns its "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
+  static const std::vector<std::string> parameter_names =
+   { "vdblInitialState" };
+  if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
+   return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
+  return Solver::vdbl_par_idx2str( idx );
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -736,14 +882,6 @@ public:
   * get_scenario_id().
   */
  void set_scenario( void );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the initial state
- /** This function sets the state of the subproblem at the first stage
-  * according to the initial state present in the SDDPBlock.
-  */
- void set_initial_state( void );
 
 /*--------------------------------------------------------------------------*/
 
@@ -941,9 +1079,6 @@ private:
  bool scenario_is_set = false;
 
  /// Indicates whether the initial state has already been set
- bool initial_state_is_set = false;
-
- /// Indicates whether the initial state has already been set
  bool f_has_var_solution = false;
 
  /// The value of the solution (if any).
@@ -951,6 +1086,9 @@ private:
 
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
+
+ /// Initial state for the first stage problem
+ std::vector< double > initial_state;
 
 };   // end( class SDDPGreedySolver )
 
