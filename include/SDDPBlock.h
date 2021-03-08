@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 02 - 2021
+ * \date 09 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -510,6 +510,20 @@ public:
   * @param stage The stage whose state Variable must be set.
   */
  void set_state( const Eigen::ArrayXd & values , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the values of the state Variable of the problem at the given stage
+ /** This function returns the current values of the state Variable of the
+  * problem at the given \p stage.
+  *
+  * @param stage The stage whose state Variable values are desired.
+  *
+  * @return The current values of the state Variable of the problem at the
+  *         given \p stage.
+  */
+
+ std::vector< double > get_state( Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 

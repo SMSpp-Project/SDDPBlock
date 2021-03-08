@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 23 - 02 - 2021
+ * \date 09 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -331,6 +331,16 @@ void SDDPBlock::set_state( const std::vector<double> & values , Index stage ) {
   ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
     get_nested_Blocks().front() );
  benders_block->set_variable_values( values );
+}
+
+/*--------------------------------------------------------------------------*/
+
+std::vector< double > SDDPBlock::get_state( Index stage ) const {
+ assert( stage < get_time_horizon() );
+ auto benders_block = static_cast< BendersBlock * >
+  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
+    get_nested_Blocks().front() );
+ return benders_block->get_variable_values();
 }
 
 /*--------------------------------------------------------------------------*/
