@@ -1659,6 +1659,13 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+  /// checks if the linearization is correct
+  void check_linearization( Index current_stage , const Eigen::ArrayXd & state ,
+                            double objective_value , double alpha ,
+                            const Eigen::ArrayXd & linearization ) const;
+
+/*--------------------------------------------------------------------------*/
+
  private:
 
   double date;

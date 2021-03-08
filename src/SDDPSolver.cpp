@@ -563,72 +563,9 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   // Debugging the BendersBFunction
 
 #ifdef BENDERSBFUNCTION_DEBUG
-  {
-   const auto alpha = benders_function->get_linearization_constant();
-   if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
-    *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
-    *( sddp_solver->f_log ) << "    alpha:        " << alpha << std::endl;
-    if( sddp_solver->log_verbosity >= 30 ) {
-     *( sddp_solver->f_log ) << "    coefficients: (";
-     for( decltype( linearization.size() ) i = 1 ;
-          i < linearization.size() ; ++i ) {
-      if( i > 1 ) *( sddp_solver->f_log ) << ", ";
-      *( sddp_solver->f_log ) << linearization( i );
-     }
-     *( sddp_solver->f_log ) << ")" << std::endl;
-    }
-   }
-
-   double gy = 0;
-
-   if( current_stage == 0 ) {
-    /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
-     * does not contain the state for the first stage problem. */
-    const auto state_variables = static_cast< SDDPBlock * >
-     ( sddp_solver->f_Block )->get_state( current_stage );
-    for( decltype( state_variables.size() ) j = 0 ;
-         j < state_variables.size() ; ++j )
-     gy += linearization( j + 1 ) * state_variables[ j ];
-   }
-   else {
-    const auto & state_variables = * std::get<0>( state ).get();
-    for( decltype( state_variables.size() ) j = 0 ;
-         j < state_variables.size() ; ++j )
-     gy += linearization( j + 1 ) * state_variables( j );
-   }
-
-   const double epsilon = 1.0e-4;
-   const auto scale =
-    std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
-   const auto diff = std::abs( objective_value - ( alpha + gy ) );
-   if( diff > epsilon * scale ) {
-    std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
-              << "was not achieved:" << std::endl;
-    std::cerr << "  precision required: " << std::setprecision( 20 )
-              << epsilon << std::endl;
-    std::cerr << "  precision achieved: " << std::setprecision( 20 )
-              << ( diff / scale ) << std::endl;
-    std::cerr << "  objective: " << std::setprecision( 20 )
-              << objective_value << std::endl;
-    std::cerr << "  alpha:     " << std::setprecision( 20 )
-              << alpha << std::endl;
-    std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-
-    auto log = sddp_solver->f_log;
-
-    *log << "SDDPOptimizer::oneStepBackward: linearization precision "
-              << "was not achieved:" << std::endl;
-    *log << "  precision required: " << std::setprecision( 20 )
-              << epsilon << std::endl;
-    *log << "  precision achieved: " << std::setprecision( 20 )
-              << ( diff / scale ) << std::endl;
-    *log << "  objective: " << std::setprecision( 20 )
-              << objective_value << std::endl;
-    *log << "  alpha:     " << std::setprecision( 20 )
-              << alpha << std::endl;
-    *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-   }
-  }
+  const auto alpha = benders_function->get_linearization_constant();
+  check_linearization( current_stage , * std::get<0>( state ).get() ,
+                       objective_value , alpha , linearization );
 #endif
 
  }
@@ -1102,6 +1039,74 @@ SDDPSolver::SDDPOptimizer::oneAdmissibleState( const double & stage ) {
 int SDDPSolver::SDDPOptimizer::getStateSize() const {
  return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
   get_admissible_state_size( 0 );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::SDDPOptimizer::check_linearization
+( Index current_stage , const Eigen::ArrayXd & state , double objective_value ,
+  double alpha , const Eigen::ArrayXd & linearization ) const {
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
+  *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
+  *( sddp_solver->f_log ) << "    alpha:        " << alpha << std::endl;
+  if( sddp_solver->log_verbosity >= 30 ) {
+   *( sddp_solver->f_log ) << "    coefficients: (";
+   for( decltype( linearization.size() ) i = 1 ;
+        i < linearization.size() ; ++i ) {
+    if( i > 1 ) *( sddp_solver->f_log ) << ", ";
+    *( sddp_solver->f_log ) << linearization( i );
+   }
+   *( sddp_solver->f_log ) << ")" << std::endl;
+  }
+ }
+
+ double gy = 0;
+
+ if( current_stage == 0 ) {
+  /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
+   * does not contain the state for the first stage problem. */
+  const auto state = static_cast< SDDPBlock * >
+   ( sddp_solver->f_Block )->get_state( current_stage );
+  for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
+   gy += linearization( j + 1 ) * state[ j ];
+ }
+ else {
+  for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
+   gy += linearization( j + 1 ) * state( j );
+ }
+
+ const double epsilon = 1.0e-4;
+ const auto scale =
+  std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
+ const auto diff = std::abs( objective_value - ( alpha + gy ) );
+ if( diff > epsilon * scale ) {
+  std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
+            << "was not achieved:" << std::endl;
+  std::cerr << "  precision required: " << std::setprecision( 20 )
+            << epsilon << std::endl;
+  std::cerr << "  precision achieved: " << std::setprecision( 20 )
+            << ( diff / scale ) << std::endl;
+  std::cerr << "  objective: " << std::setprecision( 20 )
+            << objective_value << std::endl;
+  std::cerr << "  alpha:     " << std::setprecision( 20 )
+            << alpha << std::endl;
+  std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+
+  auto log = sddp_solver->f_log;
+
+  *log << "SDDPOptimizer::oneStepBackward: linearization precision "
+       << "was not achieved:" << std::endl;
+  *log << "  precision required: " << std::setprecision( 20 )
+       << epsilon << std::endl;
+  *log << "  precision achieved: " << std::setprecision( 20 )
+       << ( diff / scale ) << std::endl;
+  *log << "  objective: " << std::setprecision( 20 )
+       << objective_value << std::endl;
+  *log << "  alpha:     " << std::setprecision( 20 )
+       << alpha << std::endl;
+  *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+ }
 }
 
 /*--------------------------------------------------------------------------*/
