@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 06 - 03 - 2021
+ * \date 08 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -111,9 +111,6 @@ int SDDPSolver::compute( bool changedvars ) {
 
  const auto number_state_variables = sddp_optimizer->getStateSize();
 
- Eigen::ArrayXd initial_state_array =
-  Eigen::ArrayXd::Zero( number_state_variables );
-
  if( ! initial_state.empty() ) {
   /* If an initial state for the first stage is provided, then the initial
    * state for the first stage is updated to the given one. */
@@ -126,12 +123,23 @@ int SDDPSolver::compute( bool changedvars ) {
             + std::to_string( number_state_variables ) + ")" ) );
   }
 
+  Eigen::ArrayXd initial_state_array( initial_state.size() );
   for( Index i = 0 ; i < initial_state.size() ; ++i )
    initial_state_array( i ) = initial_state[ i ];
 
   // Set the initial state for the first stage
   set_state( initial_state_array , 0 );
  }
+
+ /* The "initial state" that is passed to StOpt is the admissible state of the
+  * first stage. This is because StOpt will use this state as the initial
+  * state for the second stage problem (during the first backward
+  * pass). However, StOpt also uses this state as the initial state for the
+  * first stage problem. But this is not an issue because the initial state
+  * for the first stage problem is set at most once here in compute() and it
+  * is ignored in the oneStep* functions. */
+
+ Eigen::ArrayXd initial_state_array = sddp_optimizer->oneAdmissibleState( 0 );
 
  /***************************/
  /* CUTS FOR THE LAST STAGE */
@@ -400,7 +408,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
    }
   }
 
-  if( sddp_solver->log_verbosity >= 10 ) {
+  if( current_stage > 0 && sddp_solver->log_verbosity >= 10 ) {
    *log << "  State:          (";
    const auto & state_variables = * std::get<0>( state );
    for( decltype( state_variables.size() ) i = 0 ;
@@ -581,7 +589,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    }
   }
 
-  if( sddp_solver->log_verbosity >= 10 ) {
+  if( current_stage > 0 && sddp_solver->log_verbosity >= 10 ) {
    *log << "  State:          (";
    for( decltype( state.size() ) i = 0 ; i < state.size() ; ++i ) {
     if( i > 0 ) *log << ", ";

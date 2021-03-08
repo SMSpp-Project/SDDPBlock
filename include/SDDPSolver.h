@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 06 - 03 - 2021
+ * \date 08 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -428,13 +428,14 @@ public:
   * m + 1 ) - 1. By default, this vector is empty. */
 
   vdblInitialState ,
-  ///< the initial state
-  /**< The parameter for setting the initial state, i.e., the state to be
-   * considered in the subproblem of the first stage. The size of this vector
-   * must be equal to the number of state variables and the i-th element in
-   * this vector will be the value of the i-th state variable of the first
-   * stage subproblem. By default, this vector is empty and the initial state
-   * is taken to be the admissible state at time 0 given by the SDDPBlock. */
+  ///< the initial state for the first stage problem
+  /**< The parameter for setting the initial state, i.e., the initial state to
+   * be considered in the subproblem of the first stage. The size of this
+   * vector must be equal to the size of the initial state and the i-th
+   * element in this vector will be the value of the i-th initial state
+   * variable of the first stage subproblem. If this vector is empty, no
+   * initial state is set for the first stage problem. By default, this vector
+   * is empty. */
 
   vdblLastAlgPar
   ///< first allowed new vector-of-double parameter for derived classes
