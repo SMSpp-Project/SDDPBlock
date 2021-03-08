@@ -58,6 +58,81 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolver );
 /*-------------------------- METHODS of SDDPSolver -------------------------*/
 /*--------------------------------------------------------------------------*/
 
+void SDDPSolver::set_Block( Block * block ) {
+ if( f_Block == block )  // registering to the same Block
+  return;                // cowardly and silently return
+
+ Solver::set_Block( block );
+
+ if( ! block )
+  return;
+
+ auto sddp_block = dynamic_cast< SDDPBlock * >( block );
+
+ if( ! sddp_block )
+  throw( std::invalid_argument( "SDDPSolver::set_Block: An SDDPSolver can "
+                                "only be attached to an SDDPBlock." ) );
+
+ const auto & scenario_set = sddp_block->get_scenario_set();
+ std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
+  set_scenarios( scenario_set );
+
+ // BlockConfig for the inner Blocks
+ if( ( ! f_inner_block_config ) &&
+     ( ! f_inner_block_config_filename.empty() ) ) {
+  auto c = Configuration::deserialize( f_inner_block_config_filename );
+  if( ! ( f_inner_block_config = dynamic_cast< BlockConfig * >( c ) ) ) {
+   delete c;
+   throw( std::invalid_argument
+          ( "SDDPSolver::configure_inner_block: file " +
+            f_inner_block_config_filename + " is not a BlockConfig." ) );
+  }
+ }
+
+ // BlockSolverConfig for the inner Blocks
+ if( ( ! f_inner_block_solver_config ) &&
+     ( ! f_inner_block_solver_config_filename.empty() ) ) {
+  auto c = Configuration::deserialize( f_inner_block_solver_config_filename );
+  if( ! ( f_inner_block_solver_config =
+          dynamic_cast< BlockSolverConfig * >( c ) ) ) {
+   delete c;
+   throw( std::invalid_argument
+          ( "SDDPSolver::configure_inner_block: file " +
+            f_inner_block_solver_config_filename +
+            " is not a BlockSolverConfig." ) );
+  }
+ }
+
+ // Configure the inner Blocks
+ if( f_inner_block_config || f_inner_block_solver_config ) {
+
+  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+   auto benders_function = get_benders_function( stage );
+
+   if( ! benders_function )
+    throw( std::invalid_argument
+           ( "SDDPSolver::set_Block: The BendersBFunction at stage " +
+             std::to_string( stage ) + " is not present." ) );
+
+   auto inner_block = benders_function->get_inner_block();
+
+   if( ! inner_block )
+    throw( std::invalid_argument
+           ( "SDDPSolver::set_Block: The inner Block of the BendersBFunction "
+             " at stage " + std::to_string( stage ) + " is not present." ) );
+
+   if( f_inner_block_config )
+    f_inner_block_config->apply( inner_block );
+
+   if( f_inner_block_solver_config )
+    f_inner_block_solver_config->apply( inner_block );
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
 int SDDPSolver::compute( bool changedvars ) {
 
  if( ! f_Block )
@@ -265,6 +340,16 @@ int SDDPSolver::compute( bool changedvars ) {
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
     print_cpu_time );
 
+ // Possibly output the future cost functions
+
+ if( output_frequency > 0 )
+  output_future_cost_functions( f_output_filename );
+
+ // Unlock the SDDPBlock
+
+ if( ! owned )              // if the Block was actually locked
+  f_Block->unlock( f_id );  // unlock it
+
  // Retrieve the backward and forward values
 
  backward_value = backward_forward_values.first;
@@ -278,11 +363,6 @@ int SDDPSolver::compute( bool changedvars ) {
   *f_log << "Forward value:  " << std::setprecision( 20 )
          << forward_value << std::endl;
  }
-
- // Unlock the SDDPBlock
-
- if( ! owned )              // if the Block was actually locked
-  f_Block->unlock( f_id );  // unlock it
 
  // Compute the accuracy achieved
 
@@ -302,11 +382,6 @@ int SDDPSolver::compute( bool changedvars ) {
   status = kStopIter;
  else
   status = kError; // TODO
-
- // Possibly output the future cost functions
-
- if( output_frequency > 0 )
-  output_future_cost_functions( f_output_filename );
 
  return status;
 }
@@ -505,10 +580,23 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
    }
 
    double gy = 0;
-   const auto & state_variables = * std::get<0>( state ).get();
-   for( decltype( state_variables.size() ) j = 0 ;
-        j < state_variables.size() ; ++j )
-    gy += linearization( j + 1 ) * state_variables( j );
+
+   if( current_stage == 0 ) {
+    /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
+     * does not contain the state for the first stage problem. */
+    const auto state_variables = static_cast< SDDPBlock * >
+     ( sddp_solver->f_Block )->get_state( current_stage );
+    for( decltype( state_variables.size() ) j = 0 ;
+         j < state_variables.size() ; ++j )
+     gy += linearization( j + 1 ) * state_variables[ j ];
+   }
+   else {
+    const auto & state_variables = * std::get<0>( state ).get();
+    for( decltype( state_variables.size() ) j = 0 ;
+         j < state_variables.size() ; ++j )
+     gy += linearization( j + 1 ) * state_variables( j );
+   }
+
    const double epsilon = 1.0e-4;
    const auto scale =
     std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
@@ -525,6 +613,20 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
     std::cerr << "  alpha:     " << std::setprecision( 20 )
               << alpha << std::endl;
     std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+
+    auto log = sddp_solver->f_log;
+
+    *log << "SDDPOptimizer::oneStepBackward: linearization precision "
+              << "was not achieved:" << std::endl;
+    *log << "  precision required: " << std::setprecision( 20 )
+              << epsilon << std::endl;
+    *log << "  precision achieved: " << std::setprecision( 20 )
+              << ( diff / scale ) << std::endl;
+    *log << "  objective: " << std::setprecision( 20 )
+              << objective_value << std::endl;
+    *log << "  alpha:     " << std::setprecision( 20 )
+              << alpha << std::endl;
+    *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
    }
   }
 #endif
@@ -993,6 +1095,13 @@ SDDPSolver::SDDPOptimizer::oneAdmissibleState( const double & stage ) {
   *data = *state_iterator;
 
  return state;
+}
+
+/*--------------------------------------------------------------------------*/
+
+int SDDPSolver::SDDPOptimizer::getStateSize() const {
+ return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
+  get_admissible_state_size( 0 );
 }
 
 /*--------------------------------------------------------------------------*/

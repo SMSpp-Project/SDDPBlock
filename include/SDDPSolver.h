@@ -36,6 +36,7 @@
 #include <Eigen/Dense>
 #include "BlockSolverConfig.h"
 #include "ScenarioSimulator.h"
+#include "SDDPBlock.h"
 #include "Solver.h"
 #include "StOpt/sddp/OptimizerSDDPBase.h"
 #include "StOpt/sddp/SDDPFinalCut.h"
@@ -48,7 +49,7 @@
 namespace SMSpp_di_unipi_it
 {
 
-class SDDPBlock;
+class BendersBFunction;
 class StochasticBlock;
 
 /*--------------------------------------------------------------------------*/
@@ -464,86 +465,15 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- void set_Block( Block * block ) override {
-  if( f_Block == block )  // registering to the same Block
-   return;                // cowardly and silently return
-
-  Solver::set_Block( block );
-
-  if( ! block )
-   return;
-
-  auto sddp_block = dynamic_cast< SDDPBlock * >( block );
-
-  if( ! sddp_block )
-   throw( std::invalid_argument( "SDDPSolver::set_Block: An SDDPSolver can "
-                                 "only be attached to an SDDPBlock." ) );
-
-  const auto & scenario_set = sddp_block->get_scenario_set();
-  std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-   set_scenarios( scenario_set );
-
-  // BlockConfig for the inner Blocks
-  if( ( ! f_inner_block_config ) &&
-      ( ! f_inner_block_config_filename.empty() ) ) {
-   auto c = Configuration::deserialize( f_inner_block_config_filename );
-   if( ! ( f_inner_block_config = dynamic_cast< BlockConfig * >( c ) ) ) {
-    delete c;
-    throw( std::invalid_argument
-           ( "SDDPSolver::configure_inner_block: file " +
-             f_inner_block_config_filename + " is not a BlockConfig." ) );
-   }
-  }
-
-  // BlockSolverConfig for the inner Blocks
-  if( ( ! f_inner_block_solver_config ) &&
-      ( ! f_inner_block_solver_config_filename.empty() ) ) {
-   auto c = Configuration::deserialize( f_inner_block_solver_config_filename );
-   if( ! ( f_inner_block_solver_config =
-           dynamic_cast< BlockSolverConfig * >( c ) ) ) {
-    delete c;
-    throw( std::invalid_argument
-           ( "SDDPSolver::configure_inner_block: file " +
-             f_inner_block_solver_config_filename +
-             " is not a BlockSolverConfig." ) );
-   }
-  }
-
-  // Configure the inner Blocks
-  if( f_inner_block_config || f_inner_block_solver_config ) {
-
-   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
-
-    auto benders_function = get_benders_function( stage );
-
-    if( ! benders_function )
-     throw( std::invalid_argument
-            ( "SDDPSolver::set_Block: The BendersBFunction at stage " +
-              std::to_string( stage ) + " is not present." ) );
-
-    auto inner_block = benders_function->get_inner_block();
-
-    if( ! inner_block )
-     throw( std::invalid_argument
-            ( "SDDPSolver::set_Block: The inner Block of the BendersBFunction "
-              " at stage " + std::to_string( stage ) + " is not present." ) );
-
-    if( f_inner_block_config )
-     f_inner_block_config->apply( inner_block );
-
-    if( f_inner_block_solver_config )
-     f_inner_block_solver_config->apply( inner_block );
-   }
-  }
- }
-
-/*--------------------------------------------------------------------------*/
-
  /// destructor
  virtual ~SDDPSolver() {
   delete f_inner_block_config;
   delete f_inner_block_solver_config;
  }
+
+/*--------------------------------------------------------------------------*/
+
+ void set_Block( Block * block ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -1629,10 +1559,7 @@ private:
    *
    * @return The size of the state vector. */
 
-  int getStateSize() const override {
-   return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
-    get_admissible_state_size( 0 );
-  }
+  int getStateSize() const override;
 
 /*--------------------------------------------------------------------------*/
 
