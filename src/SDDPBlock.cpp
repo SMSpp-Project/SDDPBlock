@@ -206,6 +206,11 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
 
  scenario_set.deserialize( group );
 
+ // Initial state
+
+ ::SMSpp_di_unipi_it::deserialize( group , "InitialState" ,
+                                   initial_state , false );
+
  // StateSize
 
  std::vector< Index > state_size;
@@ -426,6 +431,15 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  // Scenarios
 
  scenario_set.serialize( group );
+
+ // Initial state
+
+ auto InitialStateSize = group.addDim( "InitialStateSize" ,
+                                       initial_state.size() );
+
+ ::SMSpp_di_unipi_it::serialize( group , "InitialState" ,
+                                 netCDF::NcDouble() , InitialStateSize ,
+                                 initial_state , false );
 
  // StateSize
 

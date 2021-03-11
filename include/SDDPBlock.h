@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 09 - 03 - 2021
+ * \date 11 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -264,18 +264,22 @@ public:
   * - The description of a ScenarioSet, as specified in the comments to
   *   ScenarioSet::deserialize().
   *
-  * - The "StateSize" variable, of type netCDF::Uint and being either a
-  *   scalar or a one-dimensional array indexed over "TimeHorizon" dimension,
+  * - The "InitialState" variable, a one-dimensional array of type
+  *   netCDF::NcDouble, containing an initial state for the first stage
+  *   problem.
+  *
+  * - The "StateSize" variable, of type netCDF::Uint and being either a scalar
+  *   or a one-dimensional array indexed over "TimeHorizon" dimension,
   *   specifying the sizes of the states at each stage. If this variable is a
   *   scalar, then all states are assumed to have the same size given by
   *   "StateSize". If it is an array then, for each t in {0, ...,
-  *   TimeHorizon-1}, StateSize[t] contains the size of the state at stage
-  *   t. The state being a vector, its size is the dimension of the space in
-  *   which it lies.
+  *   TimeHorizon-1}, StateSize[t] contains the size of the final state at
+  *   stage t. The state being a vector, its size is the dimension of the
+  *   space in which it lies.
   *
   * - The "AdmissibleState" variable, of type netCDF::NcDouble, containing an
-  *   admissible state for each stage. An admissible state for a stage is an
-  *   state which makes the problem at that stage feasible.  If "StateSize" is
+  *   admissible state for each stage. An admissible state for a stage is a
+  *   feasible final state for the problem at that stage. If "StateSize" is
   *   scalar and "AdmissibleState" has dimension "StateSize", then all stages
   *   are assumed to have the same admissible state given by
   *   "AdmissibleState". Otherwise, "AdmissibleState" contains the
@@ -438,6 +442,14 @@ public:
  /** This function returns the set of scenarios. */
  const ScenarioSet & get_scenario_set() const {
   return scenario_set;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the initial state for the first stage problem
+ /** This function returns the initial state for the first stage problem. */
+ const std::vector< double > & get_initial_state() const {
+  return initial_state;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -614,6 +626,9 @@ protected:
 
  /// A vector containing the concatenation of states for each time instant
  std::vector< double > admissible_states;
+
+ /// An initial state for the first stage problem
+ std::vector< double > initial_state;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/

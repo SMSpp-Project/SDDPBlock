@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 08 - 03 - 2021
+ * \date 11 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -198,12 +198,15 @@ int SDDPSolver::compute( bool changedvars ) {
             + std::to_string( number_state_variables ) + ")" ) );
   }
 
-  Eigen::ArrayXd initial_state_array( initial_state.size() );
-  for( Index i = 0 ; i < initial_state.size() ; ++i )
-   initial_state_array( i ) = initial_state[ i ];
-
   // Set the initial state for the first stage
-  set_state( initial_state_array , 0 );
+  static_cast< SDDPBlock * >( f_Block )->set_state( initial_state , 0 );
+ }
+ else {
+  const auto & state =
+   static_cast< SDDPBlock * >( f_Block )->get_initial_state();
+  if( ! state.empty() )
+   // Use the initial state given by SDDPBlock
+   static_cast< SDDPBlock * >( f_Block )->set_state( state , 0 );
  }
 
  /* The "initial state" that is passed to StOpt is the admissible state of the

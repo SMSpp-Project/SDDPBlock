@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 07 - 03 - 2021
+ * \date 11 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -91,8 +91,18 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  f_has_var_solution = false;
 
  // Initial state for the first stage problem
- if( ( time_horizon > 0 ) && ( ! initial_state.empty() ) )
-  set_state( initial_state , 0 );
+ if( time_horizon > 0 ) {
+  if( ! initial_state.empty() )
+   // Use the initial state given as parameter to the SDDPGreedySolver
+   set_state( initial_state , 0 );
+  else {
+   const auto & state =
+    static_cast< SDDPBlock * >( f_Block )->get_initial_state();
+   if( ! state.empty() )
+    // Use the initial state given by SDDPBlock
+    set_state( state , 0 );
+  }
+ }
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
