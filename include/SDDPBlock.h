@@ -400,8 +400,8 @@ public:
   *
   * @return The time horizon.
   */
- virtual std::size_t get_time_horizon() const {
-  return v_Block.size() / num_sub_blocks_per_stage;
+ virtual Index get_time_horizon() const {
+  return v_Block.size();
  }
 
 /*--------------------------------------------------------------------------*/
