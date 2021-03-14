@@ -81,6 +81,15 @@ void SDDPGreedySolver::set_Block( Block * block ) {
 
 int SDDPGreedySolver::compute( bool changedvars ) {
 
+ if( ! f_Block )
+  return kBlockLocked;
+
+ // Possibly lock the SDDPBlock
+
+ auto owned = f_Block->is_owned_by( f_id );        // check if already locked
+ if( ( ! owned ) && ( ! f_Block->lock( f_id ) ) )  // if not try to lock
+  return( kBlockLocked );                          // return error on failure
+
  process_outstanding_Modification();
 
  auto time_horizon = get_time_horizon();
@@ -155,6 +164,11 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   if( f_unregister_solver )
    unregister_solver_inner_block( stage );
  }
+
+ // Unlock the SDDPBlock
+
+ if( ! owned )              // if the Block was actually locked
+  f_Block->unlock( f_id );  // unlock it
 
  f_has_var_solution =
   ( status_compute == Solver::kOK ) ||
