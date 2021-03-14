@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 11 - 03 - 2021
+ * \date 14 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -337,7 +337,7 @@ public:
   *
   * @return The time horizon.
   */
- virtual std::size_t get_time_horizon() const {
+ virtual Index get_time_horizon() const {
   return v_Block.size();
  }
 
