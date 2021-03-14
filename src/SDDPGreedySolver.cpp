@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 11 - 03 - 2021
+ * \date 14 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -82,7 +82,6 @@ void SDDPGreedySolver::set_Block( Block * block ) {
 int SDDPGreedySolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
- set_scenario();
 
  auto time_horizon = get_time_horizon();
  status_compute = Solver::kLowPrecision;
@@ -112,6 +111,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   if( stage > 0 ) {
    set_state( get_solution( stage - 1 ) , stage );
   }
+
+  set_scenario( stage );
 
   if( callback ) callback( stage );
 
@@ -350,7 +351,7 @@ std::vector<double> SDDPGreedySolver::get_solution
 
  Index solution_size = 0;
  for( Index i = 0 ;
-      i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
+      i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i ) {
   solution_size +=
    sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
  }
@@ -359,7 +360,7 @@ std::vector<double> SDDPGreedySolver::get_solution
  solution.reserve( solution_size );
 
  for( Index i = 0 ;
-      i < sddp_block->get_num_polyhedral_function_per_stage() ; ++i ) {
+      i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i ) {
   const auto polyhedral_function =
    sddp_block->get_polyhedral_function( stage , i );
 
@@ -388,17 +389,13 @@ void SDDPGreedySolver::process_outstanding_Modification( void ) {
  while( ! v_mod.empty() ) {
   auto mod = v_mod.front();  // pick (a reference to) the first Modification
   v_mod.pop_front();
-  scenario_is_set = false;
  }
 }
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::set_scenario( void ) {
- if( ! scenario_is_set ) {
-  static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id );
-  scenario_is_set = true;
- }
+void SDDPGreedySolver::set_scenario( Index stage ) {
+ static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage );
 }
 
 /*--------------------------------------------------------------------------*/

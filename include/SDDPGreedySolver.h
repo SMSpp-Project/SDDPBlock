@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 07 - 03 - 2021
+ * \date 14 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -789,7 +789,6 @@ public:
   if( this->scenario_id == scenario_id )
    return;
   this->scenario_id = scenario_id;
-  scenario_is_set = false;
   status_compute = Solver::kUnEval;
  }
 
@@ -877,11 +876,13 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// sets the scenario to be considered
- /** This method updates the sub-Blocks of the SDDPBlock with the data
-  * provided by the scenario whose id is given by the method
-  * get_scenario_id().
+ /** This method updates the sub-Block of the SDDPBlock associated with the
+  *  given \p stage with the data provided by the scenario whose id is
+  *  given by the method get_scenario_id().
+  *
+  * @param stage An integer between 0 and get_time_horizon() - 1.
   */
- void set_scenario( void );
+ void set_scenario( Index stage );
 
 /*--------------------------------------------------------------------------*/
 
@@ -1074,9 +1075,6 @@ private:
 
  /// The status returned by compute()
  int status_compute = Solver::kUnEval;
-
- /// Indicates whether the scenario has already been set
- bool scenario_is_set = false;
 
  /// Indicates whether the initial state has already been set
  bool f_has_var_solution = false;
