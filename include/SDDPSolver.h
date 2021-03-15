@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 08 - 03 - 2021
+ * \date 14 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -446,6 +446,8 @@ public:
  };  // end( vdbl_par_type_SDDP_S )
 
 /**@} ----------------------------------------------------------------------*/
+/*--------------------- PUBLIC METHODS OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
 /*---------------- CONSTRUCTING AND DESTRUCTING SDDPSolver -----------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Constructing and destructing SDDPSolver
@@ -1240,6 +1242,22 @@ public:
  template< class T = Eigen::ArrayXd >
  T get_solution( SDDPBlock::Index stage ) const;
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the index of the scenario for the first stage (if any)
+ /** The first stage problem may not have any scenario associated with it. In
+  * this case, this function returns Inf< Index >(). Otherwise, it returns the
+  * index of the scenario that must be considered in the first stage.
+  *
+  * @return The index of the scenario to be considered in the first stage (if
+  *         any).
+  */
+ Index get_first_stage_scenario_index() const {
+  if( first_stage_scenario_index < 0 )
+   return Inf< Index >();
+  return first_stage_scenario_index;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -1488,6 +1506,15 @@ private:
 /*--------------------------------------------------------------------------*/
 
   Eigen::ArrayXd oneStepBackward
+  ( const StOpt::SDDPCutOptBase & sddp_cut ,
+    const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
+    const Eigen::ArrayXd & particle , const int & simulation_id ,
+    const Index scenario_index , const bool scenario_must_be_set ,
+    const Index sub_block_index ) const;
+
+/*--------------------------------------------------------------------------*/
+
+  Eigen::ArrayXd oneStepBackward
   ( const StOpt::SDDPCutOptBase & p_linCut,
     const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & p_aState,
     const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
@@ -1495,9 +1522,16 @@ private:
 /*--------------------------------------------------------------------------*/
 
   double oneStepForward
-  ( const Eigen::ArrayXd &p_aParticle, Eigen::ArrayXd &p_state,
-    Eigen::ArrayXd &p_stateToStore,
-    const StOpt::SDDPCutOptBase &p_linCut,
+  ( const Eigen::ArrayXd & particle , Eigen::ArrayXd & state ,
+    Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
+    const int & simulation_id , const Index scenario_index ,
+    const bool scenario_must_be_set , const Index sub_block_index ) const;
+
+/*--------------------------------------------------------------------------*/
+
+  double oneStepForward
+  ( const Eigen::ArrayXd &p_aParticle , Eigen::ArrayXd &p_state ,
+    Eigen::ArrayXd &p_stateToStore , const StOpt::SDDPCutOptBase &p_linCut ,
     const int &p_isimu ) const override;
 
 /*--------------------------------------------------------------------------*/
@@ -1641,6 +1675,14 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+  int get_number_simulations( bool backward ) const {
+   if( backward )
+    return get_number_simulations_backward();
+   return get_number_simulations_forward();
+  }
+
+/*--------------------------------------------------------------------------*/
+
   void set_number_simulations_backward( int number_simulations ) {
    simulator_backward->set_number_simulations( number_simulations );
   }
@@ -1658,15 +1700,92 @@ private:
   }
 
 /*--------------------------------------------------------------------------*/
+/*---------------------- PROTECTED PART OF THE CLASS -----------------------*/
+/*--------------------------------------------------------------------------*/
 
-  /// checks if the linearization is correct
-  void check_linearization( Index current_stage , const Eigen::ArrayXd & state ,
-                            double objective_value , double alpha ,
-                            const Eigen::ArrayXd & linearization ) const;
+ protected:
 
 /*--------------------------------------------------------------------------*/
 
- private:
+  /// returns the current stage for a backward pass
+  Index get_current_backward_stage() const {
+   return date_next;
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  /// returns the current stage for a forward pass
+  Index get_current_forward_stage() const {
+   return date;
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  /// returns the index of the backward scenario associated with simulation_id
+  /** This function returns the index of the backward scenario associated with
+   * the given \p simulation_id.
+   *
+   * @param simulation_id The index of a simulation, which must be an integer
+   *        between 0 and get_number_simulations_backward() - 1.
+   *
+   * @return The index of the backward scenario associated with the given \p
+   *         simulation_id. */
+
+  Index get_backward_scenario_index( Index simulation_id ) const {
+   if( get_current_backward_stage() == 0 )
+    return sddp_solver->get_first_stage_scenario_index();
+   return simulator_backward->get_scenario_index( simulation_id );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  /// returns the index of the forward scenario associated with simulation_id
+  /** This function returns the index of the forward scenario associated with
+   * the given \p simulation_id.
+   *
+   * @param simulation_id The index of a simulation, which must be an integer
+   *        between 0 and get_number_simulations_forward() - 1.
+   *
+   * @return The index of the forward scenario associated with the given \p
+   *         simulation_id. */
+
+  Index get_forward_scenario_index( Index simulation_id ) const {
+   if( get_current_forward_stage() == 0 )
+    return sddp_solver->get_first_stage_scenario_index();
+   return simulator_forward->get_scenario_index( simulation_id );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  /// returns the index of the scenario associated with simulation_id
+  /** This function returns the index of the scenario associated with the
+   * given \p simulation_id. If backward is true, then it returns the backward
+   * scenario index associated with \p simulation_id. Otherwise, it returns
+   * the forward scenario index associated with \p simulation_id.
+   *
+   * @param simulation_id The index of a simulation, which must be an integer
+   *        between 0 and get_number_simulations( backward ) - 1.
+   *
+   * @param backward Indicates whether the desired scenario index is
+   *        associated with the backward simulator.
+   *
+   * @return The index of the forward scenario associated with the given \p
+   *         simulation_id. */
+
+  Index get_scenario_index( Index simulation_id , bool backward ) const {
+   if( backward )
+    return get_backward_scenario_index( simulation_id );
+   return get_forward_scenario_index( simulation_id );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  Index get_num_sub_blocks_per_stage() const {
+   return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
+    get_num_sub_blocks_per_stage();
+  }
+
+/*--------------------------------------------------------------------------*/
 
   double date;
   double date_next;
@@ -1674,6 +1793,20 @@ private:
   std::shared_ptr< ScenarioSimulator > simulator_backward;
 
   SDDPSolver * sddp_solver;
+
+/*--------------------------------------------------------------------------*/
+/*---------------------- PRIVATE PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ private:
+
+/*--------------------------------------------------------------------------*/
+
+  /// checks if the linearization is correct
+  void check_linearization( Index current_stage , const Eigen::ArrayXd & state ,
+                            double objective_value , double alpha ,
+                            const Eigen::ArrayXd & linearization ) const;
+
  };   // end( class SDDPOptimizer )
 
 /*--------------------------------------------------------------------------*/

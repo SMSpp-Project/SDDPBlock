@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 11 - 03 - 2021
+ * \date 14 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -450,20 +450,36 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
   const Eigen::ArrayXd & particle , const int & simulation_id ) const {
 
- const auto current_stage = date_next;
-
  /* The last argument is the simulation id indicating in which scenario the
   * resolution will be done. */
 
- Index scenario_index = sddp_solver->first_stage_scenario_index;
- if( current_stage > 0 )
-  scenario_index = simulator_backward->get_scenario_index( simulation_id );
+ const auto scenario_index = get_backward_scenario_index( simulation_id );
+
+ // TODO Work with multiple sub-Blocks
+ const Index sub_block_index = 0;
+ const bool scenario_must_be_set = true;
+
+ return SDDPSolver::SDDPOptimizer::oneStepBackward
+  ( sddp_cut , state , particle , simulation_id , scenario_index ,
+    scenario_must_be_set , sub_block_index );
+}
+
+/*--------------------------------------------------------------------------*/
+
+Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
+( const StOpt::SDDPCutOptBase & sddp_cut ,
+  const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
+  const Eigen::ArrayXd & particle , const int & simulation_id ,
+  const Index scenario_index , const bool scenario_must_be_set ,
+  const Index sub_block_index ) const {
+
+ const auto current_stage = get_current_backward_stage();
 
  /* In the first stage, the scenario will not be set if the given scenario
   * index is negative. */
 
  const bool scenario_provided = ( current_stage > 0 ) ||
-  ( sddp_solver->first_stage_scenario_index >= 0 );
+  ( scenario_index < Inf< Index >() );
 
  // Log
 
@@ -525,9 +541,9 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* RANDOM DATA */
  /***************/
 
- /* In the first stage, the scenario is not set if the given scenario index is
-  * negative. */
- if( scenario_provided )
+ /* In the first stage, the scenario is not set if the given scenario index
+  * (for the first stage) is negative. */
+ if( scenario_must_be_set && scenario_provided )
   sddp_solver->set_scenario( scenario_index , current_stage );
 
  /**************************/
@@ -595,19 +611,32 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
   const int & simulation_id ) const {
 
- const auto current_stage = date;
+ const auto scenario_index = get_forward_scenario_index( simulation_id );
 
- // Index of the scenario to be considered
+ // TODO Work with multiple sub-Blocks
+ const Index sub_block_index = 0;
+ const auto scenario_must_be_set = true;
 
- Index scenario_index = sddp_solver->first_stage_scenario_index;
- if( current_stage > 0 )
-  scenario_index = simulator_forward->get_scenario_index( simulation_id );
+ return SDDPSolver::SDDPOptimizer::oneStepForward
+  ( particle , state , state_to_store , sddp_cut , simulation_id ,
+    scenario_index , scenario_must_be_set , sub_block_index );
+}
+
+/*--------------------------------------------------------------------------*/
+
+double SDDPSolver::SDDPOptimizer::oneStepForward
+( const Eigen::ArrayXd & particle , Eigen::ArrayXd & state ,
+  Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
+  const int & simulation_id , const Index scenario_index ,
+  const bool scenario_must_be_set , const Index sub_block_index ) const {
+
+ const auto current_stage = get_current_forward_stage();
 
  /* In the first stage, the scenario will not be set if the given scenario
   * index is negative. */
 
  const bool scenario_provided = ( current_stage > 0 ) ||
-  ( sddp_solver->first_stage_scenario_index >= 0 );
+  ( scenario_index < Inf< Index >() );
 
  // Log
 
@@ -662,7 +691,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* RANDOM DATA */
  /***************/
 
- if( scenario_provided )
+ if( scenario_must_be_set && scenario_provided )
   sddp_solver->set_scenario( scenario_index , current_stage );
 
  /*********************************/
