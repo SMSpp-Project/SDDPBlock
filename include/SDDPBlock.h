@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 14 - 03 - 2021
+ * \date 15 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -224,9 +224,9 @@ namespace SMSpp_di_unipi_it
  *    at every iteration, for each stage, SDDPSolver must solve N subproblems,
  *    each one associated with some scenario and some initial state. Suppose
  *    also that SDDPBlock has B sub-Blocks per stage and a process running
- *    SDDPSolver::compute() has M threads available. In this case, it would be
- *    possible to allocate min( B , N , M ) subproblems to the available
- *    threads.
+ *    ParallelSDDPSolver::compute() has M threads available. In this case, it
+ *    would be possible to allocate min( B , N , M ) subproblems to the
+ *    available threads.
  *
  * The decision about the number of Blocks per stage must be well thought out,
  * as it depends, in particular, on the memory resources available. Besides
@@ -401,7 +401,7 @@ public:
   * @return The time horizon.
   */
  virtual Index get_time_horizon() const {
-  return v_Block.size();
+  return v_Block.size() / num_sub_blocks_per_stage;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -432,9 +432,9 @@ public:
   * @param sub_block_index The index of the sub-Block, which must be an
   *        integer between 0 and get_num_sub_blocks_per_stage() - 1.
   *
-  * @return A pointer to the i-th PolyhedralFunction of the given \p stage.
-  */
- const PolyhedralFunction * get_polyhedral_function
+  * @return A pointer to the i-th PolyhedralFunction of the given \p stage. */
+
+ PolyhedralFunction * get_polyhedral_function
  ( Index stage , Index i = 0 , Index sub_block_index = 0 ) const {
   assert( stage < get_time_horizon() );
   assert( sub_block_index < num_sub_blocks_per_stage );
@@ -556,8 +556,46 @@ public:
 /** @name Methods describing the behavior of an SDDPBlock
  * @{ */
 
- /// add cuts of the problem at the given stage
- /** This function adds cuts of the problem at the given \p stage. The
+ /// add cuts to a sub-Block at the given stage
+ /** This function adds cuts to the sub-Block with index \p sub_block_index at
+  * the given \p stage. The parameters must satisfy the following
+  * requirements:
+  *
+  * 1. \p A must be a matrix with as many columns as there are cuts to be
+  *    added and the number of rows must be equal to the number of Variable
+  *    defined in the BendersBlock associated with stage \p stage.
+  *
+  * 2. \p b must be a vector whose size is equal to the number of
+  *    rows of \p A. The cuts are given by Ax + b.
+  *
+  * 3. \p stage must be an integer between 0 and get_time_horizon() - 1.
+  *
+  * 4. \p sub_block_index must be an integer between 0 and
+  *    get_num_sub_blocks_per_stage() - 1.
+  *
+  * @param A A matrix containing the coefficients of the cuts to be added.
+  *
+  * @param b A vector containing the constants of the cuts to be added.
+  *
+  * @param stage The stage whose cuts should be updated.
+  *
+  * @param sub_block_index The index of the sub-Block whose cuts will be
+  *        updated.
+  *
+  * @param remove_current_cuts If true, all cuts currently part of sub-Block
+  *        with index \p sub_block_index at the given \p stage are removed
+  *        before the given cuts are added. If false, the current cuts are
+  *        kept. */
+
+ void add_cuts( PolyhedralFunction::MultiVector && A ,
+                PolyhedralFunction::RealVector && b , Index stage ,
+                Index sub_block_index ,
+                Index number_cuts_to_keep = Inf< Index >() );
+
+/*--------------------------------------------------------------------------*/
+
+ /// add cuts to all sub-Blocks at the given stage
+ /** This function adds cuts to all subs-Blocks at the given \p stage. The
   * parameters must satisfy the following requirements:
   *
   * 1. \p A must be a matrix with as many columns as there are cuts to be
@@ -565,7 +603,7 @@ public:
   *    defined in the BendersBlock associated with stage \p stage.
   *
   * 2. \p b must be a vector whose size is equal to the number of
-  *    rows of \p A. Teh cuts are given by Ax + b.
+  *    rows of \p A. The cuts are given by Ax + b.
   *
   * 3. \p stage must be an integer between 0 and get_time_horizon() - 1.
   *
@@ -575,28 +613,54 @@ public:
   *
   * @param stage The stage whose cuts should be updated.
   *
-  * @param remove_current_cuts If true, all cuts currently part of the given
-  *        \p stage are removed before the given cuts are added. If false, the
-  *        current cuts are kept. */
+  * @param remove_current_cuts If true, all cuts currently part of sub-Block
+  *        with index \p sub_block_index at the given \p stage are removed
+  *        before the given cuts are added. If false, the current cuts are
+  *        kept. */
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,
-                Index number_cuts_to_keep = Inf< Index >() );
-
-/*--------------------------------------------------------------------------*/
-
- /// returns the number of cuts currently present at the given \p stage
- Index get_number_cuts( Index stage ) const {
-  if( stage >= get_time_horizon() )
-   throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
-                                 "index: " + std::to_string( stage ) ) );
-  return v_polyhedral_functions[ stage ]->get_nrows();
+                Index number_cuts_to_keep = Inf< Index >() ) {
+  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i ) {
+   auto A_ = A;
+   auto b_ = b;
+   add_cuts( std::move( A_ ) , std::move( b_ ) , stage , i ,
+             number_cuts_to_keep );
+  }
  }
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the current future cost at the given \p stage
- double get_future_cost( Index stage ) const;
+ /// returns the number of cuts currently present at the given \p stage
+ /** This function returns the number of cuts currently present in the i-th
+  * PolyhedralFunction of the sub-Block with index \p sub_block_index at the
+  * given \p stage. The parameter \p i is the index of the PolyhedralFunction
+  * to which the cuts should be added (its default value is 0).
+  *
+  * @param stage The stage whose cuts should be updated.
+  *
+  * @param sub_block_index The index of a sub-Block at the given \p stage.
+  *
+  * @param i The index of the PolyhedralFunction in the indicated sub-Block.
+  *
+  * @return The number of cuts currently present in the i-th
+  *         PolyhedralFunction of the sub-Block with index \p sub_block_index
+  *         at the given \p stage. */
+
+ Index get_number_cuts( Index stage , Index sub_block_index , Index i = 0 )
+  const {
+
+  if( stage >= get_time_horizon() )
+   throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
+                                 "index: " + std::to_string( stage ) ) );
+
+  return get_polyhedral_function( stage , i , sub_block_index )->get_nrows();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the current future cost of the given sub-Block at the given stage
+ double get_future_cost( Index stage , Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -615,10 +679,29 @@ public:
   *
   * @param sub_block_index The index of the sub-Block at the given \p
   *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1.
-  */
+  *        get_num_sub_blocks_per_stage() - 1. */
+
  void set_state( const Eigen::ArrayXd & values , Index stage ,
-                 Index sub_block_index = 0 );
+                 Index sub_block_index );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the values of the state Variable of all sub-Blocks at the given stage
+ /** This function sets the values of the state Variable of all sub-Blocks at
+  * the given \p stage. The size of the \p values array parameter must be
+  * equal to the number N of state Variable of the problem at the given \p
+  * stage, so that the value of the i-th state Variable will be values( i ),
+  * for each i in {0, ..., N-1}.
+  *
+  * @param values The Eigen::ArrayXd containing the values of the Variable.
+  *
+  * @param stage The stage whose state Variable must be set. This must be an
+  *              integer between 0 and get_time_horizon() - 1. */
+
+ void set_state( const Eigen::ArrayXd & values , Index stage ) {
+  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
+   set_state( values , stage , i );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -634,8 +717,7 @@ public:
   *        get_num_sub_blocks_per_stage() - 1.
   *
   * @return The current values of the state Variable of the problem at the
-  *         given \p stage.
-  */
+  *         given \p stage. */
 
  std::vector< double > get_state( Index stage ,
                                   Index sub_block_index = 0 ) const;
@@ -656,10 +738,28 @@ public:
   *
   * @param sub_block_index The index of the sub-Block at the given \p
   *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1.
-  */
+  *        get_num_sub_blocks_per_stage() - 1. */
+
  void set_state( const std::vector<double> & values , Index stage ,
-                 Index sub_block_index = 0 );
+                 Index sub_block_index );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the values of the state Variable of all sub-Blocks at the given stage
+ /** This function sets the values of the state Variable of all sub-Blocks at
+  * the given \p stage. The size of the \p values array parameter must be
+  * equal to the number N of state Variable of the problem at the given \p
+  * stage, so that the value of the i-th state Variable will be values[ i ],
+  * for each i in {0, ..., N-1}.
+  *
+  * @param values The vector containing the values of the Variable.
+  *
+  * @param stage The stage whose state Variable must be set. */
+
+ void set_state( const std::vector<double> & values , Index stage ) {
+  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
+   set_state( values , stage , i );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -672,8 +772,8 @@ public:
   *
   * @param sub_block_index The index of the sub-Block at the given \p
   *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1.
-  */
+  *        get_num_sub_blocks_per_stage() - 1. */
+
  void set_admissible_state( Index stage , Index sub_block_index = 0 );
 
 /*--------------------------------------------------------------------------*/
@@ -686,8 +786,8 @@ public:
   *
   * @param sub_block_index The index of the sub-Block at the given \p
   *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1.
-  */
+  *        get_num_sub_blocks_per_stage() - 1. */
+
  void set_scenario( Index scenario_id , Index stage ,
                     Index sub_block_index = 0 );
 
@@ -723,10 +823,10 @@ protected:
  std::vector< PolyhedralFunction * > v_polyhedral_functions;
 
  /// Number of PolyhedralFunctions for each sub-Block
- Index num_polyhedral_per_sub_block;
+ Index num_polyhedral_per_sub_block = 1;
 
  /// Number of sub-Blocks for each stage
- Index num_sub_blocks_per_stage;
+ Index num_sub_blocks_per_stage = 1;
 
  /// Simulator for the forward step of the SDDP method
  std::shared_ptr< ScenarioSimulator > simulator_forward;

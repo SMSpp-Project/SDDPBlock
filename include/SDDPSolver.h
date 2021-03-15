@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 14 - 03 - 2021
+ * \date 15 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -50,7 +50,6 @@ namespace SMSpp_di_unipi_it
 {
 
 class BendersBFunction;
-class SDDPOptimizer;
 class StochasticBlock;
 
 /*--------------------------------------------------------------------------*/
@@ -450,7 +449,7 @@ public:
 /*------------------------------- FRIENDS ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
- friend SDDPOptimizer;
+ friend class SDDPOptimizer;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PUBLIC METHODS OF THE CLASS ------------------------*/
@@ -1247,7 +1246,8 @@ public:
  */
 
  template< class T = Eigen::ArrayXd >
- T get_solution( SDDPBlock::Index stage ) const;
+ T get_solution( SDDPBlock::Index stage ,
+                 SDDPBlock::Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1282,7 +1282,17 @@ protected:
   *
   * @param stage An index between 0 and get_time_horizon() - 1.
   */
- BendersBFunction * get_benders_function( SDDPBlock::Index stage ) const;
+ BendersBFunction * get_benders_function
+ ( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns true if a valid mesh discretization has been provided
+ bool mesh_provided() const {
+  return ( ! mesh_discretization.empty() ) &&
+   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
+                []( auto i ){ return i > 0; } );
+ }
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- PROTECTED CLASSES ----------------------------*/
@@ -1450,20 +1460,6 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
-  /// returns the (pointer to the) Block associated with the given stage
-  /** This method takes a double as parameter, representing a stage, and
-   * returns a pointer to the Block associated with this stage.
-   *
-   * @param[in] stage A number in the interval [0, T-1], where T is the time
-   *            horizon. Although the parameter is of type double, its value
-   *            must be actually an integer.
-   *
-   * @return A pointer to the Block associated with the given stage. */
-
-  StochasticBlock * get_block( const double & stage ) const;
-
-/*--------------------------------------------------------------------------*/
-
   int get_number_simulations_backward() const {
    return simulator_backward->getNbSimul();
   }
@@ -1588,6 +1584,26 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
+  PolyhedralFunction * get_polyhedral_function
+  ( Index stage , Index i = 0 , Index sub_block_index = 0 ) const {
+   return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
+    get_polyhedral_function( stage , i , sub_block_index );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  bool mesh_provided() const {
+   return sddp_solver->mesh_provided();
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  bool previous_pass_was_backward() const {
+   return sddp_solver->previous_pass_was_backward;
+  }
+
+/*--------------------------------------------------------------------------*/
+
   double date;
   double date_next;
   std::shared_ptr< ScenarioSimulator > simulator_forward;
@@ -1611,7 +1627,7 @@ protected:
  };   // end( class SDDPOptimizer )
 
 /*--------------------------------------------------------------------------*/
-/*---------------------------- PROTECTED FIELDS  ---------------------------*/
+/*---------------------------- PROTECTED FIELDS ----------------------------*/
 /*--------------------------------------------------------------------------*/
 
  /// Initial state
@@ -1723,39 +1739,35 @@ private:
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-/// add cuts to the subproblem at the given stage
-/** This function adds cuts to the subproblem at the given \p stage.
- *
- * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
- *        a matrix with as many columns as there are cuts to be added and the
- *        number of rows must be equal to one plus the number of Variable
- *        defined in the BendersBlock associated with stage \p stage.
- *
- * @param stage The stage at which cuts should be updated, which must be an
- *        integer between 0 and get_time_horizon() - 1.
- *
- * @param range The indices of the cuts in \p cuts that should be added. */
+ /// add cuts to the sub-Block at the given stage
+ /** This function adds cuts to the sub-Block with index \p sub_block_index at
+  * the given \p stage.
+  *
+  * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
+  *        a matrix with as many columns as there are cuts to be added and the
+  *        number of rows must be equal to one plus the number of Variable
+  *        defined in the BendersBlock associated with stage \p stage.
+  *
+  * @param stage The stage at which cuts should be updated, which must be an
+  *        integer between 0 and get_time_horizon() - 1.
+  *
+  * @param sub_block_index The index of the sub-Block, which must be an
+  *        integer between 0 and get_num_sub_blocks_per_stage() - 1.
+  *
+  * @param range The indices of the cuts in \p cuts that should be added. */
 
- void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ) const;
-
-/*--------------------------------------------------------------------------*/
-
- /// returns true if a valid mesh discretization has been provided
- bool mesh_provided() const {
-  return ( ! mesh_discretization.empty() ) &&
-   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
-                []( auto i ){ return i > 0; } );
- }
+ void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ,
+                SDDPBlock::Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
- void set_state( const Eigen::ArrayXd & state ,
-                 SDDPBlock::Index stage ) const;
+ void set_state( const Eigen::ArrayXd & state , SDDPBlock::Index stage ,
+                 SDDPBlock::Index  sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
- void set_scenario( SDDPBlock::Index scenario_id ,
-                    SDDPBlock::Index stage ) const;
+ void set_scenario( SDDPBlock::Index scenario_id , SDDPBlock::Index stage ,
+                    SDDPBlock::Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1763,13 +1775,16 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- /// solves the subproblem associated with the given stage
- /** This function solves the subproblem associated with the given \p stage,
-  * which must be an integer between 0 and get_time_horizon() - 1.
+ /// solves the sub-Block associated with the given stage
+ /** This function solves the sub-Block with index \p sub_block_index at the
+  * given \p stage.
   *
-  * @param stage The stage whose associated subproblem must be solved. */
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @param sub_block_index The index of the sub-Block, which must be an
+  *        integer between 0 and get_num_sub_blocks_per_stage() - 1. */
 
- double solve( SDDPBlock::Index stage );
+ double solve( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index );
 
 /*--------------------------------------------------------------------------*/
 

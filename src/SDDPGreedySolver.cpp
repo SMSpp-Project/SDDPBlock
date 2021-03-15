@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 14 - 03 - 2021
+ * \date 15 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -394,7 +394,7 @@ void SDDPGreedySolver::set_state( const std::vector<double> & state ,
   throw( std::invalid_argument( "SDDPGreedySolver::set_state: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- static_cast< SDDPBlock * >( f_Block )->set_state( state , stage );
+ static_cast< SDDPBlock * >( f_Block )->set_state( state , stage , 0 );
 }
 
 /*--------------------------------------------------------------------------*/

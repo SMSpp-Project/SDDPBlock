@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 14 - 03 - 2021
+ * \date 15 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -108,25 +108,30 @@ void SDDPSolver::set_Block( Block * block ) {
 
   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
-   auto benders_function = get_benders_function( stage );
+   for( Index sub_block_index = 0 ;
+        sub_block_index < sddp_block->get_num_sub_blocks_per_stage() ;
+        ++sub_block_index ) {
 
-   if( ! benders_function )
-    throw( std::invalid_argument
-           ( "SDDPSolver::set_Block: The BendersBFunction at stage " +
-             std::to_string( stage ) + " is not present." ) );
+    auto benders_function = get_benders_function( stage , sub_block_index );
 
-   auto inner_block = benders_function->get_inner_block();
+    if( ! benders_function )
+     throw( std::invalid_argument
+            ( "SDDPSolver::set_Block: The BendersBFunction at stage " +
+              std::to_string( stage ) + " is not present." ) );
 
-   if( ! inner_block )
-    throw( std::invalid_argument
-           ( "SDDPSolver::set_Block: The inner Block of the BendersBFunction "
-             " at stage " + std::to_string( stage ) + " is not present." ) );
+    auto inner_block = benders_function->get_inner_block();
 
-   if( f_inner_block_config )
-    f_inner_block_config->apply( inner_block );
+    if( ! inner_block )
+     throw( std::invalid_argument
+            ( "SDDPSolver::set_Block: The inner Block of the BendersBFunction "
+              " at stage " + std::to_string( stage ) + " is not present." ) );
 
-   if( f_inner_block_solver_config )
-    f_inner_block_solver_config->apply( inner_block );
+    if( f_inner_block_config )
+     f_inner_block_config->apply( inner_block );
+
+    if( f_inner_block_solver_config )
+     f_inner_block_solver_config->apply( inner_block );
+   }
   }
  }
 }
@@ -301,7 +306,7 @@ int SDDPSolver::compute( bool changedvars ) {
  number_initial_cuts.resize( get_time_horizon() );
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
   number_initial_cuts[ stage ] =
-   static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage );
+   static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage , 0 );
 
  /***********************/
  /* MESH DISCRETIZATION */
@@ -487,6 +492,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   auto log = sddp_solver->f_log;
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****" << std::endl;
   *log << "  Stage:          " << current_stage << std::endl;
+  *log << "  Block index:    " << sub_block_index << std::endl;
   *log << "  Scenario index: ";
   if( scenario_provided ) *log << scenario_index << std::endl;
   else *log << "none" << std::endl;
@@ -524,7 +530,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
   const auto cuts = sddp_cut.getCutsAssociatedToTheParticle
    ( std::get<1>( state ) );
-  sddp_solver->add_cuts( cuts , current_stage );
+  sddp_solver->add_cuts( cuts , current_stage , sub_block_index );
  }
 
  /*******************/
@@ -534,7 +540,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  if( current_stage > 0 ) {
   /* The initial state for the first stage problem is set only once, in the
    * beggining of compute(). */
-  sddp_solver->set_state( * std::get<0>( state ).get() , current_stage );
+  sddp_solver->set_state( * std::get<0>( state ).get() , current_stage ,
+                          sub_block_index );
  }
 
  /***************/
@@ -544,13 +551,13 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* In the first stage, the scenario is not set if the given scenario index
   * (for the first stage) is negative. */
  if( scenario_must_be_set && scenario_provided )
-  sddp_solver->set_scenario( scenario_index , current_stage );
+  sddp_solver->set_scenario( scenario_index , current_stage , sub_block_index );
 
  /**************************/
  /* SOLVING THE SUBPROBLEM */
  /**************************/
 
- auto objective_value = sddp_solver->solve( current_stage );
+ auto objective_value = sddp_solver->solve( current_stage , sub_block_index );
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   *( sddp_solver->f_log ) << "  Objective:      " << objective_value
@@ -573,7 +580,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  const auto number_state_variables = std::get<0>( state )->size();
  Eigen::ArrayXd linearization( number_state_variables + 1 );
 
- auto benders_function = sddp_solver->get_benders_function( current_stage );
+ auto benders_function = sddp_solver->get_benders_function( current_stage ,
+                                                            sub_block_index );
 
  if( benders_function->has_linearization( true ) ) {
   linearization( 0 ) = objective_value;
@@ -611,15 +619,29 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
   const int & simulation_id ) const {
 
+ // Update control variables and output
+
+ if( sddp_solver->previous_pass_was_backward ) {
+  if( sddp_solver->output_frequency > 0 &&
+      ( sddp_solver->current_iteration % sddp_solver->output_frequency == 0 ) )
+   sddp_solver->output_future_cost_functions( sddp_solver->f_output_filename );
+  sddp_solver->current_iteration++;
+ }
+
  const auto scenario_index = get_forward_scenario_index( simulation_id );
 
  // TODO Work with multiple sub-Blocks
  const Index sub_block_index = 0;
  const auto scenario_must_be_set = true;
 
- return SDDPSolver::SDDPOptimizer::oneStepForward
+ const auto forward = SDDPSolver::SDDPOptimizer::oneStepForward
   ( particle , state , state_to_store , sddp_cut , simulation_id ,
     scenario_index , scenario_must_be_set , sub_block_index );
+
+ // Update control variable
+ sddp_solver->previous_pass_was_backward = false;
+
+ return forward;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -645,6 +667,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   *log << "***** SDDPSolver::SDDPOptimizer::oneStepForward *****"
             << std::endl;
   *log << "  Stage:          " << current_stage << std::endl;
+  *log << "  Block index:    " << sub_block_index << std::endl;
   *log << "  Scenario index: ";
   if( scenario_provided ) *log << scenario_index << std::endl;
   else *log << "none" << std::endl;
@@ -683,8 +706,9 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    * compute(). The array "particle" contains the random quantities on which
    * the regression over the expectation of the value function will be
    * based. */
+
   const auto cuts = sddp_cut.getCutsAssociatedToAParticle( particle );
-  sddp_solver->add_cuts( cuts , current_stage );
+  sddp_solver->add_cuts( cuts , current_stage , sub_block_index );
  }
 
  /***************/
@@ -692,7 +716,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /***************/
 
  if( scenario_must_be_set && scenario_provided )
-  sddp_solver->set_scenario( scenario_index , current_stage );
+  sddp_solver->set_scenario( scenario_index , current_stage , sub_block_index );
 
  /*********************************/
  /* VARIABLES FROM PREVIOUS STAGE */
@@ -701,14 +725,14 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  if( current_stage > 0 ) {
   /* The initial state for the first stage problem is set only once, in the
    * beggining of compute(). */
-  sddp_solver->set_state( state , current_stage );
+  sddp_solver->set_state( state , current_stage , sub_block_index );
  }
 
  /**************************/
  /* SOLVING THE SUBPROBLEM */
  /**************************/
 
- auto objective_value = sddp_solver->solve( current_stage );
+ auto objective_value = sddp_solver->solve( current_stage , sub_block_index );
 
  /* The objective_value takes into account the value of the future cost
   * function. For all stages other than the last one, we subtract the value of
@@ -718,7 +742,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  if( current_stage < sddp_solver->get_time_horizon() - 1 )
   objective_value -= static_cast< SDDPBlock * >( sddp_solver->f_Block )->
-   get_future_cost( current_stage );
+   get_future_cost( current_stage , sub_block_index );
 
  /**************************/
  /* RETRIVING THE SOLUTION */
@@ -726,7 +750,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  // Retrieve the solution x_t of the Block associated with the current stage.
 
- auto solution = sddp_solver->get_solution( current_stage );
+ auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   *( sddp_solver->f_log ) << "  Objective:      " << objective_value << std::endl;
@@ -750,18 +774,6 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  state_to_store.resize( solution.size() );
  state_to_store << solution;
 
- /****************************/
- /* UPDATE CONTROL VARIABLES */
- /****************************/
-
- if( sddp_solver->previous_pass_was_backward ) {
-  if( sddp_solver->output_frequency > 0 &&
-      ( sddp_solver->current_iteration % sddp_solver->output_frequency == 0 ) )
-   sddp_solver->output_future_cost_functions( sddp_solver->f_output_filename );
-  sddp_solver->current_iteration++;
-  sddp_solver->previous_pass_was_backward = false;
- }
-
  /*************************/
  /* RETURN SOLUTION VALUE */
  /*************************/
@@ -778,7 +790,8 @@ SDDPBlock::Index SDDPSolver::get_time_horizon( void ) const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
-                           SDDPBlock::Index stage ) const {
+                           SDDPBlock::Index stage ,
+                           SDDPBlock::Index sub_block_index ) const {
 
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::add_cuts: invalid "
@@ -797,8 +810,8 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
 
   // Total number of cuts previously added by StOpt
   auto number_cuts_previously_added =
-   static_cast< SDDPBlock * >( f_Block )->get_number_cuts( stage ) -
-   number_initial_cuts[ stage ];
+   static_cast< SDDPBlock * >( f_Block )->
+   get_number_cuts( stage , sub_block_index ) - number_initial_cuts[ stage ];
 
   assert( cuts.cols() >= number_cuts_previously_added );
 
@@ -850,38 +863,44 @@ void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
  // Finally add the cuts
 
  static_cast< SDDPBlock * >( f_Block )->add_cuts
-  ( std::move( A ) , std::move( b ) , stage , number_cuts_to_keep );
+  ( std::move( A ) , std::move( b ) , stage , sub_block_index ,
+    number_cuts_to_keep );
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::set_state( const Eigen::ArrayXd & state ,
-                            SDDPBlock::Index stage ) const {
+                            SDDPBlock::Index stage ,
+                            SDDPBlock::Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::set_state: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- static_cast< SDDPBlock * >( f_Block )->set_state( state , stage );
+ static_cast< SDDPBlock * >( f_Block )->set_state( state , stage ,
+                                                   sub_block_index );
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::set_scenario( SDDPBlock::Index scenario_id ,
-                               SDDPBlock::Index stage ) const {
+                               SDDPBlock::Index stage ,
+                               SDDPBlock::Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::set_scenario: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage );
+ static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage ,
+                                                      sub_block_index );
 }
 
 /*--------------------------------------------------------------------------*/
 
 BendersBFunction *
-SDDPSolver::get_benders_function( SDDPBlock::Index stage ) const {
+SDDPSolver::get_benders_function( SDDPBlock::Index stage ,
+                                  SDDPBlock::Index sub_block_index ) const {
  auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< StochasticBlock * >( f_Block->get_nested_Blocks()[ stage ] )->
-    get_nested_Blocks().front() );
+  ( static_cast< SDDPBlock * >( f_Block )->get_sub_Block
+    ( stage , sub_block_index )->get_nested_Blocks().front() );
 
  auto objective = static_cast< FRealObjective * >
   ( benders_block->get_objective() );
@@ -891,7 +910,8 @@ SDDPSolver::get_benders_function( SDDPBlock::Index stage ) const {
 
 /*--------------------------------------------------------------------------*/
 
-double SDDPSolver::solve( SDDPBlock::Index stage ) {
+double SDDPSolver::solve( SDDPBlock::Index stage ,
+                          SDDPBlock::Index sub_block_index ) {
 
  /* Solving the subproblem consists in evaluating the Objective of the
   * BendersBFunction associated with the subproblem of the given stage. */
@@ -901,8 +921,8 @@ double SDDPSolver::solve( SDDPBlock::Index stage ) {
                                 "stage index: " + std::to_string( stage ) ) );
 
  auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< StochasticBlock * >( f_Block->get_nested_Blocks()[ stage ] )->
-    get_nested_Blocks().front() );
+  ( static_cast< SDDPBlock * >( f_Block )->get_sub_Block
+    ( stage , sub_block_index )->get_nested_Blocks().front() );
 
  auto objective = static_cast< FRealObjective * >
   ( benders_block->get_objective() );
@@ -948,13 +968,15 @@ double SDDPSolver::solve( SDDPBlock::Index stage ) {
 /*--------------------------------------------------------------------------*/
 
 template<class T>
-T SDDPSolver::get_solution( SDDPBlock::Index stage ) const {
+T SDDPSolver::get_solution( SDDPBlock::Index stage ,
+                            SDDPBlock::Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPSolver::get_solution: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
  const auto polyhedral_function =
-  static_cast< SDDPBlock * >( f_Block )->get_polyhedral_functions()[ stage ];
+  static_cast< SDDPBlock * >( f_Block )->get_polyhedral_function
+  ( stage , 0 , sub_block_index );
 
  T solution( polyhedral_function->get_num_active_var() );
 
@@ -971,8 +993,9 @@ T SDDPSolver::get_solution( SDDPBlock::Index stage ) const {
 void SDDPSolver::output_future_cost_functions( const std::string & filename )
  const {
 
- const auto & functions =
-  static_cast< SDDPBlock *>( f_Block )->get_polyhedral_functions();
+ auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+
+ const auto & functions = sddp_block->get_polyhedral_functions();
  if( functions.empty() )
   return;
 
@@ -989,8 +1012,10 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
 
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
-  const auto & b = functions[ stage ]->get_b();
-  const auto & A = functions[ stage ]->get_A();
+  auto function = sddp_block->get_polyhedral_function( stage , 0 , 0 );
+
+  const auto & b = function->get_b();
+  const auto & A = function->get_A();
 
   assert( b.size() == A.size() );
 
@@ -1005,30 +1030,6 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
 
  output.close();
 
-}
-
-/*--------------------------------------------------------------------------*/
-
-StochasticBlock * SDDPSolver::SDDPOptimizer::get_block
-( const double & stage ) const {
-
-  /* Make sure the given stage is integer and belongs to the interval
-   * [0, T-1], where T is the time horizon. */
-
-  double integral_part;
-  assert( std::modf( stage , &integral_part ) == 0.0 );
-
-  assert( 0 <= stage && stage < sddp_solver->get_time_horizon() );
-
-  // The number of sub-Blocks must be at least the time horizon.
-
-  assert( sddp_solver->f_Block->get_nested_Blocks().size() >=
-          sddp_solver->get_time_horizon() );
-
-  // Return the Block associated with the given stage.
-
-  return static_cast<StochasticBlock *>
-    ( sddp_solver->f_Block->get_nested_Blocks()[ stage ] );
 }
 
 /*--------------------------------------------------------------------------*/

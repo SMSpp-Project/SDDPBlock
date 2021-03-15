@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 14 - 03 - 2021
+ * \date 15 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1043,7 +1043,7 @@ private:
   else
    solution_value = sub_solver->get_lb();
   const auto future_cost = static_cast< SDDPBlock * >( f_Block )->
-   get_future_cost( stage );
+   get_future_cost( stage , 0 );
   return solution_value - future_cost;
  }
 

@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 09 - 03 - 2021
+ * \date 15 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -311,31 +311,35 @@ StochasticBlock * SDDPBlock::get_sub_Block
 
 void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
                           PolyhedralFunction::RealVector && b , Index stage ,
+                          Index sub_block_index ,
                           Index number_cuts_to_keep ) {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::add_cuts: invalid stage index: " +
                                 std::to_string( stage ) ) );
 
- const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
+ auto polyhedral_function =
+  get_polyhedral_function( stage , 0 , sub_block_index );
+
+ const auto num_rows = polyhedral_function->get_nrows();
 
  // Possibly remove the last (num_rows - number_cuts_to_keep) cuts
  if( number_cuts_to_keep < num_rows )
-  v_polyhedral_functions[ stage ]->
-   delete_rows( Range( number_cuts_to_keep , num_rows) );
+  polyhedral_function->delete_rows( Range( number_cuts_to_keep , num_rows) );
 
  // Add the given cuts
- v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
+ polyhedral_function->add_rows( std::move( A ) , b );
 }
 
 /*--------------------------------------------------------------------------*/
 
-double SDDPBlock::get_future_cost( Index stage ) const {
+double SDDPBlock::get_future_cost( Index stage , Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::get_future_cost: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- v_polyhedral_functions[ stage ]->compute();
- return v_polyhedral_functions[ stage ]->get_value();
+ auto function = get_polyhedral_function( stage , 0 , sub_block_index );
+ function->compute();
+ return function->get_value();
 }
 
 /*--------------------------------------------------------------------------*/
