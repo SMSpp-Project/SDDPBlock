@@ -50,6 +50,7 @@ namespace SMSpp_di_unipi_it
 {
 
 class BendersBFunction;
+class SDDPOptimizer;
 class StochasticBlock;
 
 /*--------------------------------------------------------------------------*/
@@ -444,6 +445,12 @@ public:
    * vector-of-double parameters. */
 
  };  // end( vdbl_par_type_SDDP_S )
+
+/*--------------------------------------------------------------------------*/
+/*------------------------------- FRIENDS ----------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ friend SDDPOptimizer;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PUBLIC METHODS OF THE CLASS ------------------------*/
@@ -1264,227 +1271,21 @@ public:
 
 protected:
 
-/// returns a pointer to the BendersBFunction associated with the given \p stage
-/** This function returns a pointer to the BendersBFunction associated with
- * the given \p stage, which must be an integer between 0 and
- * get_time_horizon() - 1.
- *
- * @param stage An index between 0 and get_time_horizon() - 1.
- */
+/*--------------------------------------------------------------------------*/
+/*--------------------------- PROTECTED METHODS ----------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ /// returns a pointer to the BendersBFunction associated with the given stage
+ /** This function returns a pointer to the BendersBFunction associated with
+  * the given \p stage, which must be an integer between 0 and
+  * get_time_horizon() - 1.
+  *
+  * @param stage An index between 0 and get_time_horizon() - 1.
+  */
  BendersBFunction * get_benders_function( SDDPBlock::Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
-/*---------------------------- PROTECTED FIELDS  ---------------------------*/
-/*--------------------------------------------------------------------------*/
-
- /// Initial state
- /** The initial state at the beginning of the simulation. */
- std::vector< double > initial_state;
-
- /// Number of meshes in each direction
- /** This vector stores the mesh discretization in each direction. The i-th
-  * component of this vector contains the number of meshes (number of steps)
-  * at direction i. */
- std::vector< int > mesh_discretization;
-
- /// The cuts to be used at the last time instant
- /** This vector stores the cuts to be used at the last time instant. Each cut
-  * is represented by a vector whose size is equal to m + 1, where m is the
-  * number of state variables. The m first elements of a cut are the
-  * coefficients for the state variables and the last element is the constant
-  * of that cut. The vector #last_stage_cuts can store multiple cuts and its
-  * size must be a multiple of m + 1. If it is non-empty and has size k * (m +
-  * 1), then it contains k cuts and the i-th cut is given by the elements
-  * between the indices i * ( m + 1 ) and ( i + 1 ) * ( m + 1 ) - 1. */
- std::vector< double > last_stage_cuts;
-
- /// Number of iterations performed by the method
- /** Number of iterations performed by the method at the last call of
-  * compute(). */
- int number_iterations_performed;
-
- /// Accuracy achieved by the method
- /** Accuracy achieved by the method at the last call to compute(),
-  * which is given by
-  *
-  * | backwardValue - forwardValue | / forwardValue
-  *
-  * where backwardValue is the value of the last backward pass and
-  * forwardValueForConv is the value obtained in the forward pass
-  * when checking for convergence.
-  */
- double accuracy_achieved;
-
- /// It indicates the level of verbosity of the log
- int log_verbosity = 0;
-
- /// Index of the scenario to be considered at the first stage
- int first_stage_scenario_index;
-
- /// Name of the file in which regressors will be stored
- std::string regressors_filename;
-
- /// Name of the file in which the cuts will be stored
- std::string cuts_filename;
-
- /// Name of the file in which the visited states will be stored
- std::string visited_states_filename;
-
- /// Name of the default BlockConfig file for the inner Blocks
- std::string f_inner_block_config_filename;
-
- /// Name of the file to which the future cost functions are output
- std::string f_output_filename;
-
- /// Default BlockConfig for the inner Blocks
- BlockConfig * f_inner_block_config = nullptr;
-
- /// Name of the default BlockSolverConfig file for the inner Blocks
- std::string f_inner_block_solver_config_filename;
-
- /// Default BlockConfig for the inner Blocks
- BlockSolverConfig * f_inner_block_solver_config = nullptr;
-
- /// Maximum number of iterations that the method should perform
- int maximum_number_iterations;
-
- /** Frequency in which the convergence check is performed. The
-  * convergence is checked every "convergence_frequency" steps of the
-  * method. See the comments about the intNStepConv parameter for
-  * more details. */
- int convergence_frequency;
-
- /** Indicates whether the CPU time spent at each backward and
-  * forward steps should be printed. */
- bool print_cpu_time;
-
- /** The number of simulations (number of forward passes called) when
-  * we have to check the convergence by comparing the outcome given
-  * by the forward pass and the one given by the backward pass. */
- int number_simulations_for_convergence;
-
- /// The frequency in which the future cost functions are output
- int output_frequency;
-
- /** Relative accuracy for declaring a solution optimal. See the
-  * comments about the dblAccuracy parameter for more details. */
- double accuracy;
-
- /// Status returned by compute()
- int status = kUnEval;
-
-/*--------------------------------------------------------------------------*/
-/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
-/*--------------------------------------------------------------------------*/
-
-private:
-
-/*--------------------------------------------------------------------------*/
-/*-------------------------- PRIVATE METHODS -------------------------------*/
-/*--------------------------------------------------------------------------*/
-
-/// add cuts to the subproblem at the given stage
-/** This function adds cuts to the subproblem at the given \p stage.
- *
- * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
- *        a matrix with as many columns as there are cuts to be added and the
- *        number of rows must be equal to one plus the number of Variable
- *        defined in the BendersBlock associated with stage \p stage.
- *
- * @param stage The stage at which cuts should be updated, which must be an
- *        integer between 0 and get_time_horizon() - 1.
- *
- * @param range The indices of the cuts in \p cuts that should be added. */
-
- void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ) const;
-
-/*--------------------------------------------------------------------------*/
-
- /// returns true if a valid mesh discretization has been provided
- bool mesh_provided() const {
-  return ( ! mesh_discretization.empty() ) &&
-   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
-                []( auto i ){ return i > 0; } );
- }
-
-/*--------------------------------------------------------------------------*/
-
- void set_state( const Eigen::ArrayXd & state ,
-                 SDDPBlock::Index stage ) const;
-
-/*--------------------------------------------------------------------------*/
-
- void set_scenario( SDDPBlock::Index scenario_id ,
-                    SDDPBlock::Index stage ) const;
-
-/*--------------------------------------------------------------------------*/
-
- void process_outstanding_Modification();
-
-/*--------------------------------------------------------------------------*/
-
- /// solves the subproblem associated with the given stage
- /** This function solves the subproblem associated with the given \p stage,
-  * which must be an integer between 0 and get_time_horizon() - 1.
-  *
-  * @param stage The stage whose associated subproblem must be solved. */
-
- double solve( SDDPBlock::Index stage );
-
-/*--------------------------------------------------------------------------*/
-
- /// output the future cost functions
- /** This function outputs the approximations to the future cost functions to
-  * the file with the given name.
-  *
-  * @param filename The name of the file to which the functions will be
-  *        output. */
-
- void output_future_cost_functions( const std::string & filename ) const;
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the parameters of the SDDPSolver to their default values
- /** This function sets the parameters of the SDDPSolver to their default
-  * values. */
-
- void set_default_parameters() {
-
-  // int
-
-  maximum_number_iterations = get_dflt_int_par( intMaxIter );
-  convergence_frequency = get_dflt_int_par( intNStepConv );
-  print_cpu_time = get_dflt_int_par( intPrintTime );
-  number_simulations_for_convergence =
-   get_dflt_int_par( intNbSimulCheckForConv );
-  output_frequency = get_dflt_int_par( intOutputFrequency );
-  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioIndex );
-
-  // double
-
-  accuracy = get_dflt_dbl_par( dblAccuracy );
-
-  // string
-
-  regressors_filename = get_dflt_str_par( strRegressorsFilename );
-  cuts_filename = get_dflt_str_par( strCutsFilename );
-  visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
-  f_inner_block_config_filename = get_dflt_str_par( strInnerBC );
-  f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
-  f_output_filename = get_dflt_str_par( strOutputFile );
-
-  // vector of int
-
-  mesh_discretization = get_dflt_vint_par( vintMeshDiscretization );
-
-  // vector of double
-
-  last_stage_cuts = get_dflt_vdbl_par( vdblLastStageCuts );
-  initial_state = get_dflt_vdbl_par( vdblInitialState );
- }
-
-/*--------------------------------------------------------------------------*/
-/*-------------------------- PRIVATE CLASSES -------------------------------*/
+/*--------------------------- PROTECTED CLASSES ----------------------------*/
 /*--------------------------------------------------------------------------*/
 
  class SDDPOptimizer : public StOpt::OptimizerSDDPBase {
@@ -1810,8 +1611,217 @@ private:
  };   // end( class SDDPOptimizer )
 
 /*--------------------------------------------------------------------------*/
+/*---------------------------- PROTECTED FIELDS  ---------------------------*/
+/*--------------------------------------------------------------------------*/
 
- friend SDDPOptimizer;
+ /// Initial state
+ /** The initial state at the beginning of the simulation. */
+ std::vector< double > initial_state;
+
+ /// Number of meshes in each direction
+ /** This vector stores the mesh discretization in each direction. The i-th
+  * component of this vector contains the number of meshes (number of steps)
+  * at direction i. */
+ std::vector< int > mesh_discretization;
+
+ /// The cuts to be used at the last time instant
+ /** This vector stores the cuts to be used at the last time instant. Each cut
+  * is represented by a vector whose size is equal to m + 1, where m is the
+  * number of state variables. The m first elements of a cut are the
+  * coefficients for the state variables and the last element is the constant
+  * of that cut. The vector #last_stage_cuts can store multiple cuts and its
+  * size must be a multiple of m + 1. If it is non-empty and has size k * (m +
+  * 1), then it contains k cuts and the i-th cut is given by the elements
+  * between the indices i * ( m + 1 ) and ( i + 1 ) * ( m + 1 ) - 1. */
+ std::vector< double > last_stage_cuts;
+
+ /// Number of iterations performed by the method
+ /** Number of iterations performed by the method at the last call of
+  * compute(). */
+ int number_iterations_performed;
+
+ /// Accuracy achieved by the method
+ /** Accuracy achieved by the method at the last call to compute(),
+  * which is given by
+  *
+  * | backwardValue - forwardValue | / forwardValue
+  *
+  * where backwardValue is the value of the last backward pass and
+  * forwardValueForConv is the value obtained in the forward pass
+  * when checking for convergence.
+  */
+ double accuracy_achieved;
+
+ /// It indicates the level of verbosity of the log
+ int log_verbosity = 0;
+
+ /// Index of the scenario to be considered at the first stage
+ int first_stage_scenario_index;
+
+ /// Name of the file in which regressors will be stored
+ std::string regressors_filename;
+
+ /// Name of the file in which the cuts will be stored
+ std::string cuts_filename;
+
+ /// Name of the file in which the visited states will be stored
+ std::string visited_states_filename;
+
+ /// Name of the default BlockConfig file for the inner Blocks
+ std::string f_inner_block_config_filename;
+
+ /// Name of the file to which the future cost functions are output
+ std::string f_output_filename;
+
+ /// Default BlockConfig for the inner Blocks
+ BlockConfig * f_inner_block_config = nullptr;
+
+ /// Name of the default BlockSolverConfig file for the inner Blocks
+ std::string f_inner_block_solver_config_filename;
+
+ /// Default BlockConfig for the inner Blocks
+ BlockSolverConfig * f_inner_block_solver_config = nullptr;
+
+ /// Maximum number of iterations that the method should perform
+ int maximum_number_iterations;
+
+ /** Frequency in which the convergence check is performed. The
+  * convergence is checked every "convergence_frequency" steps of the
+  * method. See the comments about the intNStepConv parameter for
+  * more details. */
+ int convergence_frequency;
+
+ /** Indicates whether the CPU time spent at each backward and
+  * forward steps should be printed. */
+ bool print_cpu_time;
+
+ /** The number of simulations (number of forward passes called) when
+  * we have to check the convergence by comparing the outcome given
+  * by the forward pass and the one given by the backward pass. */
+ int number_simulations_for_convergence;
+
+ /// The frequency in which the future cost functions are output
+ int output_frequency;
+
+ /** Relative accuracy for declaring a solution optimal. See the
+  * comments about the dblAccuracy parameter for more details. */
+ double accuracy;
+
+ /// Status returned by compute()
+ int status = kUnEval;
+
+ /// Pointer to the SDDPOptimizer
+ std::shared_ptr< StOpt::OptimizerSDDPBase > sddp_optimizer;
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
+
+private:
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE METHODS -------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+/// add cuts to the subproblem at the given stage
+/** This function adds cuts to the subproblem at the given \p stage.
+ *
+ * @param cuts An Eigen::ArrayXXd containing the cuts to be added. It must be
+ *        a matrix with as many columns as there are cuts to be added and the
+ *        number of rows must be equal to one plus the number of Variable
+ *        defined in the BendersBlock associated with stage \p stage.
+ *
+ * @param stage The stage at which cuts should be updated, which must be an
+ *        integer between 0 and get_time_horizon() - 1.
+ *
+ * @param range The indices of the cuts in \p cuts that should be added. */
+
+ void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns true if a valid mesh discretization has been provided
+ bool mesh_provided() const {
+  return ( ! mesh_discretization.empty() ) &&
+   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
+                []( auto i ){ return i > 0; } );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ void set_state( const Eigen::ArrayXd & state ,
+                 SDDPBlock::Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ void set_scenario( SDDPBlock::Index scenario_id ,
+                    SDDPBlock::Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ void process_outstanding_Modification();
+
+/*--------------------------------------------------------------------------*/
+
+ /// solves the subproblem associated with the given stage
+ /** This function solves the subproblem associated with the given \p stage,
+  * which must be an integer between 0 and get_time_horizon() - 1.
+  *
+  * @param stage The stage whose associated subproblem must be solved. */
+
+ double solve( SDDPBlock::Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// output the future cost functions
+ /** This function outputs the approximations to the future cost functions to
+  * the file with the given name.
+  *
+  * @param filename The name of the file to which the functions will be
+  *        output. */
+
+ void output_future_cost_functions( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the parameters of the SDDPSolver to their default values
+ /** This function sets the parameters of the SDDPSolver to their default
+  * values. */
+
+ void set_default_parameters() {
+
+  // int
+
+  maximum_number_iterations = get_dflt_int_par( intMaxIter );
+  convergence_frequency = get_dflt_int_par( intNStepConv );
+  print_cpu_time = get_dflt_int_par( intPrintTime );
+  number_simulations_for_convergence =
+   get_dflt_int_par( intNbSimulCheckForConv );
+  output_frequency = get_dflt_int_par( intOutputFrequency );
+  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioIndex );
+
+  // double
+
+  accuracy = get_dflt_dbl_par( dblAccuracy );
+
+  // string
+
+  regressors_filename = get_dflt_str_par( strRegressorsFilename );
+  cuts_filename = get_dflt_str_par( strCutsFilename );
+  visited_states_filename = get_dflt_str_par( strVisitedStatesFilename );
+  f_inner_block_config_filename = get_dflt_str_par( strInnerBC );
+  f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
+  f_output_filename = get_dflt_str_par( strOutputFile );
+
+  // vector of int
+
+  mesh_discretization = get_dflt_vint_par( vintMeshDiscretization );
+
+  // vector of double
+
+  last_stage_cuts = get_dflt_vdbl_par( vdblLastStageCuts );
+  initial_state = get_dflt_vdbl_par( vdblInitialState );
+ }
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
@@ -1831,8 +1841,6 @@ private:
 
  /// the number of cuts already present at each stage when compute() is called
  std::vector< Index > number_initial_cuts;
-
- std::shared_ptr< StOpt::OptimizerSDDPBase > sddp_optimizer;
 
 /*--------------------------------------------------------------------------*/
 
