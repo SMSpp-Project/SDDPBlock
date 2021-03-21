@@ -42,8 +42,10 @@ get_directory_property(hasParent PARENT_DIRECTORY)
 #include(CTest)
 
 # ----- Requirements -------------------------------------------------------- #
-#find_package(SMSpp REQUIRED)
+find_package(SMSpp REQUIRED)
 find_package(StochasticBlock REQUIRED)
+find_package(OpenMP)
+find_package(Boost COMPONENTS mpi)
 
 # This adds the cmake directory to the find module search paths,
 # allowing us to use our find modules.
@@ -73,7 +75,8 @@ target_compile_features(${modName} PUBLIC cxx_std_17)
 target_sources(${modName} PRIVATE
                src/SDDPBlock.cpp
                src/SDDPGreedySolver.cpp
-               src/SDDPSolver.cpp)
+               src/SDDPSolver.cpp
+               src/ParallelSDDPSolver.cpp)
 
 # When using target_include_directories(), PUBLIC means that any targets
 # that link to this target also need that include directory.
@@ -98,6 +101,17 @@ target_include_directories(
 target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
+
+if (Boost_MPI_FOUND)
+    add_compile_definitions(USE_MPI)
+    target_link_libraries(${modName} PUBLIC
+                          Boost::mpi)
+endif ()
+
+if (OPENMP_FOUND)
+    target_link_libraries(${modName} PRIVATE
+                          OpenMP::OpenMP_CXX )
+endif ()
 
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
