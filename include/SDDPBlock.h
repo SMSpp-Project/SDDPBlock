@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 03 - 2021
+ * \date 23 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -372,6 +372,21 @@ public:
   */
 
  void deserialize( const netCDF::NcGroup & group ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the number of sub-Blocks for each stage
+ /** This function sets the number of sub-Blocks that must be constructed at
+  * each stage. If this function is invoked after the sub-Blocks of this
+  * SDDPBlocks have been constructed, it has no effect. In particular, it has
+  * no effect if it is invoked after deserialize() is invoked.
+  *
+  * @param n The number of sub-Blocks that must be constructed at each stage.
+  */
+ void set_num_sub_blocks_per_stage( Index n ) {
+  if( v_Block.empty() )
+   num_sub_blocks_per_stage = n;
+ }
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------- METHODS FOR Saving THE DATA OF THE SDDPBlock -------------*/

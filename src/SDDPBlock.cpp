@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 15 - 03 - 2021
+ * \date 23 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -149,14 +149,12 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
  ::SMSpp_di_unipi_it::deserialize_dim( group , "TimeHorizon" ,
                                        time_horizon , false );
 
- ::SMSpp_di_unipi_it::deserialize_dim( group , "TimeHorizon" ,
-                                       num_sub_blocks_per_stage , true );
-
  // NumSubBlocksPerStage
 
- if( ! ::SMSpp_di_unipi_it::deserialize_dim
-     ( group , "NumSubBlocksPerStage" , num_sub_blocks_per_stage ) ) {
-  num_sub_blocks_per_stage = 1;
+ Index NumSubBlocksPerStage;
+ if( ::SMSpp_di_unipi_it::deserialize_dim
+     ( group , "NumSubBlocksPerStage" , NumSubBlocksPerStage ) ) {
+  num_sub_blocks_per_stage = NumSubBlocksPerStage;
  }
 
  // StochasticBlock
