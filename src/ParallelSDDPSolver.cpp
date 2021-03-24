@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 16 - 03 - 2021
+ * \date 24 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -213,24 +213,47 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::lock
 
  while( true ) {
 
-#pragma omp critical (parallel_sddp_solver)
+#pragma omp critical (ParallelSDDPSolver)
   {
 
+   if( backward ) {
+    // This is a backard pass. The sub-Blocks will possibly become out of sync.
+
+    if( cuts_synchronized ) {
+     // This means that this is the first subproblem to be solved in the
+     // backward pass after a forward pass has been performed.
+     assert( stage == sddp_solver->get_time_horizon() - 1 );
+
+     // Thus, the iteration number is updated.
+     current_iteration++;
+
+     // Indicate that the sub-Blocks are possibly out of sync.
+     cuts_synchronized = false;
+    }
+   }
+   else if( ! cuts_synchronized ) {
+    // This means that this is the first subproblem to be solved in the
+    // forward pass.
+    assert( stage == 0 );
+
+    // Synchronize cuts if necessary.
+    synchronize_cuts();
+    cuts_synchronized = true;
+
+    // If it is time to output the cuts, do it.
+    if( ( get_output_frequency() > 0 ) &&
+        ( current_iteration % get_output_frequency() == 0 ) ) {
+     sddp_solver->output_future_cost_functions();
+    }
+   }
+
+   // Prepare for a new stage.
    if( new_stage ) {
     prepare_new_stage( stage , backward );
     new_stage = false;
    }
 
-   if( backward )
-    // This is a backard pass. The sub-Blocks will possibly become out of sync
-    cuts_synchronized = false;
-   else if( ! cuts_synchronized ) {
-    // This is the first subproblem to be solved in the forward pass.
-    // Synchronize cuts if necessary.
-    synchronize_cuts();
-    cuts_synchronized = true;
-   }
-
+   // Try to find an unlocked sub-Block
    sub_block_index = find_available_sub_block( simulation_id , stage );
 
    if( sub_block_index < Inf< Index >() ) {
@@ -238,7 +261,7 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::lock
     lock_sub_block( sub_block_index );
    }
 
-  } // end omp critical (parallel_sddp_solver)
+  } // end omp critical (ParallelSDDPSolver)
 
   if( sub_block_index < Inf< Index >() )
    // An unlocked sub-Block has been found. Return its index.
@@ -256,7 +279,7 @@ void ParallelSDDPSolver::ParallelSDDPOptimizer::unlock
 ( Index stage , Index sub_block_index , Index scenario_index ,
   bool scenario_was_set ) const {
 
-#pragma omp critical (parallel_sddp_solver)
+#pragma omp critical (ParallelSDDPSolver)
  {
   if( scenario_was_set )
    // If a scenario was set, mark it
@@ -268,7 +291,7 @@ void ParallelSDDPSolver::ParallelSDDPOptimizer::unlock
   // Unlock the sub-Block
   locked[ sub_block_index ] = false;
 
- } // end omp critical (parallel_sddp_solver)
+ } // end omp critical (ParallelSDDPSolver)
 }
 
 /*--------------------------------------------------------------------------*/

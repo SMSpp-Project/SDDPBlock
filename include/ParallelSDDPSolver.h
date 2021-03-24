@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 16 - 03 - 2021
+ * \date 24 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -147,6 +147,14 @@ protected:
 
   ParallelSDDPOptimizer( ParallelSDDPSolver * solver = nullptr ) :
    SDDPSolver::SDDPOptimizer( solver ) { }
+
+/*--------------------------------------------------------------------------*/
+
+  void reset() override {
+   SDDPSolver::SDDPOptimizer::reset();
+   new_stage = true;
+   cuts_synchronized = false;
+  }
 
 /*--------------------------------------------------------------------------*/
 

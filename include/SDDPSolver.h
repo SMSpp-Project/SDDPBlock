@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 03 - 2021
+ * \date 24 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -524,13 +524,9 @@ public:
    case( intNbSimulCheckForConv ):
     number_simulations_for_convergence = value; return;
    case( intNbSimulBackward ):
-    std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-     set_number_simulations_backward( value );
-    return;
+    sddp_optimizer->set_number_simulations_backward( value ); return;
    case( intNbSimulForward ):
-    std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-     set_number_simulations_forward( value );
-    return;
+    sddp_optimizer->set_number_simulations_forward( value ); return;
    case( intLogVerb ): log_verbosity = value; return;
    case( intOutputFrequency ): output_frequency = value; return;
    case( intFirstStageScenarioIndex ):
@@ -748,8 +744,7 @@ public:
    case( intPrintTime ): return 1;
    case( intNbSimulCheckForConv ): return 1;
    case( intNbSimulBackward ):
-    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-     get_dflt_number_simulations_backward();
+    return sddp_optimizer->get_dflt_number_simulations_backward();
    case( intNbSimulForward ): return 1;
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
@@ -872,11 +867,9 @@ public:
    case( intPrintTime ): return print_cpu_time;
    case( intNbSimulCheckForConv ): return number_simulations_for_convergence;
    case( intNbSimulBackward ):
-    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-     get_number_simulations_backward();
+    return sddp_optimizer->get_number_simulations_backward();
    case( intNbSimulForward ):
-    return std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-     get_number_simulations_forward();
+    return sddp_optimizer->get_number_simulations_forward();
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
    case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
@@ -1204,6 +1197,21 @@ public:
   return forward_value;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// output the future cost functions
+ /** This function outputs the approximations to the future cost functions to
+  * the file with the given name. If \p filename is empty, then the name of
+  * the file will be given by the #strOutputFile parameter. If both \p
+  * filename and the name given by #strOutputFile are empty, then nothing is
+  * output.
+  *
+  * @param filename The name of the file to which the functions will be
+  *        output. If it is empty, the name from the #strOutputFile parameter
+  *        is considered. */
+
+ void output_future_cost_functions( const std::string & filename = "" ) const;
+
 /**@} ----------------------------------------------------------------------*/
 /*------------ METHODS FOR READING THE DATA OF THE SDDPSolver --------------*/
 /*--------------------------------------------------------------------------*/
@@ -1312,6 +1320,18 @@ protected:
    sddp_solver = solver;
    simulator_backward = std::make_shared< ScenarioSimulator >( true );
    simulator_forward = std::make_shared< ScenarioSimulator >( false );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  /// prepares this SDDPOptimizer for another call to the StOpt SDDP solver
+  /** This function prepares this SDDPOptimizer for another call to the StOpt
+   * SDDP solver. This function must be called within SDDPSolver::compute()
+   * before StOpt is invoked. */
+
+  virtual void reset() {
+   current_iteration = 0;
+   previous_pass_was_backward = false;
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1598,8 +1618,8 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
-  bool previous_pass_was_backward() const {
-   return sddp_solver->previous_pass_was_backward;
+  int get_output_frequency() const {
+   return sddp_solver->output_frequency;
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1608,6 +1628,12 @@ protected:
   double date_next;
   std::shared_ptr< ScenarioSimulator > simulator_forward;
   std::shared_ptr< ScenarioSimulator > simulator_backward;
+
+  /// the number of the current iteration
+  mutable int current_iteration = 0;
+
+  /// indicates whether the previous pass was backward
+  mutable bool previous_pass_was_backward = false;
 
   SDDPSolver * sddp_solver;
 
@@ -1622,7 +1648,8 @@ protected:
   /// checks if the linearization is correct
   void check_linearization( Index current_stage , const Eigen::ArrayXd & state ,
                             double objective_value , double alpha ,
-                            const Eigen::ArrayXd & linearization ) const;
+                            const Eigen::ArrayXd & linearization ,
+                            Index sub_block_index ) const;
 
  };   // end( class SDDPOptimizer )
 
@@ -1727,7 +1754,7 @@ protected:
  int status = kUnEval;
 
  /// Pointer to the SDDPOptimizer
- std::shared_ptr< StOpt::OptimizerSDDPBase > sddp_optimizer;
+ std::shared_ptr< SDDPOptimizer > sddp_optimizer;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -1788,17 +1815,6 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- /// output the future cost functions
- /** This function outputs the approximations to the future cost functions to
-  * the file with the given name.
-  *
-  * @param filename The name of the file to which the functions will be
-  *        output. */
-
- void output_future_cost_functions( const std::string & filename ) const;
-
-/*--------------------------------------------------------------------------*/
-
  /// sets the parameters of the SDDPSolver to their default values
  /** This function sets the parameters of the SDDPSolver to their default
   * values. */
@@ -1847,12 +1863,6 @@ private:
 
  /// the value obtained during the forward pass when checking for convergence
  double forward_value;
-
- /// the number of the current iteration
- int current_iteration = 0;
-
- /// indicates whether the previous pass was backward
- bool previous_pass_was_backward = false;
 
  /// the number of cuts already present at each stage when compute() is called
  std::vector< Index > number_initial_cuts;

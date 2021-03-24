@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 15 - 03 - 2021
+ * \date 24 - 03 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -74,8 +74,7 @@ void SDDPSolver::set_Block( Block * block ) {
                                 "only be attached to an SDDPBlock." ) );
 
  const auto & scenario_set = sddp_block->get_scenario_set();
- std::static_pointer_cast< SDDPOptimizer >( sddp_optimizer )->
-  set_scenarios( scenario_set );
+ sddp_optimizer->set_scenarios( scenario_set );
 
  // BlockConfig for the inner Blocks
  if( ( ! f_inner_block_config ) &&
@@ -328,12 +327,11 @@ int SDDPSolver::compute( bool changedvars ) {
    mesh_discretization_array( i ) = mesh_discretization[ i ];
  }
 
- /*********************/
- /* CONTROL VARIABLES */
- /*********************/
+ /***************************/
+ /* RESET THE SDDPOptimizer */
+ /***************************/
 
- current_iteration = 0;
- previous_pass_was_backward = false;
+ sddp_optimizer->reset();
 
  /***********************/
  /* SOLVING THE PROBLEM */
@@ -351,7 +349,7 @@ int SDDPSolver::compute( bool changedvars ) {
  // Possibly output the future cost functions
 
  if( output_frequency > 0 )
-  output_future_cost_functions( f_output_filename );
+  output_future_cost_functions();
 
  // Unlock the SDDPBlock
 
@@ -464,9 +462,13 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  const Index sub_block_index = 0;
  const bool scenario_must_be_set = true;
 
- return SDDPSolver::SDDPOptimizer::oneStepBackward
+ const auto backward = SDDPSolver::SDDPOptimizer::oneStepBackward
   ( sddp_cut , state , particle , simulation_id , scenario_index ,
     scenario_must_be_set , sub_block_index );
+
+ previous_pass_was_backward = true;
+
+ return backward;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -592,7 +594,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 #ifdef BENDERSBFUNCTION_DEBUG
   const auto alpha = benders_function->get_linearization_constant();
   check_linearization( current_stage , * std::get<0>( state ).get() ,
-                       objective_value , alpha , linearization );
+                       objective_value , alpha , linearization ,
+                       sub_block_index );
 #endif
 
  }
@@ -607,8 +610,6 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                            "linearization is available." ) );
  }
 
- sddp_solver->previous_pass_was_backward = true;
-
  return linearization;
 }
 
@@ -621,11 +622,11 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  // Update control variables and output
 
- if( sddp_solver->previous_pass_was_backward ) {
+ if( previous_pass_was_backward ) {
   if( sddp_solver->output_frequency > 0 &&
-      ( sddp_solver->current_iteration % sddp_solver->output_frequency == 0 ) )
-   sddp_solver->output_future_cost_functions( sddp_solver->f_output_filename );
-  sddp_solver->current_iteration++;
+      ( current_iteration % sddp_solver->output_frequency == 0 ) )
+   sddp_solver->output_future_cost_functions();
+  current_iteration++;
  }
 
  const auto scenario_index = get_forward_scenario_index( simulation_id );
@@ -639,7 +640,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
     scenario_index , scenario_must_be_set , sub_block_index );
 
  // Update control variable
- sddp_solver->previous_pass_was_backward = false;
+ previous_pass_was_backward = false;
 
  return forward;
 }
@@ -999,7 +1000,14 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
  if( functions.empty() )
   return;
 
- std::ofstream output( filename , std::ios::out );
+ std::ofstream output;
+
+ if( ! filename.empty() )
+  output.open( filename , std::ios::out );
+ else if( ! f_output_filename.empty() )
+  output.open( f_output_filename , std::ios::out );
+ else
+  return;
 
  const char separator_character = ',';
  const auto num_var = functions.front()->get_num_active_var();
@@ -1078,7 +1086,8 @@ int SDDPSolver::SDDPOptimizer::getStateSize() const {
 
 void SDDPSolver::SDDPOptimizer::check_linearization
 ( Index current_stage , const Eigen::ArrayXd & state , double objective_value ,
-  double alpha , const Eigen::ArrayXd & linearization ) const {
+  double alpha , const Eigen::ArrayXd & linearization , Index sub_block_index )
+ const {
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
   *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
@@ -1100,7 +1109,7 @@ void SDDPSolver::SDDPOptimizer::check_linearization
   /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
    * does not contain the state for the first stage problem. */
   const auto state = static_cast< SDDPBlock * >
-   ( sddp_solver->f_Block )->get_state( current_stage );
+   ( sddp_solver->f_Block )->get_state( current_stage , sub_block_index );
   for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
    gy += linearization( j + 1 ) * state[ j ];
  }
