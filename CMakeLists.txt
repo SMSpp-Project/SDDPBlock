@@ -102,7 +102,7 @@ target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
 
-if (Boost_MPI_FOUND)
+if (Boost_MPI_FOUND AND USE_MPI)
     add_compile_definitions(USE_MPI)
     target_link_libraries(${modName} PUBLIC
                           Boost::mpi)
