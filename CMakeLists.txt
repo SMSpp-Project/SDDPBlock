@@ -50,6 +50,7 @@ find_package(SMSpp REQUIRED)
 find_package(StochasticBlock REQUIRED)
 find_package(OpenMP)
 find_package(Boost COMPONENTS mpi)
+find_package(MPI)
 
 # This adds the cmake directory to the find module search paths,
 # allowing us to use our find modules.
@@ -106,8 +107,10 @@ target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
 
-if (Boost_MPI_FOUND AND USE_MPI)
+if (MPI_CXX_FOUND AND Boost_MPI_FOUND AND USE_MPI)
     add_compile_definitions(USE_MPI)
+    target_include_directories(${modName} PRIVATE
+                               ${MPI_CXX_INCLUDE_PATH})
     target_link_libraries(${modName} PRIVATE
                           Boost::mpi)
 endif ()
