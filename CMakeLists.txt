@@ -41,6 +41,10 @@ get_directory_property(hasParent PARENT_DIRECTORY)
 # See: https://cmake.org/cmake/help/latest/manual/ctest.1.html
 #include(CTest)
 
+# ----- Options ------------------------------------------------------------- #
+
+option(USE_MPI "Use MPI" OFF)
+
 # ----- Requirements -------------------------------------------------------- #
 find_package(SMSpp REQUIRED)
 find_package(StochasticBlock REQUIRED)
@@ -104,7 +108,7 @@ target_link_libraries(${modName} PUBLIC
 
 if (Boost_MPI_FOUND AND USE_MPI)
     add_compile_definitions(USE_MPI)
-    target_link_libraries(${modName} PUBLIC
+    target_link_libraries(${modName} PRIVATE
                           Boost::mpi)
 endif ()
 
