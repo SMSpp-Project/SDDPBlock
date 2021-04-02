@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 24 - 03 - 2021
+ * \date 02 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1149,6 +1149,118 @@ void SDDPSolver::SDDPOptimizer::check_linearization
        << alpha << std::endl;
   *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
  }
+}
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- METHODS of SDDPSolverState -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolverState::serialize( netCDF::NcGroup & group ) const {
+
+ const auto time_horizon = v_num_var.size();
+
+ group.addDim( "TimeHorizon" , time_horizon );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  if( ! v_is_convex[ t ] )
+   group.addDim( "PolyFunction_sign_" + std::to_string( t ) , 0 );
+
+  ( group.addVar( "PolyFunction_lb_" + std::to_string( t ) ,
+                  netCDF::NcDouble() ) ).putVar( &v_bound[ t ] );
+
+  auto nv = group.addDim( "PolyFunction_NumVar_" + std::to_string( t ) ,
+                          v_num_var[ t ] );
+
+  auto num_rows = v_b[ t ].size();
+
+  if( num_rows ) {
+
+   auto nr = group.addDim( "PolyFunction_NumRow_" + std::to_string( t ) ,
+                           num_rows );
+
+   auto ncdA = group.addVar( "PolyFunction_A_" + std::to_string( t ) ,
+                             netCDF::NcDouble() , { nr , nv } );
+
+   for( Index i = 0 ; i < num_rows ; ++i )
+    ncdA.putVar( { i , 0 } , { 1 , v_num_var[ t ] } , v_A[ t ][ i ].data() );
+
+   ( group.addVar( "PolyFunction_b_" + std::to_string( t ) ,
+                   netCDF::NcDouble() , nr ) ).
+    putVar( { 0 } , { num_rows } , v_b[ t ].data() );
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
+
+ auto TimeHorizon = group.getDim( "TimeHorizon" );
+ if( TimeHorizon.isNull() )
+  throw( std::logic_error
+         ( "SDDPSolverState::deserialize: TimeHorizon dimension is "
+           "required, but it is not in the given group." ) );
+
+ auto time_horizon = TimeHorizon.getSize();
+
+ v_is_convex.resize( time_horizon );
+ v_A.resize( time_horizon );
+ v_b.resize( time_horizon );
+ v_bound.resize( time_horizon );
+ v_num_var.resize( time_horizon );
+
+ for( decltype( time_horizon ) t = 0 ; t < time_horizon ; ++t ) {
+
+  auto nv = group.getDim( "PolyFunction_NumVar_" + std::to_string( t ) );
+  if( nv.isNull() )
+   throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_NumVar_"
+                            + std::to_string( t ) + " dimension is required,"
+                            " but it is not in the given group.") );
+
+  v_num_var[ t ] = nv.getSize();
+
+  auto nr = group.getDim( "PolyFunction_NumRow_" + std::to_string( t ) );
+  if( ( ! nr.isNull() ) && ( nr.getSize() ) ) {
+   auto ncdA = group.getVar( "PolyFunction_A_" + std::to_string( t ) );
+   if( ncdA.isNull() )
+    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_A_"
+                             + std::to_string( t ) + " dimension is required,"
+                             " but it is not in the given group.") );
+
+   auto ncdb = group.getVar( "PolyFunction_b_" + std::to_string( t ) );
+   if( ncdb.isNull() )
+    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_b_"
+                             + std::to_string( t ) + " dimension is required,"
+                             " but it is not in the given group.") );
+
+   v_A[ t ].resize( nr.getSize() );
+   for( Index i = 0 ; i < v_A[ t ].size() ; ++i ) {
+    v_A[ t ][ i ].resize( v_num_var[ t ] );
+    ncdA.getVar( { i , 0 } , { 1 , v_num_var[ t ] } , v_A[ t ][ i ].data() );
+   }
+
+   v_b[ t ].resize( nr.getSize() );
+   ncdb.getVar( v_b[ t ].data() );
+  }
+
+  v_is_convex[ t ] = true;
+  auto sgn = group.getDim( "PolyFunction_sign_" + std::to_string( t ) );
+  if( ! sgn.isNull() )
+   v_is_convex[ t ] = sgn.getSize() > 0 ? true : false;
+
+  auto nclb = group.getVar( "PolyFunction_lb_" + std::to_string( t ) );
+  if( nclb.isNull() ) {
+   if( v_is_convex[ t ] )
+    v_bound[ t ] = - Inf<PolyhedralFunction::FunctionValue>();
+   else
+    v_bound[ t ] = Inf<PolyhedralFunction::FunctionValue>();
+  }
+  else
+   nclb.getVar( & v_bound[ t ] );
+
+ }
+
 }
 
 /*--------------------------------------------------------------------------*/
