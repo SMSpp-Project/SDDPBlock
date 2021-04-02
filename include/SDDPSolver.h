@@ -1153,6 +1153,16 @@ public:
  }
 
 /**@} ----------------------------------------------------------------------*/
+/*------------ METHODS FOR HANDLING THE State OF THE SDDPSolver ------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Handling the State of the SDDPSolver
+ *  @{ */
+
+ void serialize_State( netCDF::NcGroup & group ,
+		       const std::string & sub_group_name = "" )
+  const override;
+
+/**@} ----------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Solving the model encoded by the current Block
@@ -1920,34 +1930,7 @@ public:
  /** Constructor of SDDPSolverState: takes a pointer to an SDDPSolver and
   * immediately copies its "internal state". */
 
- SDDPSolverState( const SDDPSolver * solver ) {
-
-  if( ! solver )
-   return;
-
-  auto sddp_block = static_cast< SDDPBlock * >( solver->f_Block );
-
-  if( ! sddp_block )
-   return;
-
-  const auto time_horizon = solver->get_time_horizon();
-
-  v_is_convex.reserve( time_horizon );
-  v_num_var.reserve( time_horizon );
-  v_A.reserve( time_horizon );
-  v_b.reserve( time_horizon );
-  v_bound.reserve( time_horizon );
-
-  for( Index t = 0 ; t < time_horizon ; ++t ) {
-   auto polyhedral_function = sddp_block->get_polyhedral_function( t );
-   assert( polyhedral_function );
-   v_is_convex.push_back( polyhedral_function->is_convex() );
-   v_num_var.push_back( polyhedral_function->get_num_active_var() );
-   v_A.push_back( polyhedral_function->get_A() );
-   v_b.push_back( polyhedral_function->get_b() );
-   v_bound.push_back( polyhedral_function->get_global_bound() );
-  }
- }
+ SDDPSolverState( const SDDPSolver * solver );
 
 /*--------------------------------------------------------------------------*/
 
@@ -2048,7 +2031,17 @@ protected:
  std::vector< PolyhedralFunction::FunctionValue > v_bound;
  ///< the global (lower or upper) bound of each PolyhedralFunction
 
-/*--------------------------------------------------------------------------*/
+/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+
+private:
+
+/*--------------------------- PRIVATE METHODS ------------------------------*/
+
+ static void serialize
+ ( netCDF::NcGroup & group , Index t , Index num_var , bool is_convex ,
+   PolyhedralFunction::FunctionValue bound ,
+   const PolyhedralFunction::MultiVector & A ,
+   const PolyhedralFunction::RealVector & b );
 
 };  // end( class( SDDPSolverState ) )
 
