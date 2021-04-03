@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 02 - 04 - 2021
+ * \date 03 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -444,6 +444,90 @@ double SDDPSolver::get_ub( void ) {
 
 void SDDPSolver::process_outstanding_Modification() {
  v_mod.clear();
+}
+
+/*--------------------------------------------------------------------------*/
+
+State * SDDPSolver::get_State( void ) const {
+ return new SDDPSolverState( this );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::put_State( const State & state ) {
+
+ // If this SDDPSolver is not currently attached to an SDDPBlock, nothing is
+ // done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ auto s = dynamic_cast< const SDDPSolverState & >( state );
+
+ const auto time_horizon = get_time_horizon();
+
+ const auto num_polyhedral_per_sub_block =
+  sddp_block->get_num_polyhedral_function_per_sub_block();
+
+ const auto num_sub_blocks_per_stage =
+  sddp_block->get_num_sub_blocks_per_stage();
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+   for( Index sub_block_index = 0 ;
+        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
+
+    auto polyhedral_function =
+     sddp_block->get_polyhedral_function( t , i , sub_block_index );
+
+    assert( polyhedral_function );
+
+    auto A = s.v_A[ t ];
+    auto b = s.v_b[ t ];
+
+    polyhedral_function->set_PolyhedralFunction
+     ( std::move( A ) , std::move( b ) , s.v_bound[ t ] , s.v_is_convex[ t ] );
+   }
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::put_State( State && state ) {
+
+ // If this SDDPSolver is not currently attached to an SDDPBlock, nothing is
+ // done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ auto s = dynamic_cast< SDDPSolverState && >( state );
+
+ const auto time_horizon = get_time_horizon();
+
+ const auto num_polyhedral_per_sub_block =
+  sddp_block->get_num_polyhedral_function_per_sub_block();
+
+ const auto num_sub_blocks_per_stage =
+  sddp_block->get_num_sub_blocks_per_stage();
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+   for( Index sub_block_index = 0 ;
+        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
+
+    auto polyhedral_function =
+     sddp_block->get_polyhedral_function( t , i , sub_block_index );
+
+    assert( polyhedral_function );
+
+    polyhedral_function->set_PolyhedralFunction
+     ( std::move( s.v_A[ t ] ) , std::move( s.v_b[ t ] ) , s.v_bound[ t ] ,
+       s.v_is_convex[ t ] );
+   }
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/

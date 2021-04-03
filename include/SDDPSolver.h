@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 02 - 04 - 2021
+ * \date 03 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1157,6 +1157,18 @@ public:
 /*--------------------------------------------------------------------------*/
 /** @name Handling the State of the SDDPSolver
  *  @{ */
+
+ State * get_State( void ) const override;
+
+/*--------------------------------------------------------------------------*/
+
+ void put_State( const State & state ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void put_State( State && state ) override;
+
+/*--------------------------------------------------------------------------*/
 
  void serialize_State( netCDF::NcGroup & group ,
 		       const std::string & sub_group_name = "" )
