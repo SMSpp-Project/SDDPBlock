@@ -53,6 +53,7 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 
 SMSpp_insert_in_factory_cpp_0( SDDPSolver );
+SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- METHODS of SDDPSolver -------------------------*/

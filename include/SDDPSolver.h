@@ -1939,10 +1939,12 @@ public:
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPSolverState ---------------*/
 
  /// constructor, doing everything
- /** Constructor of SDDPSolverState: takes a pointer to an SDDPSolver and
-  * immediately copies its "internal state". */
+ /** Constructor of SDDPSolverState. If a pointer to an SDDPSolver is
+  * provided, then it immediately copies its "internal state". If nullptr is
+  * passed (as by default), then an "empty" SDDPSolverState is constructed
+  * that can only be filled by calling deserialize(). */
 
- SDDPSolverState( const SDDPSolver * solver );
+ SDDPSolverState( const SDDPSolver * solver = nullptr );
 
 /*--------------------------------------------------------------------------*/
 
@@ -2054,6 +2056,10 @@ private:
    PolyhedralFunction::FunctionValue bound ,
    const PolyhedralFunction::MultiVector & A ,
    const PolyhedralFunction::RealVector & b );
+
+/*---------------------------- PRIVATE FIELDS ------------------------------*/
+
+ SMSpp_insert_in_factory_h;
 
 };  // end( class( SDDPSolverState ) )
 
