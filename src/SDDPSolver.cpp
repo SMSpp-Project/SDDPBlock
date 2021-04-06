@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 03 - 04 - 2021
+ * \date 07 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -548,6 +548,8 @@ void SDDPSolver::serialize_State
   serialize_State( sub_group );
   return;
  }
+
+ group.putAtt( "type" , "SDDPSolverState" );
 
  const auto time_horizon = get_time_horizon();
  group.addDim( "TimeHorizon" , get_time_horizon() );
@@ -1345,6 +1347,8 @@ void SDDPSolverState::serialize
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolverState::serialize( netCDF::NcGroup & group ) const {
+
+ State::serialize( group );
 
  const auto time_horizon = v_num_var.size();
 
