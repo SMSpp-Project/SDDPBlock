@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 24 - 03 - 2021
+ * \date 12 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -71,7 +71,7 @@ double ParallelSDDPSolver::ParallelSDDPOptimizer::oneStepForward
 
  const auto current_stage = get_current_forward_stage();
  const auto scenario_index = get_forward_scenario_index( simulation_id );
- const auto sub_block_index = lock( current_stage , scenario_index , false );
+ const auto sub_block_index = lock( current_stage , simulation_id , false );
 
  const auto scenario_must_be_set =
   ! is_scenario_set( current_stage , sub_block_index , scenario_index );
