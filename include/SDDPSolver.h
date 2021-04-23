@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 24 - 03 - 2021
+ * \date 03 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -450,6 +450,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  friend class SDDPOptimizer;
+ friend class SDDPSolverState;
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PUBLIC METHODS OF THE CLASS ------------------------*/
@@ -1152,6 +1153,28 @@ public:
  }
 
 /**@} ----------------------------------------------------------------------*/
+/*------------ METHODS FOR HANDLING THE State OF THE SDDPSolver ------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Handling the State of the SDDPSolver
+ *  @{ */
+
+ State * get_State( void ) const override;
+
+/*--------------------------------------------------------------------------*/
+
+ void put_State( const State & state ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void put_State( State && state ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void serialize_State( netCDF::NcGroup & group ,
+		       const std::string & sub_group_name = "" )
+  const override;
+
+/**@} ----------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Solving the model encoded by the current Block
@@ -1288,8 +1311,8 @@ protected:
   * the given \p stage, which must be an integer between 0 and
   * get_time_horizon() - 1.
   *
-  * @param stage An index between 0 and get_time_horizon() - 1.
-  */
+  * @param stage An index between 0 and get_time_horizon() - 1. */
+
  BendersBFunction * get_benders_function
  ( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index ) const;
 
@@ -1604,6 +1627,21 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
+  /// returns the pointer to a PolyhedralFunction
+  /** This function returns a pointer to the i-th PolyhedralFunction of a
+   * sub-Block of the given \p stage.
+   *
+   * @param stage A number between 0 and get_time_horizon() - 1.
+   *
+   * @param i If there are more than one PolyhedralFunction per sub-Block, this
+   *        parameter informs the index of the desired PolyhedralFunction at
+   *        the given \p stage.
+   *
+   * @param sub_block_index The index of the sub-Block, which must be an
+   *        integer between 0 and get_num_sub_blocks_per_stage() - 1.
+   *
+   * @return A pointer to the i-th PolyhedralFunction of the given \p stage. */
+
   PolyhedralFunction * get_polyhedral_function
   ( Index stage , Index i = 0 , Index sub_block_index = 0 ) const {
    return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
@@ -1872,6 +1910,158 @@ private:
  SMSpp_insert_in_factory_h;
 
 };   // end( class SDDPSolver )
+
+
+/*--------------------------------------------------------------------------*/
+/*------------------------- CLASS SDDPSolverState --------------------------*/
+/*--------------------------------------------------------------------------*/
+/// class to describe the "internal state" of an SDDPSolver
+/** Derived class from State to describe the "internal state" of an
+ * SDDPSolver. An SDDPSolverState is formed by the data that characterizes the
+ * cuts associated with each stage. For each stage t, the data of the
+ * PolyhedralFunction associated with that stage that is relevant are the
+ * following:
+ *
+ * - the cuts (a.k.a. rows) present in the PolyhedralFunction;
+ *
+ * - the global lower bound (if it is convex; upper bound if it is concave) on
+ *   the value of the PolyhedralFunction;
+ *
+ * - the "verse" of the PolyhedralFunction, i.e., if it is convex or
+ *   concave. */
+
+class SDDPSolverState : public State {
+
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+
+public:
+
+/*------------- CONSTRUCTING AND DESTRUCTING SDDPSolverState ---------------*/
+
+ /// constructor, doing everything
+ /** Constructor of SDDPSolverState. If a pointer to an SDDPSolver is
+  * provided, then it immediately copies its "internal state". If nullptr is
+  * passed (as by default), then an "empty" SDDPSolverState is constructed
+  * that can only be filled by calling deserialize(). */
+
+ SDDPSolverState( const SDDPSolver * solver = nullptr );
+
+/*--------------------------------------------------------------------------*/
+
+ /// de-serialize an SDDPSolverState out of a netCDF::NcGroup
+ /** De-serialize an SDDPSolverState out of the given netCDF::NcGroup; see
+  * SDDPSolverState::serialize() for a description of the format.
+  *
+  * @param group The netCDF::NcGroup out of which this SDDPSolverState will be
+  *        de-serialized. */
+
+ void deserialize( const netCDF::NcGroup & group ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ ///< destructor
+
+ virtual ~SDDPSolverState() { }
+
+/*---------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPSolverState ----------*/
+
+ /// serialize an SDDPSolverState into a netCDF::NcGroup
+ /** This method serializes this SDDPSolverState into the provided
+  * netCDF::NcGroup, so that it can later be read back by deserialize().
+  *
+  * After this SDDPSolverState is serialized, \p group will have the dimension
+  * "TimeHorizon", containing the time horizon, and, for each t in {0, ...,
+  * TimeHorizon - 1}, the following data of the PolyhedralFunction associated
+  * with stage t:
+  *
+  * - The dimension "PolyFunction_sign_t" (actually a bool), which contains
+  *   the "verse" of the PolyhedralFunction, i.e., true for a convex
+  *   max-function and false for a concave min-function (encoded in the
+  *   obvious way, i.e., zero for false, nonzero for true). This dimension is
+  *   optional: if it is not provided, true is assumed.
+  *
+  * - The dimension "PolyFunction_NumRow_t", containing the number of rows of
+  *   the A matrix. This dimension is optional: if it is not provided, then 0
+  *   (no rows) is assumed.
+  *
+  * - The dimension "PolyFunction_NumVar_t", containing the number of columns
+  *   of the A matrix, i.e., the number of active variables.
+  *
+  * - The variable "PolyFunction_A_t", of type netCDF::NcDouble() and indexed
+  *   over both the dimensions "PolyFunction_NumRow_t" and
+  *   "PolyFunction_NumVar_t" (in this order); it contains the (row-major)
+  *   representation of the matrix A. This variable is only optional if
+  *   "PolyFunction_NumRow_t" == 0.
+  *
+  * - The variable "PolyFunction_b_t", of type netCDF::NcDouble() and indexed
+  *   over the dimension "PolyFunction_NumRow_t", which contains the vector
+  *   b. This variable is only optional if "PolyFunction_NumRow_t" == 0.
+  *
+  * - The scalar variable "PolyFunction_lb_t", of type netCDF::NcDouble() and
+  *   not indexed over any dimension, which contains the global lower (if
+  *   PolyFunction_sign_t == true, upper otherwise) bound on the value of the
+  *   PolyhedralFunction over all the space. This variable is optional: if it
+  *   is not provided, it means that no finite lower (upper) bound exist,
+  *   i.e., the lower (upper) bound is -(+)
+  *   Inf<PolyhedralFunction::FunctionValue>(). */
+
+ void serialize( netCDF::NcGroup & group ) const override;
+
+/*-------------------------------- FRIENDS ---------------------------------*/
+
+ friend class SDDPSolver;  // make SDDPSolver friend
+
+/*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
+
+protected:
+
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+
+ void print( std::ostream &output ) const override {
+  output << "SDDPSolverState [" << this << "] with";
+  if( v_b.empty() )
+   output << " no cuts.";
+  else {
+   output << std::endl;
+   for( Index t = 0 ; t < v_b.size() ; ++t )
+    output << v_b[ t ].size() << " cuts for stage " << t << std::endl;
+  }
+ }
+
+/*--------------------------- PROTECTED FIELDS -----------------------------*/
+
+ std::vector< bool > v_is_convex;
+ ///< true if the PolyhedralFunction is a convex one
+
+ std::vector< Index > v_num_var;
+ ///< the number of variables of each PolyhedralFunction
+
+ std::vector< PolyhedralFunction::MultiVector > v_A;
+ ///< the A matricx of each PolyhedralFunction
+
+ std::vector< PolyhedralFunction::RealVector > v_b;
+ ///< the b vector of each PolyhedralFunction
+
+ std::vector< PolyhedralFunction::FunctionValue > v_bound;
+ ///< the global (lower or upper) bound of each PolyhedralFunction
+
+/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+
+private:
+
+/*--------------------------- PRIVATE METHODS ------------------------------*/
+
+ static void serialize
+ ( netCDF::NcGroup & group , Index t , Index num_var , bool is_convex ,
+   PolyhedralFunction::FunctionValue bound ,
+   const PolyhedralFunction::MultiVector & A ,
+   const PolyhedralFunction::RealVector & b );
+
+/*---------------------------- PRIVATE FIELDS ------------------------------*/
+
+ SMSpp_insert_in_factory_h;
+
+};  // end( class( SDDPSolverState ) )
 
 /** @} end( group( SDDPSolver_CLASSES ) ) */
 

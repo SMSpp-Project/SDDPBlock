@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 24 - 03 - 2021
+ * \date 07 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -53,6 +53,7 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 
 SMSpp_insert_in_factory_cpp_0( SDDPSolver );
+SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- METHODS of SDDPSolver -------------------------*/
@@ -448,6 +449,385 @@ void SDDPSolver::process_outstanding_Modification() {
 
 /*--------------------------------------------------------------------------*/
 
+State * SDDPSolver::get_State( void ) const {
+ return new SDDPSolverState( this );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::put_State( const State & state ) {
+
+ // If this SDDPSolver is not currently attached to an SDDPBlock, nothing is
+ // done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ auto s = dynamic_cast< const SDDPSolverState & >( state );
+
+ const auto time_horizon = get_time_horizon();
+
+ const auto num_polyhedral_per_sub_block =
+  sddp_block->get_num_polyhedral_function_per_sub_block();
+
+ const auto num_sub_blocks_per_stage =
+  sddp_block->get_num_sub_blocks_per_stage();
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+   for( Index sub_block_index = 0 ;
+        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
+
+    auto polyhedral_function =
+     sddp_block->get_polyhedral_function( t , i , sub_block_index );
+
+    assert( polyhedral_function );
+
+    auto A = s.v_A[ t ];
+    auto b = s.v_b[ t ];
+
+    polyhedral_function->set_PolyhedralFunction
+     ( std::move( A ) , std::move( b ) , s.v_bound[ t ] , s.v_is_convex[ t ] );
+   }
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::put_State( State && state ) {
+
+ // If this SDDPSolver is not currently attached to an SDDPBlock, nothing is
+ // done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ auto s = dynamic_cast< SDDPSolverState && >( state );
+
+ const auto time_horizon = get_time_horizon();
+
+ const auto num_polyhedral_per_sub_block =
+  sddp_block->get_num_polyhedral_function_per_sub_block();
+
+ const auto num_sub_blocks_per_stage =
+  sddp_block->get_num_sub_blocks_per_stage();
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+   for( Index sub_block_index = 0 ;
+        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
+
+    auto polyhedral_function =
+     sddp_block->get_polyhedral_function( t , i , sub_block_index );
+
+    assert( polyhedral_function );
+
+    polyhedral_function->set_PolyhedralFunction
+     ( std::move( s.v_A[ t ] ) , std::move( s.v_b[ t ] ) , s.v_bound[ t ] ,
+       s.v_is_convex[ t ] );
+   }
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::serialize_State
+( netCDF::NcGroup & group , const std::string & sub_group_name ) const {
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ if( ! sub_group_name.empty() ) {
+  auto sub_group = group.addGroup( sub_group_name );
+  if( sub_group.isNull() )
+   throw( std::invalid_argument( "SDDPSolver::serialize_State: it was not "
+                                 "possible to add group " + sub_group_name ) );
+  serialize_State( sub_group );
+  return;
+ }
+
+ group.putAtt( "type" , "SDDPSolverState" );
+
+ const auto time_horizon = get_time_horizon();
+ group.addDim( "TimeHorizon" , get_time_horizon() );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  const auto polyhedral_function = sddp_block->get_polyhedral_function( t );
+  assert( polyhedral_function );
+  auto num_var = polyhedral_function->get_num_active_var();
+  auto is_convex = polyhedral_function->is_convex();
+  auto bound = polyhedral_function->get_global_bound();
+  const auto & A = polyhedral_function->get_A();
+  const auto & b = polyhedral_function->get_b();
+  SDDPSolverState::serialize( group , t , num_var , is_convex , bound , A , b );
+ }
+}  // end( SDDPSolver::serialize_State )
+
+/*--------------------------------------------------------------------------*/
+
+SDDPBlock::Index SDDPSolver::get_time_horizon( void ) const {
+ return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
+                           SDDPBlock::Index stage ,
+                           SDDPBlock::Index sub_block_index ) const {
+
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPSolver::add_cuts: invalid "
+                                "stage index: " + std::to_string( stage ) ) );
+
+ // Number of cuts that will be added. In principle, all given cuts are added.
+
+ auto number_cuts_to_be_added = cuts.cols();
+
+ /* If a mesh has been provided, all cuts are replaced by the given ones, but
+  * the initial cuts (those there were present at the time StOpt was called)
+  * are kept. */
+ auto number_cuts_to_keep = number_initial_cuts[ stage ];
+
+ if( ! mesh_provided() ) {
+
+  // Total number of cuts previously added by StOpt
+  auto number_cuts_previously_added =
+   static_cast< SDDPBlock * >( f_Block )->
+   get_number_cuts( stage , sub_block_index ) - number_initial_cuts[ stage ];
+
+  assert( cuts.cols() >= number_cuts_previously_added );
+
+  /* StOpt provides all cuts that were ever generated. Since no mesh has been
+   * provided, we can consider only the most recent cuts (since the previous
+   * ones have already been added before). We are assuming that the new cuts
+   * provided by StOpt appear in the last columns of the matrix "cuts". */
+
+  if( cuts.cols() == number_cuts_previously_added )
+   return; // all cuts are already there
+
+  // Add only the most recent cuts
+  number_cuts_to_be_added = cuts.cols() - number_cuts_previously_added;
+
+  // and keep the current ones
+  number_cuts_to_keep = Inf< Index >();
+ }
+
+ // Store the given cuts in A and b
+
+ PolyhedralFunction::MultiVector A( number_cuts_to_be_added );
+ PolyhedralFunction::RealVector b( number_cuts_to_be_added );
+
+ /* Each column in "cuts" contains a cut. The first element is the constant
+  * term of the cut, and all the other elements are the coefficients. */
+
+ for( Index k = 0 ; k < number_cuts_to_be_added ; ++k ) {
+  const auto i = number_cuts_to_be_added - k - 1;
+  const auto col = cuts.cols() - k - 1;
+  A[ i ].resize( cuts.rows() - 1 );
+  b[ i ] = cuts( 0 , col );
+  for( decltype( A[ i ].size() ) j = 0 ; j < A[ i ].size() ; ++j ) {
+   A[ i ][ j ] = cuts( j + 1 , col );
+  }
+ }
+
+ // Log
+
+ if( f_log && log_verbosity >= 30 ) {
+  *f_log << "  Adding the following cuts:" << std::endl;
+  for( decltype( b )::size_type i = 0 ; i < b.size() ; ++i ) {
+   *f_log << "    (" << b[ i ];
+   for( decltype( A[ i ].size() ) j = 0 ; j < A[ i ].size() ; ++j )
+    *f_log << ", " << A[ i ][ j ];
+   *f_log << ")" << std::endl;
+  }
+ }
+
+ // Finally add the cuts
+
+ static_cast< SDDPBlock * >( f_Block )->add_cuts
+  ( std::move( A ) , std::move( b ) , stage , sub_block_index ,
+    number_cuts_to_keep );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::set_state( const Eigen::ArrayXd & state ,
+                            SDDPBlock::Index stage ,
+                            SDDPBlock::Index sub_block_index ) const {
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPSolver::set_state: invalid "
+                                "stage index: " + std::to_string( stage ) ) );
+
+ static_cast< SDDPBlock * >( f_Block )->set_state( state , stage ,
+                                                   sub_block_index );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::set_scenario( SDDPBlock::Index scenario_id ,
+                               SDDPBlock::Index stage ,
+                               SDDPBlock::Index sub_block_index ) const {
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPSolver::set_scenario: invalid "
+                                "stage index: " + std::to_string( stage ) ) );
+
+ static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage ,
+                                                      sub_block_index );
+}
+
+/*--------------------------------------------------------------------------*/
+
+BendersBFunction *
+SDDPSolver::get_benders_function( SDDPBlock::Index stage ,
+                                  SDDPBlock::Index sub_block_index ) const {
+ auto benders_block = static_cast< BendersBlock * >
+  ( static_cast< SDDPBlock * >( f_Block )->get_sub_Block
+    ( stage , sub_block_index )->get_nested_Blocks().front() );
+
+ auto objective = static_cast< FRealObjective * >
+  ( benders_block->get_objective() );
+
+ return static_cast< BendersBFunction * >( objective->get_function() );
+}
+
+/*--------------------------------------------------------------------------*/
+
+double SDDPSolver::solve( SDDPBlock::Index stage ,
+                          SDDPBlock::Index sub_block_index ) {
+
+ /* Solving the subproblem consists in evaluating the Objective of the
+  * BendersBFunction associated with the subproblem of the given stage. */
+
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPSolver::solve: invalid "
+                                "stage index: " + std::to_string( stage ) ) );
+
+ auto benders_block = static_cast< BendersBlock * >
+  ( static_cast< SDDPBlock * >( f_Block )->get_sub_Block
+    ( stage , sub_block_index )->get_nested_Blocks().front() );
+
+ auto objective = static_cast< FRealObjective * >
+  ( benders_block->get_objective() );
+
+ auto benders_function = static_cast< BendersBFunction * >
+  ( objective->get_function() );
+
+ auto status = benders_function->compute();
+
+ if( status != kOK && status != kLowPrecision ) {
+  // No feasible solution has been found
+
+  std::string message;
+  if( status == kUnbounded )
+   message = " The subproblem is unbounded.";
+  else if( status == kInfeasible )
+   message = " The subproblem is infeasible.";
+  else if( status == kError )
+   message = " An error occurred while solving the subproblem.";
+  else if( status == kStopTime )
+   message = " A time limit has been reached while solving the subproblem.";
+  else if( status == kStopIter )
+   message = " A maximum number of iterations has been reached while solving "
+    "the subproblem.";
+
+  throw( std::logic_error( "SDDPSolver::solve: the subproblem at stage " +
+                           std::to_string( stage ) + " was not solved." +
+                           message ) );
+ }
+
+ auto solver = benders_function->get_solver();
+ if( ! solver->has_var_solution() ) {
+  throw( std::logic_error( "SDDPSolver::solve: the subproblem at stage " +
+                           std::to_string( stage ) + " has no solution." ) );
+ }
+
+ solver->get_var_solution(); // TODO Use Configuration to request only the
+                             // active Variables of the PolyhedralFunction
+
+ return benders_function->get_value();
+}
+
+/*--------------------------------------------------------------------------*/
+
+template<class T>
+T SDDPSolver::get_solution( SDDPBlock::Index stage ,
+                            SDDPBlock::Index sub_block_index ) const {
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPSolver::get_solution: invalid "
+                                "stage index: " + std::to_string( stage ) ) );
+
+ const auto polyhedral_function =
+  static_cast< SDDPBlock * >( f_Block )->get_polyhedral_function
+  ( stage , 0 , sub_block_index );
+
+ T solution( polyhedral_function->get_num_active_var() );
+
+ auto data = solution.data();
+ for( const auto & variable : * polyhedral_function ) {
+  *data = static_cast< const ColVariable & >( variable ).get_value();
+  data++;
+ }
+ return solution;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::output_future_cost_functions( const std::string & filename )
+ const {
+
+ auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+
+ const auto & functions = sddp_block->get_polyhedral_functions();
+ if( functions.empty() )
+  return;
+
+ std::ofstream output;
+
+ if( ! filename.empty() )
+  output.open( filename , std::ios::out );
+ else if( ! f_output_filename.empty() )
+  output.open( f_output_filename , std::ios::out );
+ else
+  return;
+
+ const char separator_character = ',';
+ const auto num_var = functions.front()->get_num_active_var();
+
+ output << "Timestep";
+ for( Index i = 0 ; i < num_var ; ++i ) {
+  output << separator_character << "a_" << std::to_string( i );
+ }
+ output << separator_character << "b" << std::endl;
+
+ for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+  auto function = sddp_block->get_polyhedral_function( stage , 0 , 0 );
+
+  const auto & b = function->get_b();
+  const auto & A = function->get_A();
+
+  assert( b.size() == A.size() );
+
+  for( Index i = 0 ; i < b.size() ; ++i ) {
+   output << stage;
+   for( Index j = 0 ; j < A[ i ].size() ; ++j )
+    output << separator_character << std::setprecision( 20 ) << A[ i ][ j ];
+   output << separator_character << std::setprecision( 20 ) << b[ i ]
+          << std::endl;
+  }
+ }
+
+ output.close();
+
+}
+
+/*--------------------------------------------------------------------------*/
+/*------------------------- METHODS of SDDPOptimizer -----------------------*/
+/*--------------------------------------------------------------------------*/
+
 Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 ( const StOpt::SDDPCutOptBase & sddp_cut ,
   const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
@@ -784,264 +1164,6 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
 /*--------------------------------------------------------------------------*/
 
-SDDPBlock::Index SDDPSolver::get_time_horizon( void ) const {
- return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPSolver::add_cuts( const Eigen::ArrayXXd & cuts ,
-                           SDDPBlock::Index stage ,
-                           SDDPBlock::Index sub_block_index ) const {
-
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPSolver::add_cuts: invalid "
-                                "stage index: " + std::to_string( stage ) ) );
-
- // Number of cuts that will be added. In principle, all given cuts are added.
-
- auto number_cuts_to_be_added = cuts.cols();
-
- /* If a mesh has been provided, all cuts are replaced by the given ones, but
-  * the initial cuts (those there were present at the time StOpt was called)
-  * are kept. */
- auto number_cuts_to_keep = number_initial_cuts[ stage ];
-
- if( ! mesh_provided() ) {
-
-  // Total number of cuts previously added by StOpt
-  auto number_cuts_previously_added =
-   static_cast< SDDPBlock * >( f_Block )->
-   get_number_cuts( stage , sub_block_index ) - number_initial_cuts[ stage ];
-
-  assert( cuts.cols() >= number_cuts_previously_added );
-
-  /* StOpt provides all cuts that were ever generated. Since no mesh has been
-   * provided, we can consider only the most recent cuts (since the previous
-   * ones have already been added before). We are assuming that the new cuts
-   * provided by StOpt appear in the last columns of the matrix "cuts". */
-
-  if( cuts.cols() == number_cuts_previously_added )
-   return; // all cuts are already there
-
-  // Add only the most recent cuts
-  number_cuts_to_be_added = cuts.cols() - number_cuts_previously_added;
-
-  // and keep the current ones
-  number_cuts_to_keep = Inf< Index >();
- }
-
- // Store the given cuts in A and b
-
- PolyhedralFunction::MultiVector A( number_cuts_to_be_added );
- PolyhedralFunction::RealVector b( number_cuts_to_be_added );
-
- /* Each column in "cuts" contains a cut. The first element is the constant
-  * term of the cut, and all the other elements are the coefficients. */
-
- for( Index k = 0 ; k < number_cuts_to_be_added ; ++k ) {
-  const auto i = number_cuts_to_be_added - k - 1;
-  const auto col = cuts.cols() - k - 1;
-  A[ i ].resize( cuts.rows() - 1 );
-  b[ i ] = cuts( 0 , col );
-  for( decltype( A[ i ].size() ) j = 0 ; j < A[ i ].size() ; ++j ) {
-   A[ i ][ j ] = cuts( j + 1 , col );
-  }
- }
-
- // Log
-
- if( f_log && log_verbosity >= 30 ) {
-  *f_log << "  Adding the following cuts:" << std::endl;
-  for( decltype( b )::size_type i = 0 ; i < b.size() ; ++i ) {
-   *f_log << "    (" << b[ i ];
-   for( decltype( A[ i ].size() ) j = 0 ; j < A[ i ].size() ; ++j )
-    *f_log << ", " << A[ i ][ j ];
-   *f_log << ")" << std::endl;
-  }
- }
-
- // Finally add the cuts
-
- static_cast< SDDPBlock * >( f_Block )->add_cuts
-  ( std::move( A ) , std::move( b ) , stage , sub_block_index ,
-    number_cuts_to_keep );
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPSolver::set_state( const Eigen::ArrayXd & state ,
-                            SDDPBlock::Index stage ,
-                            SDDPBlock::Index sub_block_index ) const {
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPSolver::set_state: invalid "
-                                "stage index: " + std::to_string( stage ) ) );
-
- static_cast< SDDPBlock * >( f_Block )->set_state( state , stage ,
-                                                   sub_block_index );
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPSolver::set_scenario( SDDPBlock::Index scenario_id ,
-                               SDDPBlock::Index stage ,
-                               SDDPBlock::Index sub_block_index ) const {
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPSolver::set_scenario: invalid "
-                                "stage index: " + std::to_string( stage ) ) );
-
- static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage ,
-                                                      sub_block_index );
-}
-
-/*--------------------------------------------------------------------------*/
-
-BendersBFunction *
-SDDPSolver::get_benders_function( SDDPBlock::Index stage ,
-                                  SDDPBlock::Index sub_block_index ) const {
- auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< SDDPBlock * >( f_Block )->get_sub_Block
-    ( stage , sub_block_index )->get_nested_Blocks().front() );
-
- auto objective = static_cast< FRealObjective * >
-  ( benders_block->get_objective() );
-
- return static_cast< BendersBFunction * >( objective->get_function() );
-}
-
-/*--------------------------------------------------------------------------*/
-
-double SDDPSolver::solve( SDDPBlock::Index stage ,
-                          SDDPBlock::Index sub_block_index ) {
-
- /* Solving the subproblem consists in evaluating the Objective of the
-  * BendersBFunction associated with the subproblem of the given stage. */
-
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPSolver::solve: invalid "
-                                "stage index: " + std::to_string( stage ) ) );
-
- auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< SDDPBlock * >( f_Block )->get_sub_Block
-    ( stage , sub_block_index )->get_nested_Blocks().front() );
-
- auto objective = static_cast< FRealObjective * >
-  ( benders_block->get_objective() );
-
- auto benders_function = static_cast< BendersBFunction * >
-  ( objective->get_function() );
-
- auto status = benders_function->compute();
-
- if( status != kOK && status != kLowPrecision ) {
-  // No feasible solution has been found
-
-  std::string message;
-  if( status == kUnbounded )
-   message = " The subproblem is unbounded.";
-  else if( status == kInfeasible )
-   message = " The subproblem is infeasible.";
-  else if( status == kError )
-   message = " An error occurred while solving the subproblem.";
-  else if( status == kStopTime )
-   message = " A time limit has been reached while solving the subproblem.";
-  else if( status == kStopIter )
-   message = " A maximum number of iterations has been reached while solving "
-    "the subproblem.";
-
-  throw( std::logic_error( "SDDPSolver::solve: the subproblem at stage " +
-                           std::to_string( stage ) + " was not solved." +
-                           message ) );
- }
-
- auto solver = benders_function->get_solver();
- if( ! solver->has_var_solution() ) {
-  throw( std::logic_error( "SDDPSolver::solve: the subproblem at stage " +
-                           std::to_string( stage ) + " has no solution." ) );
- }
-
- solver->get_var_solution(); // TODO Use Configuration to request only the
-                             // active Variables of the PolyhedralFunction
-
- return benders_function->get_value();
-}
-
-/*--------------------------------------------------------------------------*/
-
-template<class T>
-T SDDPSolver::get_solution( SDDPBlock::Index stage ,
-                            SDDPBlock::Index sub_block_index ) const {
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPSolver::get_solution: invalid "
-                                "stage index: " + std::to_string( stage ) ) );
-
- const auto polyhedral_function =
-  static_cast< SDDPBlock * >( f_Block )->get_polyhedral_function
-  ( stage , 0 , sub_block_index );
-
- T solution( polyhedral_function->get_num_active_var() );
-
- auto data = solution.data();
- for( const auto & variable : * polyhedral_function ) {
-  *data = static_cast< const ColVariable & >( variable ).get_value();
-  data++;
- }
- return solution;
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPSolver::output_future_cost_functions( const std::string & filename )
- const {
-
- auto sddp_block = static_cast< SDDPBlock *>( f_Block );
-
- const auto & functions = sddp_block->get_polyhedral_functions();
- if( functions.empty() )
-  return;
-
- std::ofstream output;
-
- if( ! filename.empty() )
-  output.open( filename , std::ios::out );
- else if( ! f_output_filename.empty() )
-  output.open( f_output_filename , std::ios::out );
- else
-  return;
-
- const char separator_character = ',';
- const auto num_var = functions.front()->get_num_active_var();
-
- output << "Timestep";
- for( Index i = 0 ; i < num_var ; ++i ) {
-  output << separator_character << "a_" << std::to_string( i );
- }
- output << separator_character << "b" << std::endl;
-
- for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
-
-  auto function = sddp_block->get_polyhedral_function( stage , 0 , 0 );
-
-  const auto & b = function->get_b();
-  const auto & A = function->get_A();
-
-  assert( b.size() == A.size() );
-
-  for( Index i = 0 ; i < b.size() ; ++i ) {
-   output << stage;
-   for( Index j = 0 ; j < A[ i ].size() ; ++j )
-    output << separator_character << std::setprecision( 20 ) << A[ i ][ j ];
-   output << separator_character << std::setprecision( 20 ) << b[ i ]
-          << std::endl;
-  }
- }
-
- output.close();
-
-}
-
-/*--------------------------------------------------------------------------*/
-
 void SDDPSolver::SDDPOptimizer::updateDates
 ( const double & date , const double & date_next ) {
 
@@ -1148,6 +1270,161 @@ void SDDPSolver::SDDPOptimizer::check_linearization
   *log << "  alpha:     " << std::setprecision( 20 )
        << alpha << std::endl;
   *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- METHODS of SDDPSolverState -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+SDDPSolverState::SDDPSolverState( const SDDPSolver * solver ) {
+
+ if( ! solver )
+  return;
+
+ auto sddp_block = static_cast< SDDPBlock * >( solver->f_Block );
+
+ if( ! sddp_block )
+  return;
+
+ const auto time_horizon = solver->get_time_horizon();
+
+ v_is_convex.reserve( time_horizon );
+ v_num_var.reserve( time_horizon );
+ v_A.reserve( time_horizon );
+ v_b.reserve( time_horizon );
+ v_bound.reserve( time_horizon );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  auto polyhedral_function = sddp_block->get_polyhedral_function( t );
+  assert( polyhedral_function );
+  v_is_convex.push_back( polyhedral_function->is_convex() );
+  v_num_var.push_back( polyhedral_function->get_num_active_var() );
+  v_A.push_back( polyhedral_function->get_A() );
+  v_b.push_back( polyhedral_function->get_b() );
+  v_bound.push_back( polyhedral_function->get_global_bound() );
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolverState::serialize
+( netCDF::NcGroup & group , Index t , Index num_var , bool is_convex ,
+  PolyhedralFunction::FunctionValue bound ,
+  const PolyhedralFunction::MultiVector & A ,
+  const PolyhedralFunction::RealVector & b ) {
+
+ if( is_convex )
+  group.addDim( "PolyFunction_sign_" + std::to_string( t ) , 1 );
+ else
+  group.addDim( "PolyFunction_sign_" + std::to_string( t ) , 0 );
+
+ ( group.addVar( "PolyFunction_lb_" + std::to_string( t ) ,
+                 netCDF::NcDouble() ) ).putVar( &bound );
+
+ auto nv = group.addDim( "PolyFunction_NumVar_" + std::to_string( t ) ,
+                         num_var );
+
+ auto num_rows = b.size();
+
+ if( num_rows ) {
+
+  auto nr = group.addDim( "PolyFunction_NumRow_" + std::to_string( t ) ,
+                          num_rows );
+
+  auto ncdA = group.addVar( "PolyFunction_A_" + std::to_string( t ) ,
+                            netCDF::NcDouble() , { nr , nv } );
+
+  for( Index i = 0 ; i < num_rows ; ++i )
+   ncdA.putVar( { i , 0 } , { 1 , num_var } , A[ i ].data() );
+
+  ( group.addVar( "PolyFunction_b_" + std::to_string( t ) ,
+                  netCDF::NcDouble() , nr ) ).
+   putVar( { 0 } , { num_rows } , b.data() );
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolverState::serialize( netCDF::NcGroup & group ) const {
+
+ State::serialize( group );
+
+ const auto time_horizon = v_num_var.size();
+
+ group.addDim( "TimeHorizon" , time_horizon );
+
+ for( Index t = 0 ; t < time_horizon ; ++t )
+  serialize( group , t , v_num_var[ t ] , v_is_convex[ t ] , v_bound[ t ] ,
+             v_A[ t ] , v_b[ t ] );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
+
+ auto TimeHorizon = group.getDim( "TimeHorizon" );
+ if( TimeHorizon.isNull() )
+  throw( std::logic_error
+         ( "SDDPSolverState::deserialize: TimeHorizon dimension is "
+           "required, but it is not in the given group." ) );
+
+ auto time_horizon = TimeHorizon.getSize();
+
+ v_is_convex.resize( time_horizon );
+ v_A.resize( time_horizon );
+ v_b.resize( time_horizon );
+ v_bound.resize( time_horizon );
+ v_num_var.resize( time_horizon );
+
+ for( decltype( time_horizon ) t = 0 ; t < time_horizon ; ++t ) {
+
+  auto nv = group.getDim( "PolyFunction_NumVar_" + std::to_string( t ) );
+  if( nv.isNull() )
+   throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_NumVar_"
+                            + std::to_string( t ) + " dimension is required,"
+                            " but it is not in the given group.") );
+
+  v_num_var[ t ] = nv.getSize();
+
+  auto nr = group.getDim( "PolyFunction_NumRow_" + std::to_string( t ) );
+  if( ( ! nr.isNull() ) && ( nr.getSize() ) ) {
+   auto ncdA = group.getVar( "PolyFunction_A_" + std::to_string( t ) );
+   if( ncdA.isNull() )
+    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_A_"
+                             + std::to_string( t ) + " dimension is required,"
+                             " but it is not in the given group.") );
+
+   auto ncdb = group.getVar( "PolyFunction_b_" + std::to_string( t ) );
+   if( ncdb.isNull() )
+    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_b_"
+                             + std::to_string( t ) + " dimension is required,"
+                             " but it is not in the given group.") );
+
+   v_A[ t ].resize( nr.getSize() );
+   for( Index i = 0 ; i < v_A[ t ].size() ; ++i ) {
+    v_A[ t ][ i ].resize( v_num_var[ t ] );
+    ncdA.getVar( { i , 0 } , { 1 , v_num_var[ t ] } , v_A[ t ][ i ].data() );
+   }
+
+   v_b[ t ].resize( nr.getSize() );
+   ncdb.getVar( v_b[ t ].data() );
+  }
+
+  v_is_convex[ t ] = true;
+  auto sgn = group.getDim( "PolyFunction_sign_" + std::to_string( t ) );
+  if( ! sgn.isNull() )
+   v_is_convex[ t ] = sgn.getSize() > 0 ? true : false;
+
+  auto nclb = group.getVar( "PolyFunction_lb_" + std::to_string( t ) );
+  if( nclb.isNull() ) {
+   if( v_is_convex[ t ] )
+    v_bound[ t ] = - Inf<PolyhedralFunction::FunctionValue>();
+   else
+    v_bound[ t ] = Inf<PolyhedralFunction::FunctionValue>();
+  }
+  else
+   nclb.getVar( & v_bound[ t ] );
  }
 }
 
