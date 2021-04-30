@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 07 - 04 - 2021
+ * \date 30 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -347,10 +347,11 @@ int SDDPSolver::compute( bool changedvars ) {
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
     print_cpu_time );
 
- // Possibly output the future cost functions
+ // Possibly output the future cost functions and/or save the State
 
- if( output_frequency > 0 )
-  output_future_cost_functions();
+ if( output_frequency > 0 ) {
+  file_output();
+ }
 
  // Unlock the SDDPBlock
 
@@ -775,8 +776,33 @@ T SDDPSolver::get_solution( SDDPBlock::Index stage ,
 
 /*--------------------------------------------------------------------------*/
 
+void SDDPSolver::file_output() const {
+ if( ! f_output_filename.empty() ) {
+  // Output the future cost functions
+  std::string cuts_filename = f_output_filename;
+  if( f_add_suffix )
+   cuts_filename += f_filename_suffix;
+  output_future_cost_functions( cuts_filename );
+ }
+
+ if( ! f_state_filename.empty() ) {
+  // Serialize the State
+  std::string state_filename = f_state_filename;
+  if( f_add_suffix )
+   state_filename += f_filename_suffix;
+  serialize_State( state_filename );
+ }
+
+ f_add_suffix = ! f_add_suffix;
+}
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPSolver::output_future_cost_functions( const std::string & filename )
  const {
+
+ if( filename.empty() )
+  return;
 
  auto sddp_block = static_cast< SDDPBlock *>( f_Block );
 
@@ -784,14 +810,7 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
  if( functions.empty() )
   return;
 
- std::ofstream output;
-
- if( ! filename.empty() )
-  output.open( filename , std::ios::out );
- else if( ! f_output_filename.empty() )
-  output.open( f_output_filename , std::ios::out );
- else
-  return;
+ std::ofstream output( filename , std::ios::out );
 
  const char separator_character = ',';
  const auto num_var = functions.front()->get_num_active_var();
@@ -822,6 +841,22 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
 
  output.close();
 
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::serialize_State( const std::string & filename ) const {
+
+ if( filename.empty() )
+  return;
+
+ netCDF::NcFile file( filename , netCDF::NcFile::replace );
+
+ auto group = file.addGroup( "SDDPSolverState" );
+
+ serialize_State( group );
+
+ file.close();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1004,8 +1039,9 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  if( previous_pass_was_backward ) {
   if( sddp_solver->output_frequency > 0 &&
-      ( current_iteration % sddp_solver->output_frequency == 0 ) )
-   sddp_solver->output_future_cost_functions();
+      ( current_iteration % sddp_solver->output_frequency == 0 ) ) {
+   sddp_solver->file_output();
+  }
   current_iteration++;
  }
 
