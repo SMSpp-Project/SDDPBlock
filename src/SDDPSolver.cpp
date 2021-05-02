@@ -1281,31 +1281,32 @@ void SDDPSolver::SDDPOptimizer::check_linearization
   std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
  const auto diff = std::abs( objective_value - ( alpha + gy ) );
  if( diff > epsilon * scale ) {
-  std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
-            << "was not achieved:" << std::endl;
-  std::cerr << "  precision required: " << std::setprecision( 20 )
-            << epsilon << std::endl;
-  std::cerr << "  precision achieved: " << std::setprecision( 20 )
-            << ( diff / scale ) << std::endl;
-  std::cerr << "  objective: " << std::setprecision( 20 )
-            << objective_value << std::endl;
-  std::cerr << "  alpha:     " << std::setprecision( 20 )
-            << alpha << std::endl;
-  std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-
-  auto log = sddp_solver->f_log;
-
-  *log << "SDDPOptimizer::oneStepBackward: linearization precision "
-       << "was not achieved:" << std::endl;
-  *log << "  precision required: " << std::setprecision( 20 )
-       << epsilon << std::endl;
-  *log << "  precision achieved: " << std::setprecision( 20 )
-       << ( diff / scale ) << std::endl;
-  *log << "  objective: " << std::setprecision( 20 )
-       << objective_value << std::endl;
-  *log << "  alpha:     " << std::setprecision( 20 )
-       << alpha << std::endl;
-  *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+  if( auto log = sddp_solver->f_log ) {
+   *log << "SDDPOptimizer::oneStepBackward: linearization precision "
+        << "was not achieved:" << std::endl;
+   *log << "  precision required: " << std::setprecision( 20 )
+        << epsilon << std::endl;
+   *log << "  precision achieved: " << std::setprecision( 20 )
+        << ( diff / scale ) << std::endl;
+   *log << "  objective: " << std::setprecision( 20 )
+        << objective_value << std::endl;
+   *log << "  alpha:     " << std::setprecision( 20 )
+        << alpha << std::endl;
+   *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+  }
+  else {
+   std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
+             << "was not achieved:" << std::endl;
+   std::cerr << "  precision required: " << std::setprecision( 20 )
+             << epsilon << std::endl;
+   std::cerr << "  precision achieved: " << std::setprecision( 20 )
+             << ( diff / scale ) << std::endl;
+   std::cerr << "  objective: " << std::setprecision( 20 )
+             << objective_value << std::endl;
+   std::cerr << "  alpha:     " << std::setprecision( 20 )
+             << alpha << std::endl;
+   std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
+  }
  }
 }
 

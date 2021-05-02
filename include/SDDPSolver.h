@@ -394,11 +394,11 @@ public:
    * useful, for instance, if this Solver is running on an unreliable system,
    * which may crash while the output is being performed. By using a suffix,
    * at least some not so old data will be available. For instance, suppose
-   * that #intOutputFrequency > 0, #strStateFile = "state.txt", and #strSuffix
+   * that #intOutputFrequency > 0, #strStateFile = "state.nc4", and #strSuffix
    * = ".0". Then, the first time the State is serialized, it will be
-   * serialized in the file called "state.txt". The second time, it will be
-   * serialized into "state.txt.0". The third time it will be serialized again
-   * into "state.txt" and so on. By default, this is empty. */
+   * serialized in the file called "state.nc4". The second time, it will be
+   * serialized into "state.nc4.0". The third time it will be serialized again
+   * into "state.nc4" and so on. By default, this is empty. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
