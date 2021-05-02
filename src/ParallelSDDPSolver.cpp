@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 12 - 04 - 2021
+ * \date 30 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -243,7 +243,7 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::lock
     // If it is time to output the cuts, do it.
     if( ( get_output_frequency() > 0 ) &&
         ( current_iteration % get_output_frequency() == 0 ) ) {
-     sddp_solver->output_future_cost_functions();
+     sddp_solver->file_output();
     }
    }
 

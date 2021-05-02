@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 03 - 04 - 2021
+ * \date 30 - 04 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -289,12 +289,14 @@ public:
    * considered during the forward pass. By default, this number is 1. */
 
   intOutputFrequency ,
-  ///< The frequency in which the future cost functions are output
-  /**< This parameter determines the frequency in which the approximations to
-   * the future cost functions are output. If it is positive, these
-   * approximations are output every #intOutputFrequency iterations and once
-   * at the end of compute() to the file specified by the #strOutputFile
-   * parameter. The default value for this parameter is 0. */
+  ///< The frequency in which file outputs are performed
+  /**< This parameter determines the frequency in which file outputs are
+   * performed (saving the approximations to the future cost functions or
+   * serializing an SDDPSolverState). If it is positive, these file outputs
+   * are performed every #intOutputFrequency iterations and once at the end of
+   * compute() to the files specified by the #strOutputFile and #strStateFile
+   * parameters. The default value for this parameter is 0 (i.e., no file
+   * output is performed). */
 
   intFirstStageScenarioIndex ,
   ///< The index of the scenario to be considered at the first stage
@@ -363,18 +365,40 @@ public:
   strInnerBC ,
   ///< name of the file containing the default BlockConfig for the inner Block
   /**< Name of the file containing the default BlockConfig that will be
-   * applied to the inner Block of each BendersBFunction. */
+   * applied to the inner Block of each BendersBFunction. By default, this is
+   * empty. */
 
   strInnerBSC ,
   ///< name of the file containing the default BlockSolverConfig for inner Block
   /**< Name of the file containing the default BlockSolverConfig that will be
-   * applied to the inner Block of each BendersBFunction. */
+   * applied to the inner Block of each BendersBFunction. By default, this is
+   * empty. */
 
   strOutputFile ,
   ///< name of the file to which the future cost functions will be output
   /**< Name of the file to which the approximations to the future cost
-   * functions are output. See #intOutputFrequency for controlling if and
-   * when these approximations are output. */
+   * functions are output. See #intOutputFrequency for controlling if and when
+   * these approximations are output. By default, this is empty. */
+
+  strStateFile ,
+  ///< name of the file in which the SDDPSolverState will be serialized
+  /**< Name of the file in which the SDDPSolverState will be serialized. See
+   * #intOutputFrequency for controlling if and when these approximations are
+   * output. By default, this is empty. */
+
+  strFilenameSuffix ,
+  ///< suffix to be added to a filename every other iteration
+  /**< This is the suffix that will be added to a non-empty filename (given by
+   * #strOutputFile and #strStateFile) every other iteration in which a file
+   * output is performed (see #intOutputFrequency). This is parameter can be
+   * useful, for instance, if this Solver is running on an unreliable system,
+   * which may crash while the output is being performed. By using a suffix,
+   * at least some not so old data will be available. For instance, suppose
+   * that #intOutputFrequency > 0, #strStateFile = "state.nc4", and #strSuffix
+   * = ".0". Then, the first time the State is serialized, it will be
+   * serialized in the file called "state.nc4". The second time, it will be
+   * serialized into "state.nc4.0". The third time it will be serialized again
+   * into "state.nc4" and so on. By default, this is empty. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -578,6 +602,10 @@ public:
   *
   * - #strOutputFile
   *
+  * - #strStateFile
+  *
+  * - #strFilenameSuffix
+  *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -594,6 +622,8 @@ public:
    case( strInnerBC ): f_inner_block_config_filename = value; return;
    case( strInnerBSC ): f_inner_block_solver_config_filename = value; return;
    case( strOutputFile ): f_output_filename = value; return;
+   case( strStateFile ): f_state_filename = value; return;
+   case( strFilenameSuffix ): f_filename_suffix = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -786,7 +816,8 @@ public:
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
   static const std::vector<std::string> default_values =
-   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" , "" , "" , "" };
+   { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
+     "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -914,6 +945,8 @@ public:
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
    case( strOutputFile ): return f_output_filename;
+   case( strStateFile ): return f_state_filename;
+   case( strFilenameSuffix ): return f_filename_suffix;
   }
   return Solver::get_str_par( par );
  }
@@ -1014,6 +1047,8 @@ public:
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
   if( name == "strOutputFile" ) return strOutputFile;
+  if( name == "strStateFile" ) return strStateFile;
+  if( name == "strFilenameSuffix" ) return strFilenameSuffix;
   return Solver::str_par_str2idx( name );
  }
 
@@ -1106,7 +1141,8 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
-     "strInnerBC" , "strInnerBSC" , "strOutputFile" };
+     "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
+     "strFilenameSuffix" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1174,6 +1210,17 @@ public:
 		       const std::string & sub_group_name = "" )
   const override;
 
+/*--------------------------------------------------------------------------*/
+
+ /// serialize the State of this SDDPSolver
+ /** This function serializes the State of this SDDPSolver in the file with
+  * the given name. If \p filename is empty, then no operation is performed.
+  *
+  * @param filename The name of the file in which the State of this SDDPSolver
+  *        will be serialized. */
+
+ void serialize_State( const std::string & filename ) const;
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
@@ -1224,16 +1271,24 @@ public:
 
  /// output the future cost functions
  /** This function outputs the approximations to the future cost functions to
-  * the file with the given name. If \p filename is empty, then the name of
-  * the file will be given by the #strOutputFile parameter. If both \p
-  * filename and the name given by #strOutputFile are empty, then nothing is
-  * output.
+  * the file with the given name. If \p filename is empty, then no operation
+  * is performed.
   *
   * @param filename The name of the file to which the functions will be
-  *        output. If it is empty, the name from the #strOutputFile parameter
-  *        is considered. */
+  *        output. */
 
- void output_future_cost_functions( const std::string & filename = "" ) const;
+ void output_future_cost_functions( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// output the cuts and the SDDPSolverState to files
+ /** This function outputs the approximations to the future cost functions (if
+  * #strOutputFile is non-empty) and serializes the SDDPSolverState (if
+  * #strStateFile is non-empty). If #strFilenameSuffix is non-empty, then it
+  * is added to the filename every other iteration that this function is
+  * called. */
+
+ void file_output() const;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------ METHODS FOR READING THE DATA OF THE SDDPSolver --------------*/
@@ -1754,6 +1809,22 @@ protected:
  /// Name of the file to which the future cost functions are output
  std::string f_output_filename;
 
+ /// Prefix for the name of the file in which the State is saved
+ std::string f_state_filename;
+
+ /// The suffix to be added to an output filename every other iteration
+ std::string f_filename_suffix = "";
+
+ /// It indicates whether a suffix must be added to an output filename
+ /** This variable indicates whether a suffix must be added to the name of an
+  * output file (e.g., the file containing the future cost functions or the
+  * file containing an SDDPSolverState). If this variable is false, then the
+  * name of the file will be the given one (#f_output_filename for the future
+  * cost functions and #f_state_filename for the SDDPSolverState). If this
+  * variable is true, then #f_filename_suffix will be added to the name of the
+  * file every other iteration in which the output is performed. */
+ mutable bool f_add_suffix = false;
+
  /// Default BlockConfig for the inner Blocks
  BlockConfig * f_inner_block_config = nullptr;
 
@@ -1881,6 +1952,8 @@ private:
   f_inner_block_config_filename = get_dflt_str_par( strInnerBC );
   f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
   f_output_filename = get_dflt_str_par( strOutputFile );
+  f_state_filename = get_dflt_str_par( strStateFile );
+  f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
 
   // vector of int
 
