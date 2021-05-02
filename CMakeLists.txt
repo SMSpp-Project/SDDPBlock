@@ -46,8 +46,12 @@ get_directory_property(hasParent PARENT_DIRECTORY)
 option(USE_MPI "Use MPI" OFF)
 
 # ----- Requirements -------------------------------------------------------- #
-find_package(SMSpp REQUIRED)
-find_package(StochasticBlock REQUIRED)
+# If it's not being called by the umbrella, we need to
+# look for the system-installed libraries.
+if (NOT hasParent)
+    find_package(StochasticBlock REQUIRED)
+endif()
+
 find_package(OpenMP)
 find_package(Boost COMPONENTS mpi)
 find_package(MPI)
@@ -211,16 +215,17 @@ if (CMAKE_EXPORT_PACKAGE_REGISTRY)
         configure_file(${findMod} ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
     endforeach ()
 
-    # Add the binary directory to RPATH, so executables that use
-    # dynamic loading will look into it.
-    if (hasParent)
-        set(SMSPP_BUILD_RPATH
-            "${SMSPP_BUILD_RPATH};${CMAKE_CURRENT_BINARY_DIR}"
-            PARENT_SCOPE)
-    endif ()
-
     # Export the package in user's package registry
     export(PACKAGE ${modName})
+endif()
+
+# ----- Add the build tree to RPATH------------------------------------------ #
+# Add the binary directory to RPATH, so executables that use
+# dynamic loading will look into it.
+if (hasParent)
+    set(SMSPP_BUILD_RPATH
+        "${SMSPP_BUILD_RPATH};${CMAKE_CURRENT_BINARY_DIR}"
+        PARENT_SCOPE)
 endif ()
 
 # ----- Packaging support --------------------------------------------------- #
