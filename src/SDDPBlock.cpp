@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 23 - 03 - 2021
+ * \date 18 - 05 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -336,6 +336,9 @@ double SDDPBlock::get_future_cost( Index stage , Index sub_block_index ) const {
                                 "stage index: " + std::to_string( stage ) ) );
 
  auto function = get_polyhedral_function( stage , 0 , sub_block_index );
+ if( ! function )
+  // If this SDDPBlock has no PolyhedralFunction, the future cost must be 0
+  return 0;
  function->compute();
  return function->get_value();
 }

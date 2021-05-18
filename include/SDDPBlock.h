@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 03 - 2021
+ * \date 18 - 05 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -451,6 +451,11 @@ public:
 
  PolyhedralFunction * get_polyhedral_function
  ( Index stage , Index i = 0 , Index sub_block_index = 0 ) const {
+
+  if( ! num_polyhedral_per_sub_block )
+   // Well, this is a funny SDDPBlock that has no PolyhedralFunction.
+   return nullptr;
+
   assert( stage < get_time_horizon() );
   assert( sub_block_index < num_sub_blocks_per_stage );
   assert( i < num_polyhedral_per_sub_block );
