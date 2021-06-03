@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 30 - 04 - 2021
+ * \date 03 - 06 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -677,6 +677,49 @@ public:
   }
   Solver::set_par( par , value );
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set the whole set of parameters of this SDDPSolver in one blow
+ /** This method sets the whole set of parameters of this SDDPSolver in one
+  * blow using a ComputeConfig object.
+  *
+  * Besides considering all the parameters of an SDDPSolver, it can also be
+  * used to configure the inner Block of every BendersBFunction by means of
+  * the extra Configuration (ComputeConfig::f_extra_Configuration). If the
+  * pointer to the extra Configuration is not nullptr, it can be any of the
+  * following:
+  *
+  * - a pointer to a BlockConfig, which will be used to configure the inner
+  *   Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a BlockSolverConfig, which will be used to configure the
+  *   Solver of the inner Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a SimpleConfiguration< std::pair< Configuration * ,
+  *                                                  Configuration * > >.
+  *
+  * In the last case, the first element of the pair must be either nullptr or
+  * a pointer to a BlockConfig and the second element must be either nullptr
+  * or a pointer to a BlockSolverConfig. These will be used to configure the
+  * inner Block of the BendersBFunction at every stage and their Solver.
+  *
+  * If the extra Configuration is not any of the specified above, an exception
+  * is thrown.
+  *
+  * Here, we are assuming that the same Configuration can be applied to the
+  * inner Block of the BendersBFunction at all stages. However, in principle,
+  * the inner Block of the BendersBFunction at different stages could require
+  * different Configuration. If this case ever happen, the implementation of
+  * this method should be adapted to take it into consideration.
+  *
+  * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
+  * Configuration of this SDDPSolver is reset to its default.
+  *
+  * @param scfg a pointer to a ComputeConfig.
+  */
+
+ void set_ComputeConfig( ComputeConfig *scfg = nullptr ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -1803,9 +1846,6 @@ protected:
  /// Name of the file in which the visited states will be stored
  std::string visited_states_filename;
 
- /// Name of the default BlockConfig file for the inner Blocks
- std::string f_inner_block_config_filename;
-
  /// Name of the file to which the future cost functions are output
  std::string f_output_filename;
 
@@ -1825,13 +1865,16 @@ protected:
   * file every other iteration in which the output is performed. */
  mutable bool f_add_suffix = false;
 
- /// Default BlockConfig for the inner Blocks
- BlockConfig * f_inner_block_config = nullptr;
+ /// Name of the default BlockConfig file for the inner Blocks
+ std::string f_inner_block_config_filename;
 
  /// Name of the default BlockSolverConfig file for the inner Blocks
  std::string f_inner_block_solver_config_filename;
 
  /// Default BlockConfig for the inner Blocks
+ BlockConfig * f_inner_block_config = nullptr;
+
+ /// Default BlockSolverConfig for the inner Blocks
  BlockSolverConfig * f_inner_block_solver_config = nullptr;
 
  /// Maximum number of iterations that the method should perform

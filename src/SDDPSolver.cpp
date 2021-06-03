@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 30 - 04 - 2021
+ * \date 03 - 06 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -57,6 +57,85 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- METHODS of SDDPSolver -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
+
+ ThinComputeInterface::set_ComputeConfig( scfg );
+
+ if( ! scfg ) { // factory reset
+  delete f_inner_block_solver_config;
+  f_inner_block_solver_config = nullptr;
+  return;
+ }
+
+ if( ! scfg->f_extra_Configuration )
+  // No extra Configuration has been provided. There is nothing else to do.
+  return;
+
+ BlockConfig * block_config = nullptr;
+ BlockSolverConfig * block_solver_config = nullptr;
+
+ // First, we try to extract a BlockConfig and/or a BlockSolverConfig from the
+ // extra Configuration.
+
+ if( auto config = dynamic_cast< SimpleConfiguration<
+     std::pair< Configuration * , Configuration * > > * >
+     ( scfg->f_extra_Configuration ) ) {
+
+  // The extra Configuration is a pair. So, the first element of this pair, if
+  // not nullptr, must be a BlockConfig for the inner Blocks of the
+  // BendersBFunctions and the second element, if not nullptr, must be a
+  // BlockSolverConfig for the inner Blocks of the BendersBFunctions.
+
+  if( config->f_value.first ) {
+   // A BlockConfig must have been provided.
+   if( ! ( block_config =
+           dynamic_cast< BlockConfig * >( config->f_value.first ) ) )
+    throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The first "
+                                  "element of the extra Configuration is "
+                                  "not a BlockConfig." ) );
+  }
+
+  if( config->f_value.second ) {
+   // A BlockSolverConfig must have been provided.
+   if( ! ( block_solver_config =
+           dynamic_cast< BlockSolverConfig * >( config->f_value.second ) ) )
+    throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The second "
+                                  "element of the extra Configuration is "
+                                  "not a BlockSolverConfig." ) );
+  }
+ }
+ else {
+  // The extra Configuration must be either a BlockConfig or a
+  // BlockSolverConfig.
+  if( auto bc = dynamic_cast< BlockConfig * >( scfg->f_extra_Configuration ) )
+   block_config = bc;
+  else if( auto bsc =
+           dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
+   block_solver_config = bsc;
+  else
+   throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The extra "
+                                 "Configuration is invalid." ) );
+ }
+
+ // Now, replace the old Configurations if new ones have been provided.
+
+ if( block_config ) {
+  // A BlockConfig has been provided. Delete the old BlockConfig and clone the
+  // given one.
+  delete f_inner_block_config;
+  f_inner_block_config = block_config->clone();
+ }
+
+ if( block_solver_config ) {
+  // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
+  // and clone the given one.
+  delete f_inner_block_solver_config;
+  f_inner_block_solver_config = block_solver_config->clone();
+ }
+}
+
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::set_Block( Block * block ) {
