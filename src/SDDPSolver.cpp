@@ -77,33 +77,42 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  BlockSolverConfig * block_solver_config = nullptr;
 
  // First, we try to extract a BlockConfig and/or a BlockSolverConfig from the
- // extra Configuration.
+ // extra Configuration, as well as the Configuration to be passed to
+ // get_var_solution() of the inner Solver.
 
  if( auto config = dynamic_cast< SimpleConfiguration<
-     std::pair< Configuration * , Configuration * > > * >
-     ( scfg->f_extra_Configuration ) ) {
+     std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
 
-  // The extra Configuration is a pair. So, the first element of this pair, if
-  // not nullptr, must be a BlockConfig for the inner Blocks of the
-  // BendersBFunctions and the second element, if not nullptr, must be a
-  // BlockSolverConfig for the inner Blocks of the BendersBFunctions.
+  // The extra Configuration is a vector. So, the first element of this
+  // vector, if present and not nullptr, must be a BlockConfig for the inner
+  // Blocks of the BendersBFunctions. The second element, if present and not
+  // nullptr, must be a BlockSolverConfig for the inner Blocks of the
+  // BendersBFunctions. The third element, if present and not nullptr, must be
+  // a Configuration to be passed to get_var_solution() when retrieving the
+  // Solutions to the inner Blocks of the BendersBFunctions.
 
-  if( config->f_value.first ) {
+  if( ( ! config->f_value.empty() ) && config->f_value.front() ) {
    // A BlockConfig must have been provided.
    if( ! ( block_config =
-           dynamic_cast< BlockConfig * >( config->f_value.first ) ) )
+           dynamic_cast< BlockConfig * >( config->f_value.front() ) ) )
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The first "
                                   "element of the extra Configuration is "
                                   "not a BlockConfig." ) );
   }
 
-  if( config->f_value.second ) {
+  if( config->f_value.size() >= 2 && config->f_value[ 1 ] ) {
    // A BlockSolverConfig must have been provided.
    if( ! ( block_solver_config =
-           dynamic_cast< BlockSolverConfig * >( config->f_value.second ) ) )
+           dynamic_cast< BlockSolverConfig * >( config->f_value[ 1 ] ) ) )
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The second "
                                   "element of the extra Configuration is "
                                   "not a BlockSolverConfig." ) );
+  }
+
+  if( config->f_value.size() >= 3 && config->f_value[ 2 ] ) {
+   // A Configuration for get_var_solution() of the Solver attached to the
+   // inner Blocks.
+   f_get_var_solution_config = config->f_value[ 2 ]->clone();
   }
  }
  else {
@@ -824,8 +833,7 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
                            std::to_string( stage ) + " has no solution." ) );
  }
 
- solver->get_var_solution(); // TODO Use Configuration to request only the
-                             // active Variables of the PolyhedralFunction
+ solver->get_var_solution( f_get_var_solution_config );
 
  return benders_function->get_value();
 }

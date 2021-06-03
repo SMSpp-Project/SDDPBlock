@@ -696,13 +696,20 @@ public:
   * - a pointer to a BlockSolverConfig, which will be used to configure the
   *   Solver of the inner Block of the BendersBFunction at every stage;
   *
-  * - a pointer to a SimpleConfiguration< std::pair< Configuration * ,
-  *                                                  Configuration * > >.
+  * - a pointer to a SimpleConfiguration< std::vector< Configuration * > >.
   *
-  * In the last case, the first element of the pair must be either nullptr or
-  * a pointer to a BlockConfig and the second element must be either nullptr
-  * or a pointer to a BlockSolverConfig. These will be used to configure the
-  * inner Block of the BendersBFunction at every stage and their Solver.
+  * In the last case, the first element of the vector, if present, must be
+  * either nullptr or a pointer to a BlockConfig. The second element, if
+  * present, must be either nullptr or a pointer to a BlockSolverConfig. These
+  * will be used to configure the inner Block of the BendersBFunction at every
+  * stage and their Solver. Finally, the third element, if present, must be
+  * either nullptr or a pointer to a Configuration. This Configuration will be
+  * used to retrieve the Solution from the inner Block of the
+  * BendersBFunction, at every stage, after it is solved. This Configuration
+  * will be passed to get_var_solution() of the inner Solver. The relevant
+  * part of the Solution of the inner Block is the values of the active
+  * Variables of the PolyhedralFunction. Thus, this Configuration can be used
+  * to specify that only that portion of the Solution should be retrieved.
   *
   * If the extra Configuration is not any of the specified above, an exception
   * is thrown.
@@ -1876,6 +1883,9 @@ protected:
 
  /// Default BlockSolverConfig for the inner Blocks
  BlockSolverConfig * f_inner_block_solver_config = nullptr;
+
+ /// Configuration to be passed to get_var_solution() of the inner Solver
+ Configuration * f_get_var_solution_config = nullptr;
 
  /// Maximum number of iterations that the method should perform
  int maximum_number_iterations;
