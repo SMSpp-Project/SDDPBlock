@@ -502,6 +502,7 @@ public:
  virtual ~SDDPSolver() {
   delete f_inner_block_config;
   delete f_inner_block_solver_config;
+  delete f_get_var_solution_config;
  }
 
 /*--------------------------------------------------------------------------*/
