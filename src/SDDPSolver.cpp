@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 03 - 06 - 2021
+ * \date 25 - 06 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1072,42 +1072,70 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* CONSTRUCTING THE LINEARIZATION */
  /**********************************/
 
- /* The oneStepBackard function returns a one-dimensional array whose size is
-  * the number of state variables plus one and that contains a linearization
-  * of the BendersBFunction. The first component contains the value of the
-  * BendersBFunction and the remaining components contain the coefficients of
-  * the linearization of the BendersBFunction. For i in {1, ...,
-  * number_state_variables}, linearization( i ) contains the coefficient of
-  * the linearization of the BendersBFunction associated with the i-th state
-  * variable. */
+ /* The oneStepBackard function returns a one-dimensional array (called
+  * "linearization" and declared below) whose size is the number of state
+  * variables plus one and that contains a linearization of the
+  * BendersBFunction. The first component contains a value that will be used
+  * by StOpt to compute the linearization constant and the remaining
+  * components contain the coefficients of the linearization of the
+  * BendersBFunction. For i in {1, ..., number_state_variables},
+  * linearization( i ) contains the coefficient of the linearization of the
+  * BendersBFunction associated with the i-th state variable.
+  *
+  * StOpt will compute the linearization constant based on the value that is
+  * returned at the first position of the "linearization" array. By letting z
+  * the value that we return in linearization(0), StOpt will compute the
+  * linearization constant as z - g'y, where g is the vector with the
+  * linearization coefficients and y is the vector with the values of the
+  * state variables. Therefore, we return in linearization(0) the value alpha
+  * + g'y, where alpha is the linearization constant provided by the
+  * BendersBFunction, i.e., we return a lower bound (upper bound if the
+  * subproblem is a maximization) on the value of the solution. */
 
  const auto number_state_variables = std::get<0>( state )->size();
  Eigen::ArrayXd linearization( number_state_variables + 1 );
 
- auto benders_function = sddp_solver->get_benders_function( current_stage ,
-                                                            sub_block_index );
+ auto benders_function =
+  sddp_solver->get_benders_function( current_stage , sub_block_index );
 
  if( benders_function->has_linearization( true ) ) {
-  linearization( 0 ) = objective_value;
+
+  // Retrieve the linearization coefficients
   benders_function->get_linearization_coefficients( linearization.data() + 1 );
+
+  // Compute g'y
+  double gy = 0;
+
+  if( current_stage == 0 ) {
+   /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
+    * does not contain the state for the first stage problem. */
+   const auto state_var = static_cast< SDDPBlock * >
+    ( sddp_solver->f_Block )->get_state( current_stage , sub_block_index );
+   for( decltype( state_var.size() ) j = 0 ; j < state_var.size() ; ++j )
+    gy += linearization( j + 1 ) * state_var[ j ];
+  }
+  else {
+   // Use the state variables given as argument
+   const auto state_var = std::get<0>( state ).get();
+   for( Index j = 0 ; j < state_var->size() ; ++j )
+    gy += linearization( j + 1 ) * ( *state_var )( j );
+  }
+
+  // Retrieve the linearization constant
+  const auto alpha = benders_function->get_linearization_constant();
+
+  linearization( 0 ) = alpha + gy;
 
   // Debugging the BendersBFunction
 
 #ifdef BENDERSBFUNCTION_DEBUG
-  const auto alpha = benders_function->get_linearization_constant();
-  check_linearization( current_stage , * std::get<0>( state ).get() ,
-                       objective_value , alpha , linearization ,
+  check_linearization( objective_value , alpha , gy, linearization ,
                        sub_block_index );
 #endif
 
  }
- else if( benders_function->has_linearization( false ) ) {
-  const auto alpha = benders_function->get_linearization_constant();
-  linearization( 0 ) = alpha;
-  benders_function->get_linearization_coefficients( linearization.data() + 1 );
- }
  else {
-  // No linearization is available
+  // No diagonal linearization is available
   throw( std::logic_error( "SDDPOptimizer::oneStepBackward: no "
                            "linearization is available." ) );
  }
@@ -1257,7 +1285,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
-  *( sddp_solver->f_log ) << "  Objective:      " << objective_value << std::endl;
+  *( sddp_solver->f_log ) << "  Objective:      " << objective_value
+                          << std::endl;
   if( sddp_solver->log_verbosity >= 10 ) {
    *( sddp_solver->f_log ) << "  Solution:       (";
    for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
@@ -1330,9 +1359,8 @@ int SDDPSolver::SDDPOptimizer::getStateSize() const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::SDDPOptimizer::check_linearization
-( Index current_stage , const Eigen::ArrayXd & state , double objective_value ,
-  double alpha , const Eigen::ArrayXd & linearization , Index sub_block_index )
- const {
+( double objective_value , double alpha , double gy,
+  const Eigen::ArrayXd & linearization , Index sub_block_index ) const {
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
   *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
@@ -1341,26 +1369,12 @@ void SDDPSolver::SDDPOptimizer::check_linearization
    *( sddp_solver->f_log ) << "    coefficients: (";
    for( decltype( linearization.size() ) i = 1 ;
         i < linearization.size() ; ++i ) {
-    if( i > 1 ) *( sddp_solver->f_log ) << ", ";
+    if( i > 1 )
+     *( sddp_solver->f_log ) << ", ";
     *( sddp_solver->f_log ) << linearization( i );
    }
    *( sddp_solver->f_log ) << ")" << std::endl;
   }
- }
-
- double gy = 0;
-
- if( current_stage == 0 ) {
-  /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
-   * does not contain the state for the first stage problem. */
-  const auto state = static_cast< SDDPBlock * >
-   ( sddp_solver->f_Block )->get_state( current_stage , sub_block_index );
-  for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
-   gy += linearization( j + 1 ) * state[ j ];
- }
- else {
-  for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
-   gy += linearization( j + 1 ) * state( j );
  }
 
  const double epsilon = 1.0e-4;
@@ -1368,32 +1382,21 @@ void SDDPSolver::SDDPOptimizer::check_linearization
   std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
  const auto diff = std::abs( objective_value - ( alpha + gy ) );
  if( diff > epsilon * scale ) {
-  if( auto log = sddp_solver->f_log ) {
-   *log << "SDDPOptimizer::oneStepBackward: linearization precision "
-        << "was not achieved:" << std::endl;
-   *log << "  precision required: " << std::setprecision( 20 )
-        << epsilon << std::endl;
-   *log << "  precision achieved: " << std::setprecision( 20 )
-        << ( diff / scale ) << std::endl;
-   *log << "  objective: " << std::setprecision( 20 )
-        << objective_value << std::endl;
-   *log << "  alpha:     " << std::setprecision( 20 )
-        << alpha << std::endl;
-   *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-  }
-  else {
-   std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
-             << "was not achieved:" << std::endl;
-   std::cerr << "  precision required: " << std::setprecision( 20 )
-             << epsilon << std::endl;
-   std::cerr << "  precision achieved: " << std::setprecision( 20 )
-             << ( diff / scale ) << std::endl;
-   std::cerr << "  objective: " << std::setprecision( 20 )
-             << objective_value << std::endl;
-   std::cerr << "  alpha:     " << std::setprecision( 20 )
-             << alpha << std::endl;
-   std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-  }
+  auto log = sddp_solver->f_log;
+  if( ! log )
+   log = &std::cerr;
+
+  *log << "  SDDPOptimizer::oneStepBackward: linearization precision "
+       << "was not achieved:" << std::endl;
+  *log << "    precision required: " << std::setprecision( 20 )
+       << epsilon << std::endl;
+  *log << "    precision achieved: " << std::setprecision( 20 )
+       << ( diff / scale ) << std::endl;
+  *log << "    objective: " << std::setprecision( 20 )
+       << objective_value << std::endl;
+  *log << "    alpha:     " << std::setprecision( 20 )
+       << alpha << std::endl;
+  *log << "    g'y:       " << std::setprecision( 20 ) << gy << std::endl;
  }
 }
 

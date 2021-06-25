@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 03 - 06 - 2021
+ * \date 25 - 06 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1790,8 +1790,7 @@ protected:
 /*--------------------------------------------------------------------------*/
 
   /// checks if the linearization is correct
-  void check_linearization( Index current_stage , const Eigen::ArrayXd & state ,
-                            double objective_value , double alpha ,
+  void check_linearization( double objective_value , double alpha , double gy ,
                             const Eigen::ArrayXd & linearization ,
                             Index sub_block_index ) const;
 
