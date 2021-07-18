@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 25 - 06 - 2021
+ * \date 18 - 07 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -239,6 +239,8 @@ int SDDPSolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
 
+ const auto time_horizon = get_time_horizon();
+
  // ostream for StOpt output
  boost::iostreams::stream< boost::iostreams::null_sink >
   null_sink( ( boost::iostreams::null_sink() ) );
@@ -246,7 +248,33 @@ int SDDPSolver::compute( bool changedvars ) {
  if( f_log && log_verbosity >= 2 )
   output_stream = f_log;
 
- const auto time_horizon = get_time_horizon();
+ // log of the sub-Solvers
+
+ std::vector< std::ofstream > sub_solvers_logfiles;
+
+ if( ! f_sub_solver_filename_prefix.empty() ) {
+
+  const auto num_sub_blocks_per_stage =
+   static_cast< SDDPBlock * >( f_Block )->get_num_sub_blocks_per_stage();
+
+  sub_solvers_logfiles.reserve( time_horizon * num_sub_blocks_per_stage );
+
+  for( Index t = 0 ; t < time_horizon ; ++t ) {
+   for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i ) {
+    auto suffix = std::to_string( t );
+    if( num_sub_blocks_per_stage > 1 )
+     suffix += "-" + std::to_string( i );
+    const auto filename = f_sub_solver_filename_prefix + suffix;
+
+    sub_solvers_logfiles.emplace_back
+     ( std::ofstream{ filename , std::ofstream::out | std::ofstream::app } );
+
+    auto benders_function = get_benders_function( t , i );
+    auto solver = benders_function->get_solver();
+    solver->set_log( & sub_solvers_logfiles.back() );
+   }
+  }
+ }
 
  /* "dates" must be an array with size T + 1, where T is the time_horizon,
   * such that dates[ t ] contains the t-th time step (in our case it is simply
@@ -459,6 +487,11 @@ int SDDPSolver::compute( bool changedvars ) {
   *f_log << "Forward value:  " << std::setprecision( 20 )
          << forward_value << std::endl;
  }
+
+ // Close the log files of the sub-Solvers
+
+ for( auto & logfile : sub_solvers_logfiles )
+  logfile.close();
 
  // Compute the accuracy achieved
 
@@ -1138,6 +1171,16 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   // No diagonal linearization is available
   throw( std::logic_error( "SDDPOptimizer::oneStepBackward: no "
                            "linearization is available." ) );
+ }
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 ) {
+  auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
+  *( sddp_solver->f_log ) << "  Solution:       (";
+  for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
+   if( i > 0 ) *( sddp_solver->f_log ) << ", ";
+   *( sddp_solver->f_log ) << solution( i );
+  }
+  *( sddp_solver->f_log ) << ")" << std::endl;
  }
 
  return linearization;

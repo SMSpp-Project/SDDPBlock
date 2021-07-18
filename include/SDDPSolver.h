@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 25 - 06 - 2021
+ * \date 18 - 07 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -400,6 +400,17 @@ public:
    * serialized into "state.nc4.0". The third time it will be serialized again
    * into "state.nc4" and so on. By default, this is empty. */
 
+  strSubSolverLogFilePrefix ,
+  ///< prefix of the names of the files for the logs of the sub-Solvers
+  /**< Prefix of the names of the files in which the logs of the sub-Solvers
+   * will be output. For instance, suppose this prefix is "logfile-". Then, if
+   * the SDDPBlock has a single sub-Block at each stage, the log of the
+   * sub-Solver associated with time instant t will be output into a file
+   * called "logfile-t". If the SDDPBlock has n > 1 sub-Blocks at each stage,
+   * then the log of the sub-Solver associated with time instant t and i-th
+   * sub-Block at stage t will be output into a file called "logfile-t-i". By
+   * default, this is empty. */
+
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -607,6 +618,8 @@ public:
   *
   * - #strFilenameSuffix
   *
+  * - #strSubSolverLogFilePrefix
+  *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -625,6 +638,10 @@ public:
    case( strOutputFile ): f_output_filename = value; return;
    case( strStateFile ): f_state_filename = value; return;
    case( strFilenameSuffix ): f_filename_suffix = value; return;
+   case( strSubSolverLogFilePrefix ): {
+    f_sub_solver_filename_prefix = value;
+    return;
+   }
   }
   Solver::set_par( par , value );
  }
@@ -868,7 +885,7 @@ public:
 
   static const std::vector<std::string> default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
-     "" , "" , "" , "" , "" };
+     "" , "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -998,6 +1015,7 @@ public:
    case( strOutputFile ): return f_output_filename;
    case( strStateFile ): return f_state_filename;
    case( strFilenameSuffix ): return f_filename_suffix;
+   case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
   }
   return Solver::get_str_par( par );
  }
@@ -1100,6 +1118,7 @@ public:
   if( name == "strOutputFile" ) return strOutputFile;
   if( name == "strStateFile" ) return strStateFile;
   if( name == "strFilenameSuffix" ) return strFilenameSuffix;
+  if( name == "strSubSolverLogFilePrefix" ) return strSubSolverLogFilePrefix;
   return Solver::str_par_str2idx( name );
  }
 
@@ -1193,7 +1212,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
-     "strFilenameSuffix" };
+     "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1872,6 +1891,9 @@ protected:
   * file every other iteration in which the output is performed. */
  mutable bool f_add_suffix = false;
 
+ /// Prefix of the names of the files for the logs of the sub-Solvers
+ std::string f_sub_solver_filename_prefix = "";
+
  /// Name of the default BlockConfig file for the inner Blocks
  std::string f_inner_block_config_filename;
 
@@ -2007,6 +2029,7 @@ private:
   f_output_filename = get_dflt_str_par( strOutputFile );
   f_state_filename = get_dflt_str_par( strStateFile );
   f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
+  f_sub_solver_filename_prefix = get_dflt_str_par( strSubSolverLogFilePrefix );
 
   // vector of int
 
