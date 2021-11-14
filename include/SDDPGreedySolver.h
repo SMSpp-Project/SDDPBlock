@@ -64,33 +64,33 @@ namespace SMSpp_di_unipi_it
  * SDDPBlock represents an optimization problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{X}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_1 \in \mathcal{X}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{X}_1} f_1(x_1) +
  *   \mathbb{E} \left \lbrack \dots +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{X}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{X}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack, \qquad (1)
  * \f]
  *
- * where T is the time horizon, \f$\mathcal{X}^{n_t} \equiv
- * \mathcal{X}^{n_t}(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
+ * where T is the time horizon, \f$\mathcal{X}_t \equiv
+ * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
  * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
  * T-1\}} \f$ is a stochastic process. See SDDPBlock for details. The
  * SDDPGreedySolver considers the problem (1) for a single realization of the
  * stochastic process, i.e., a deterministic problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{\tilde{X}}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{\tilde{X}}_0} f_0(x_0) +
  *   \left \lbrack
- *   \min_{x_1 \in \mathcal{\tilde{X}}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{\tilde{X}}_1} f_1(x_1) +
  *   \left \lbrack \dots +
  *   \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{\tilde{X}}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{\tilde{X}}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack, \qquad (2)
  * \f]
  *
- * with \f$\mathcal{\tilde{X}}^{n_t} \equiv \mathcal{\tilde{X}}^{n_t}(x_{t-1},
+ * with \f$\mathcal{\tilde{X}}_t \equiv \mathcal{\tilde{X}}_t(x_{t-1},
  * \tilde{\xi}_t)\f$ where \f$ \tilde{\xi}_t = \{ \tilde{\xi}_t \}_{t \in \{1,
  * \dots, T-1\}} \f$ is a realization of the stochastic process \f$ \xi
  * \f$. The SDDPGreedySolver is a heuristic as it does not look for an optimal
@@ -102,7 +102,7 @@ namespace SMSpp_di_unipi_it
  *
  * @f{align}
  *   \min       & \ \ f_0(x_0) + \mathcal{P}_{1}(x_0) \qquad (3) \\
- *   {\rm s.t.} & \ \ x_0 \in \mathcal{\tilde{X}}^{n_0}(x_{-1},
+ *   {\rm s.t.} & \ \ x_0 \in \mathcal{\tilde{X}}_0(x_{-1},
  *                            \tilde{\xi}_0)
  * @f}
  *
@@ -112,7 +112,7 @@ namespace SMSpp_di_unipi_it
  *
  * @f{align}
  *   \min       & \ \ f_1(x_1) + \mathcal{P}_{2}(x_1)\\
- *   {\rm s.t.} & \ \ x_1 \in \mathcal{\tilde{X}}^{n_1}(x^*_{0},
+ *   {\rm s.t.} & \ \ x_1 \in \mathcal{\tilde{X}}_1(x^*_{0},
  *                  \tilde{\xi}_1)
  * @f}
  *
@@ -123,7 +123,7 @@ namespace SMSpp_di_unipi_it
  *
  * @f{align}
  *   \min       & \ \ f_t(x_t) + \mathcal{P}_{t+1}(x_t)\\
- *   {\rm s.t.} & \ \ x_t \in \mathcal{\tilde{X}}^{n_t}(x^*_{t-1},
+ *   {\rm s.t.} & \ \ x_t \in \mathcal{\tilde{X}}_t(x^*_{t-1},
  *                  \tilde{\xi}_t)
  * @f}
  *
