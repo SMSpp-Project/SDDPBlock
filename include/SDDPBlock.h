@@ -60,34 +60,34 @@ namespace SMSpp_di_unipi_it
  * multistage stochastic programming problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{X}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_1 \in \mathcal{X}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{X}_1} f_1(x_1) +
  *   \mathbb{E} \left \lbrack \dots +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{X}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{X}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack,
  * \f]
  *
- * where T is called the time horizon, \f$\mathcal{X}^{n_t} \equiv
- * \mathcal{X}^{n_t}(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
+ * where T is called the time horizon, \f$\mathcal{X}_t \equiv
+ * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
  * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
  * T-1\}} \f$ is a stochastic process. Notice that \f$ x_{-1} \f$ and \f$
  * \xi_0 \f$ are deterministic. For each \f$ t \in \{0, \dots, T-1\}\f$, we
  * call
  *
  * \f[
- *   \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
- *   \mathcal{V}_{t+1}(x_t, \xi_t)
+ *   \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
+ *   \mathcal{V}_{t+1}(x_t)
  * \f]
  *
  * the problem associated with stage \f$ t \f$, where
  *
  * \f[
- *   \mathcal{V}_{t+1}(x_t, \xi_t) =
+ *   \mathcal{V}_{t+1}(x_t) =
  *    \mathbb{E}
  *      \left\lbrack
- *        V_{t+1}(x_t, \xi_{t+1}) \mid \xi_t
+ *        V_{t+1}(x_t, \xi_{t+1})
  *      \right\rbrack
  * \f]
  *
@@ -98,8 +98,8 @@ namespace SMSpp_di_unipi_it
  * \f[
  *
  *    V_{t}(x_{t-1}, \xi_{t}) =
- *    \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
- *    \mathcal{V}_{t+1}(x_t, \xi_t)
+ *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
+ *    \mathcal{V}_{t+1}(x_t)
  * \f]
  *
  * with given \f$ x_{-1} \f$ and (deterministic) \f$ \xi_0\f$. We consider an
@@ -107,7 +107,7 @@ namespace SMSpp_di_unipi_it
  * T-1\} \f$ as the problem
  *
  * \f[
- *    \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
+ *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
  *    \mathcal{P}_{t+1}(x_t)
  *    \qquad (1)
  * \f]
