@@ -31,6 +31,7 @@
 #                                                                            #
 ##############################################################################
 
+
 # macroes to be exported- - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 SDDPBkOBJ = $(SDDPBkSDR)obj/SDDPBlock.o $(SDDPBkSDR)obj/SDDPSolver.o \
