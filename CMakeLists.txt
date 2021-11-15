@@ -48,9 +48,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # See: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
 include(BuildType)
 
-# ----- Options ------------------------------------------------------------- #
-option(SDDPBlock_USE_MPI "Use MPI" OFF)
-
 # ----- Requirements -------------------------------------------------------- #
 # If it's not being called by the umbrella, we need to
 # look for the system-installed libraries.
@@ -60,11 +57,6 @@ endif ()
 
 find_package(StOpt REQUIRED)
 find_package(OpenMP)
-
-if (SDDPBlock_USE_MPI)
-    find_package(Boost COMPONENTS mpi)
-    find_package(MPI)
-endif ()
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
@@ -111,12 +103,6 @@ target_include_directories(
 target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
-
-if (MPI_CXX_FOUND AND Boost_MPI_FOUND AND SDDPBlock_USE_MPI)
-    message(STATUS "SDDPBlock: MPI and Boost::mpi found, using MPI")
-    target_compile_definitions(${modName} PUBLIC USE_MPI)
-    target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
-endif ()
 
 if (OPENMP_FOUND)
     target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)
