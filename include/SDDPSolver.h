@@ -308,12 +308,6 @@ public:
    * nonnegative, it must be a number between 0 and the total number of
    * scenarios minus 1. By default, its value is 0. */
 
-  intStoreRandomCuts ,
-  ///< This indicates whether random cuts must be stored
-  /**< A random cut is a cut associated with a particular scenario. This
-   * parameter indicates whether the random cuts that are produced must be
-   * stored in the SDDPBlock. */
-
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -401,7 +395,7 @@ public:
    * output. See #intOutputFrequency for controlling if and when the random
    * cuts are output. See serialize_random_cuts() for a description of the
    * format of the output file. By default, the name of this file is empty,
-   * which means that the random cuts are not output. */
+   * which means that the random cuts are not output (and not stored). */
 
   strFilenameSuffix ,
   ///< suffix to be added to a filename every other iteration
@@ -563,8 +557,6 @@ public:
   *
   * - #intFirstStageScenarioIndex
   *
-  * - #intStoreRandomCuts
-  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -588,8 +580,6 @@ public:
    case( intOutputFrequency ): output_frequency = value; return;
    case( intFirstStageScenarioIndex ):
     first_stage_scenario_index = value; return;
-   case( intStoreRandomCuts ):
-    f_store_random_cuts = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -855,8 +845,6 @@ public:
   *
   * - #intFirstStageScenarioIndex: 0
   *
-  * - #intStoreRandomCuts: 0
-  *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
@@ -875,7 +863,6 @@ public:
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioIndex ): return 0;
-   case( intStoreRandomCuts ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -1001,7 +988,6 @@ public:
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
    case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
-   case( intStoreRandomCuts ): return f_store_random_cuts;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1109,7 +1095,6 @@ public:
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
   if( name == "intFirstStageScenarioIndex" ) return intFirstStageScenarioIndex;
-  if( name == "intStoreRandomCuts" ) return intStoreRandomCuts;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1203,7 +1188,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioIndex" , "intStoreRandomCuts" };
+     "intFirstStageScenarioIndex" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1484,7 +1469,7 @@ public:
   *         SDDPBlock. */
 
  bool store_random_cuts() const {
-  return f_store_random_cuts;
+  return ! f_random_cuts_filename.empty();
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -1959,12 +1944,6 @@ protected:
   * variable is true, then #f_filename_suffix will be added to the name of the
   * file every other iteration in which the output is performed. */
  mutable bool f_add_suffix = false;
-
- /// It indicates whether random cuts should be stored
- /** A random cut is a cut associated with a particular scenario. If this
-  * variable is set to true, then all random cuts that are produced will be
-  * stored in the SDDPBlock. */
- bool f_store_random_cuts = false;
 
  /// Prefix of the names of the files for the logs of the sub-Solvers
  std::string f_sub_solver_filename_prefix = "";
