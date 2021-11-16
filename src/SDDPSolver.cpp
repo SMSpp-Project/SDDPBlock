@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 07 - 2021
+ * \date 15 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1159,6 +1159,26 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
   linearization( 0 ) = alpha + gy;
 
+  // Store the random cut if required
+  if( sddp_solver->store_random_cuts() ) {
+   auto sddp_block = static_cast< SDDPBlock * >( sddp_solver->f_Block );
+   std::vector< double > coefficients
+    ( linearization.data() + 1 , linearization.data() + linearization.size() );
+
+   auto actual_scenario_index = scenario_index;
+   if( actual_scenario_index == Inf< Index >() ) {
+    // The scenario index is infinity. Thus, this must be the first stage.
+    assert( current_stage == 0 );
+
+    // Since there is no scenario associated with the first stage, we store
+    // the cut as if it were associated with the first scenario.
+    actual_scenario_index = 0;
+   }
+
+   sddp_block->store_random_cut( std::move( coefficients ) , alpha ,
+                                 current_stage , actual_scenario_index );
+  }
+
   // Debugging the BendersBFunction
 
 #ifdef BENDERSBFUNCTION_DEBUG
@@ -1402,7 +1422,7 @@ int SDDPSolver::SDDPOptimizer::getStateSize() const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::SDDPOptimizer::check_linearization
-( double objective_value , double alpha , double gy,
+( double objective_value , double alpha , double gy ,
   const Eigen::ArrayXd & linearization , Index sub_block_index ) const {
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {

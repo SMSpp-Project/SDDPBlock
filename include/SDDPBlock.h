@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 05 - 2021
+ * \date 15 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -651,6 +651,38 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// store the given random cut
+ /** This function store the random cut given by \p coefficients and \p alpha,
+  * which must be associated with the given \p stage and with the scenario
+  * whose index is \p scenario_index.
+  *
+  * @param coefficients The coefficients of the cut.
+  *
+  * @param alpha The constant of the cut.
+  *
+  * @param stage The stage (a number between 0 and get_time_horizon() - 1)
+  *        associated with the given cut.
+  *
+  * @param scenario_index The index (a number between 0 and
+  *        get_scenario_set().size() - 1) of the scenario associated with the
+  *        given cut. */
+
+ void store_random_cut( std::vector< double > && coefficients , double alpha ,
+                        Index stage , Index scenario_index ) {
+  if( random_cuts.size() == 0 ) {
+   random_cuts.resize( boost::extents[ get_time_horizon() ]
+                       [ scenario_set.size() ] );
+  }
+
+  assert( stage < get_time_horizon() );
+  assert( scenario_index < scenario_set.size() );
+
+  random_cuts[ stage ][ scenario_index ].add_rows( { coefficients } ,
+                                                   { alpha } );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// returns the number of cuts currently present at the given \p stage
  /** This function returns the number of cuts currently present in the i-th
   * PolyhedralFunction of the sub-Block with index \p sub_block_index at the
@@ -869,6 +901,11 @@ protected:
 
  /// An initial state for the first stage problem
  std::vector< double > initial_state;
+
+ /// Random cuts for each stage and each scenario
+ /** This boost::multi_array stores the random cuts for all stages and all
+  * scenarios. A random cut is a cut associated with a particular scenario. */
+ boost::multi_array< PolyhedralFunction , 2 > random_cuts;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
