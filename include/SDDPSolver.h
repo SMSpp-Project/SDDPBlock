@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 07 - 2021
+ * \date 15 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -308,6 +308,12 @@ public:
    * nonnegative, it must be a number between 0 and the total number of
    * scenarios minus 1. By default, its value is 0. */
 
+  intStoreRandomCuts ,
+  ///< This indicates whether random cuts must be stored
+  /**< A random cut is a cut associated with a particular scenario. This
+   * parameter indicates whether the random cuts that are produced must be
+   * stored in the SDDPBlock. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -545,6 +551,8 @@ public:
   *
   * - #intFirstStageScenarioIndex
   *
+  * - #intStoreRandomCuts
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -568,6 +576,8 @@ public:
    case( intOutputFrequency ): output_frequency = value; return;
    case( intFirstStageScenarioIndex ):
     first_stage_scenario_index = value; return;
+   case( intStoreRandomCuts ):
+    f_store_random_cuts = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -830,6 +840,8 @@ public:
   *
   * - #intFirstStageScenarioIndex: 0
   *
+  * - #intStoreRandomCuts: 0
+  *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
@@ -848,6 +860,7 @@ public:
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioIndex ): return 0;
+   case( intStoreRandomCuts ): return 1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -973,6 +986,7 @@ public:
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
    case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
+   case( intStoreRandomCuts ): return f_store_random_cuts;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1079,6 +1093,7 @@ public:
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
   if( name == "intFirstStageScenarioIndex" ) return intFirstStageScenarioIndex;
+  if( name == "intStoreRandomCuts" ) return intStoreRandomCuts;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1171,7 +1186,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioIndex" };
+     "intFirstStageScenarioIndex" , "intStoreRandomCuts" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1373,8 +1388,8 @@ public:
   * during the last call to compute().
   *
   * @return The number of iterations performed by the solver during the last
-  *         call to compute().
-  */
+  *         call to compute(). */
+
  int get_number_iterations_performed() const {
   return number_iterations_performed;
  }
@@ -1385,8 +1400,8 @@ public:
  /** This function returns the time horizon of the problem associated with the
   * SDDPBlock with which this SDDPSolver is attached.
   *
-  * @return The time horizon of the problem associated with the SDDPBlock.
-  */
+  * @return The time horizon of the problem associated with the SDDPBlock. */
+
  SDDPBlock::Index get_time_horizon() const;
 
 /*--------------------------------------------------------------------------*/
@@ -1398,8 +1413,7 @@ public:
  * @param stage The stage whose solution is required.
  *
  * @return The array containing the solution of the subproblem at the given
- *         stage.
- */
+ *         stage. */
 
  template< class T = Eigen::ArrayXd >
  T get_solution( SDDPBlock::Index stage ,
@@ -1413,12 +1427,26 @@ public:
   * index of the scenario that must be considered in the first stage.
   *
   * @return The index of the scenario to be considered in the first stage (if
-  *         any).
-  */
+  *         any). */
+
  Index get_first_stage_scenario_index() const {
   if( first_stage_scenario_index < 0 )
    return Inf< Index >();
   return first_stage_scenario_index;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// indicates whether random cuts must be stored
+ /** A random cut is a cut associated with a particular scenario. This
+  * function indicates whether the random cuts that are produced must be
+  * stored in the SDDPBlock.
+  *
+  * @return true if and only if random cuts must be stored in the
+  *         SDDPBlock. */
+
+ bool store_random_cuts() const {
+  return f_store_random_cuts;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -1890,6 +1918,12 @@ protected:
   * variable is true, then #f_filename_suffix will be added to the name of the
   * file every other iteration in which the output is performed. */
  mutable bool f_add_suffix = false;
+
+ /// It indicates whether random cuts should be stored
+ /** A random cut is a cut associated with a particular scenario. If this
+  * variable is set to true, then all random cuts that are produced will be
+  * stored in the SDDPBlock. */
+ bool f_store_random_cuts = false;
 
  /// Prefix of the names of the files for the logs of the sub-Solvers
  std::string f_sub_solver_filename_prefix = "";
