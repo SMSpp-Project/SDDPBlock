@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 11 - 2021
+ * \date 16 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -562,6 +562,20 @@ public:
   return initial_state;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the random cuts
+ /** This function returns a two-dimension array containing the random
+  * cuts. If non-empty, the size of the first dimension is get_time_horizon()
+  * and the size of the second dimension is get_scenario_set().size(). By
+  * letting random_cuts denote the array returned by this function,
+  * random_cuts[t][s] is the PolyhedralFunction containing the random cuts
+  * associated with shate t and the scenario whose index is s. */
+
+ const boost::multi_array< PolyhedralFunction , 2 > & get_random_cuts() const {
+  return random_cuts;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -669,16 +683,36 @@ public:
 
  void store_random_cut( std::vector< double > && coefficients , double alpha ,
                         Index stage , Index scenario_index ) {
-  if( random_cuts.size() == 0 ) {
-   random_cuts.resize( boost::extents[ get_time_horizon() ]
-                       [ scenario_set.size() ] );
-  }
 
   assert( stage < get_time_horizon() );
   assert( scenario_index < scenario_set.size() );
 
-  random_cuts[ stage ][ scenario_index ].add_rows( { coefficients } ,
-                                                   { alpha } );
+  if( random_cuts.size() == 0 ) {
+   // Create the PolyhedralFunctions that will store the random cuts.
+
+   const auto time_horizon = get_time_horizon();
+   const auto number_scenarios = scenario_set.size();
+   random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
+
+   for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+    const auto polyhedral_function = get_polyhedral_function( t );
+    PolyhedralFunction::VarVector active_variables
+     ( polyhedral_function->get_num_active_var() );
+    for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+     active_variables[ i ] = static_cast< ColVariable * >
+      ( polyhedral_function->get_active_var( i ) );
+
+    for( Index s = 0 ; s < number_scenarios ; ++s ) {
+     auto variables = active_variables;
+     random_cuts[ t ][ s ].set_variables( std::move( variables ) );
+     random_cuts[ t ][ s ].set_is_convex( polyhedral_function->is_convex() );
+    }
+   }
+  }
+
+  random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
+                                                  alpha );
  }
 
 /*--------------------------------------------------------------------------*/
