@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 11 - 2021
+ * \date 16 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -294,9 +294,9 @@ public:
    * performed (saving the approximations to the future cost functions or
    * serializing an SDDPSolverState). If it is positive, these file outputs
    * are performed every #intOutputFrequency iterations and once at the end of
-   * compute() to the files specified by the #strOutputFile and #strStateFile
-   * parameters. The default value for this parameter is 0 (i.e., no file
-   * output is performed). */
+   * compute() to the files specified by the #strOutputFile, #strStateFile,
+   * and #strRandomCutsFile parameters. The default value for this parameter
+   * is 0 (i.e., no file output is performed). */
 
   intFirstStageScenarioIndex ,
   ///< The index of the scenario to be considered at the first stage
@@ -384,27 +384,39 @@ public:
   ///< name of the file to which the future cost functions will be output
   /**< Name of the file to which the approximations to the future cost
    * functions are output. See #intOutputFrequency for controlling if and when
-   * these approximations are output. By default, this is empty. */
+   * these approximations are output. By default, the name of this file is
+   * empty, which means that the future cost functions will not be output. */
 
   strStateFile ,
   ///< name of the file in which the SDDPSolverState will be serialized
   /**< Name of the file in which the SDDPSolverState will be serialized. See
    * #intOutputFrequency for controlling if and when these approximations are
-   * output. By default, this is empty. */
+   * output. By default, the name of this file is empty, which means that no
+   * state will be serialized. */
+
+  strRandomCutsFile ,
+  ///< name of the file to which the random cuts will be output
+  /**< A random cut is a cut associated with a particular scenario. This
+   * parameter indicates the name of the file to which the random cuts will be
+   * output. See #intOutputFrequency for controlling if and when the random
+   * cuts are output. See serialize_random_cuts() for a description of the
+   * format of the output file. By default, the name of this file is empty,
+   * which means that the random cuts are not output. */
 
   strFilenameSuffix ,
   ///< suffix to be added to a filename every other iteration
   /**< This is the suffix that will be added to a non-empty filename (given by
-   * #strOutputFile and #strStateFile) every other iteration in which a file
-   * output is performed (see #intOutputFrequency). This is parameter can be
-   * useful, for instance, if this Solver is running on an unreliable system,
-   * which may crash while the output is being performed. By using a suffix,
-   * at least some not so old data will be available. For instance, suppose
-   * that #intOutputFrequency > 0, #strStateFile = "state.nc4", and #strSuffix
-   * = ".0". Then, the first time the State is serialized, it will be
-   * serialized in the file called "state.nc4". The second time, it will be
-   * serialized into "state.nc4.0". The third time it will be serialized again
-   * into "state.nc4" and so on. By default, this is empty. */
+   * #strOutputFile, #strStateFile, and #strRandomCutsFile) every other
+   * iteration in which a file output is performed (see
+   * #intOutputFrequency). This is parameter can be useful, for instance, if
+   * this Solver is running on an unreliable system, which may crash while the
+   * output is being performed. By using a suffix, at least some not so old
+   * data will be available. For instance, suppose that #intOutputFrequency >
+   * 0, #strStateFile = "state.nc4", and #strSuffix = ".0". Then, the first
+   * time the State is serialized, it will be serialized in the file called
+   * "state.nc4". The second time, it will be serialized into
+   * "state.nc4.0". The third time it will be serialized again into
+   * "state.nc4" and so on. By default, this is empty. */
 
   strSubSolverLogFilePrefix ,
   ///< prefix of the names of the files for the logs of the sub-Solvers
@@ -626,6 +638,8 @@ public:
   *
   * - #strStateFile
   *
+  * - #strRandomCutsFile
+  *
   * - #strFilenameSuffix
   *
   * - #strSubSolverLogFilePrefix
@@ -647,6 +661,7 @@ public:
    case( strInnerBSC ): f_inner_block_solver_config_filename = value; return;
    case( strOutputFile ): f_output_filename = value; return;
    case( strStateFile ): f_state_filename = value; return;
+   case( strRandomCutsFile ): f_random_cuts_filename = value; return;
    case( strFilenameSuffix ): f_filename_suffix = value; return;
    case( strSubSolverLogFilePrefix ): {
     f_sub_solver_filename_prefix = value;
@@ -898,7 +913,7 @@ public:
 
   static const std::vector<std::string> default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
-     "" , "" , "" , "" , "" , "" };
+     "", "" , "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -1028,6 +1043,7 @@ public:
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
    case( strOutputFile ): return f_output_filename;
    case( strStateFile ): return f_state_filename;
+   case( strRandomCutsFile ): return f_random_cuts_filename;
    case( strFilenameSuffix ): return f_filename_suffix;
    case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
   }
@@ -1132,6 +1148,7 @@ public:
   if( name == "strInnerBSC" ) return strInnerBSC;
   if( name == "strOutputFile" ) return strOutputFile;
   if( name == "strStateFile" ) return strStateFile;
+  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   if( name == "strFilenameSuffix" ) return strFilenameSuffix;
   if( name == "strSubSolverLogFilePrefix" ) return strSubSolverLogFilePrefix;
   return Solver::str_par_str2idx( name );
@@ -1227,7 +1244,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
-     "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
+     "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1368,10 +1385,10 @@ public:
 
  /// output the cuts and the SDDPSolverState to files
  /** This function outputs the approximations to the future cost functions (if
-  * #strOutputFile is non-empty) and serializes the SDDPSolverState (if
-  * #strStateFile is non-empty). If #strFilenameSuffix is non-empty, then it
-  * is added to the filename every other iteration that this function is
-  * called. */
+  * #strOutputFile is non-empty) and the random cuts (if #strRandomCutsFile is
+  * non-empty), and serializes the SDDPSolverState (if #strStateFile is
+  * non-empty). If #strFilenameSuffix is non-empty, then it is added to the
+  * filename every other iteration that this function is called. */
 
  void file_output() const;
 
@@ -1906,6 +1923,9 @@ protected:
  /// Prefix for the name of the file in which the State is saved
  std::string f_state_filename;
 
+ /// Prefix for the name of the file to which the random cuts are output
+ std::string f_random_cuts_filename;
+
  /// The suffix to be added to an output filename every other iteration
  std::string f_filename_suffix = "";
 
@@ -2062,6 +2082,7 @@ private:
   f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
   f_output_filename = get_dflt_str_par( strOutputFile );
   f_state_filename = get_dflt_str_par( strStateFile );
+  f_random_cuts_filename = get_dflt_str_par( strRandomCutsFile );
   f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
   f_sub_solver_filename_prefix = get_dflt_str_par( strSubSolverLogFilePrefix );
 
