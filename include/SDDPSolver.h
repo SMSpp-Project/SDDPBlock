@@ -1383,6 +1383,27 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// serialize the random cuts
+ /** This function serializes the random cuts in the file with the given
+  * name. If \p filename is empty, then no operation is performed. The file
+  * will have the following netCDF format:
+  *
+  * - The dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The dimension "NumberScenarios" containing the number of scenarios.
+  *
+  * - The group "PolyhedralFunction_t_s", for each t in {0, ..., TimeHorizon -
+  *   1} and s in {0, ..., NumberScenarios - 1}, containing the serialization
+  *   of the PolyhedralFunction representing the random cuts associated with
+  *   stage t and scenario s.
+  *
+  * @param filename The name of the file in which the random cuts will be
+  *        serialized. */
+
+ void serialize_random_cuts( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
  /// output the cuts and the SDDPSolverState to files
  /** This function outputs the approximations to the future cost functions (if
   * #strOutputFile is non-empty) and the random cuts (if #strRandomCutsFile is

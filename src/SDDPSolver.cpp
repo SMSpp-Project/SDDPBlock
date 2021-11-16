@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 15 - 11 - 2021
+ * \date 16 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -913,6 +913,14 @@ void SDDPSolver::file_output() const {
   serialize_State( state_filename );
  }
 
+ if( ! f_random_cuts_filename.empty() ) {
+  // Output the random cuts
+  std::string random_cuts_filename = f_random_cuts_filename;
+  if( f_add_suffix )
+   random_cuts_filename += f_filename_suffix;
+  serialize_random_cuts( random_cuts_filename );
+ }
+
  f_add_suffix = ! f_add_suffix;
 }
 
@@ -961,6 +969,41 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
 
  output.close();
 
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::serialize_random_cuts( const std::string & filename ) const {
+
+ if( filename.empty() )
+  return;
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ const auto & random_cuts = sddp_block->get_random_cuts();
+ if( random_cuts.num_elements() == 0 )
+  return;
+
+ netCDF::NcFile file( filename , netCDF::NcFile::replace );
+
+ const auto time_horizon = get_time_horizon();
+ file.addDim( "TimeHorizon" , time_horizon );
+
+ const auto number_scenarios = random_cuts[ 0 ].size();
+ file.addDim( "NumberScenarios" , number_scenarios );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   auto group_name = "PolyhedralFunction_" +
+    std::to_string( t ) + "_" + std::to_string( s );
+   auto group = file.addGroup( group_name );
+   random_cuts[ t ][ s ].serialize( group );
+  }
+ }
+
+ file.close();
 }
 
 /*--------------------------------------------------------------------------*/
