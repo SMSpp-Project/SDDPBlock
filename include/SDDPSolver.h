@@ -860,7 +860,7 @@ public:
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioIndex ): return 0;
-   case( intStoreRandomCuts ): return 1;
+   case( intStoreRandomCuts ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
