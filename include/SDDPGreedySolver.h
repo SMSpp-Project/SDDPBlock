@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 03 - 2021
+ * \date 18 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -286,6 +286,15 @@ public:
    * applied to the inner Block of each BendersBFunction.
    */
 
+  strRandomCutsFile ,
+  ///< name of the file out of which the random cuts will be retrieved
+  /**< A random cut is a cut associated with a particular scenario. This
+   * parameter indicates the path to the file out of which the random cuts
+   * will be deserialized. By default, the path to this file is empty, which
+   * means that no random cut is considered. If provided, the file must have
+   * the format specified by SDDPBlock::deserialize_random_cuts().
+   */
+
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -399,6 +408,12 @@ public:
   *   vstrBSCfg, it can come from the "extra" Configuration in the
   *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
   *
+  * - #strRandomCutsFile [""]: the filename (path) to the file containing the
+  *   random cuts (cuts associated with a particular scenario). By default,
+  *   the path to this file is empty, which means that no random cut is
+  *   considered. If provided, the file must have the format specified by
+  *   SDDPBlock::deserialize_random_cuts().
+  *
   * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
   * description of each of them.
   *
@@ -414,6 +429,9 @@ public:
     return;
    case( strInnerBSC ):
     f_inner_block_solver_config_filename = value;
+    return;
+   case( strRandomCutsFile ):
+    f_random_cuts_filename = value;
     return;
   }
   Solver::set_par( par , value );
@@ -515,7 +533,7 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values = { "" , "" };
+  static const std::vector<std::string> default_values = { "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -587,6 +605,7 @@ public:
   switch( par ) {
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
+   case( strRandomCutsFile ): return f_random_cuts_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -647,6 +666,7 @@ public:
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
+  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   return Solver::str_par_str2idx( name );
  }
 
@@ -705,7 +725,7 @@ public:
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strInnerBC" , "strInnerBSC" };
+   { "strInnerBC" , "strInnerBSC" , "strRandomCutsFile" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1079,11 +1099,14 @@ private:
  /// Indicates whether the initial state has already been set
  bool f_has_var_solution = false;
 
- /// The value of the solution (if any).
+ /// The value of the solution (if any)
  double solution_value = 0.0;
 
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
+
+ /// The name of the file containing the random cuts
+ std::string f_random_cuts_filename;
 
  /// Initial state for the first stage problem
  std::vector< double > initial_state;
