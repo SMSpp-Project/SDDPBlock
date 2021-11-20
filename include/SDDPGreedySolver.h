@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 11 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -277,14 +277,12 @@ public:
   strInnerBC = str_par_type_S::strLastAlgPar ,
   ///< name of the file containing the default BlockConfig for the inner Block
   /**< Name of the file containing the default BlockConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
 
   strInnerBSC ,
   ///< name of the file containing the default BlockSolverConfig for inner Block
   /**< Name of the file containing the default BlockSolverConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
 
   strRandomCutsFile ,
   ///< name of the file out of which the random cuts will be retrieved
@@ -292,8 +290,52 @@ public:
    * parameter indicates the path to the file out of which the random cuts
    * will be deserialized. By default, the path to this file is empty, which
    * means that no random cut is considered. If provided, the file must have
-   * the format specified by SDDPBlock::deserialize_random_cuts().
-   */
+   * the format specified by SDDPBlock::deserialize_random_cuts(). */
+
+  strSubgradientsFile ,
+  ///< name of the file in which subgradients of the objective will be saved
+  /**< This is the name of the file in which subgradients of the objectives of
+   * the subproblems will be saved. At each stage (except the first one), the
+   * subgradients of the objective function with respect to the initial state
+   * and with respect to the solution (final state) of the subproblem at that
+   * stage are computed. At the first stage, only the subgradient with respect
+   * to the solution of the first stage subproblem is computed. At the end of
+   * a call to compute(), these subgradients are output to the file whose name
+   * (path) is given by #strSubgradientsFile. This file will have the
+   * following format. The first line contains two integers: the time horizon
+   * T and the number of initial states that will be output (which is either T
+   * or T+1). This line is followed by T or T+1 lines, each one containing the
+   * initial state of some stage. Each of these lines have the following
+   * format:
+   *
+   *     t, s_0, s_1, ..., s_{k-1}
+   *
+   * where t is a stage between 0 and T and (s_0, ..., s_{k-1}) is the initial
+   * state (which has size k) for stage t. If an initial state has been
+   * provided (see #vdblInitialState) or the SDDPBlock contains an initial
+   * state (as returned by SDDPBlock::get_initial_state()), then T+1 initial
+   * states are output (for each t in {0, ..., T}). Otherwise, T initial
+   * states are output (for each t in {1, ..., T}). Notice that, although the
+   * stages that we consider are 0, ..., T-1, an initial state for stage T
+   * (which is a stage that has not been defined) is output. This is just the
+   * final state (solution) of the last stage subproblem.
+   *
+   * After that, each of the next 2*T - 1 lines contains a subgradient of the
+   * objective of the subproblem associated with a particular stage t and with
+   * respect to either the initial state or the final state. There are T
+   * subgradients with respect to the final state (one for each t in {0, ...,
+   * T-1}) and T-1 subgradients with respect to the initial state (one for
+   * each t in {1, ..., T-1}). Each of these lines has the following format:
+   *
+   *     t, s, a_0, ..., a_{k-1}
+   *
+   * where t is a stage between 0 and T-1, s is either the character I (for
+   * initial) or the character F (for final) indicating that the subgradient
+   * is with respect to the initial or the final state, respectively, and a_0,
+   * ..., a_{k-1} are the elements of the subgradient.
+   *
+   * By default, the path to this file is empty, which means that the
+   * subgradients of the objective function will not be output. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -1107,6 +1149,9 @@ private:
 
  /// The name of the file containing the random cuts
  std::string f_random_cuts_filename;
+
+ /// The name of the file in which the subgradients will be saved
+ std::string f_subgradients_filename;
 
  /// Initial state for the first stage problem
  std::vector< double > initial_state;
