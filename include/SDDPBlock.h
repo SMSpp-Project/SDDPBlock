@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 11 - 2021
+ * \date 19 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -610,16 +610,24 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the random cuts
- /** This function returns a two-dimension array containing the random
-  * cuts. If non-empty, the size of the first dimension is get_time_horizon()
-  * and the size of the second dimension is get_scenario_set().size(). By
-  * letting random_cuts denote the array returned by this function,
-  * random_cuts[t][s] is the PolyhedralFunction containing the random cuts
-  * associated with shate t and the scenario whose index is s. */
+ /// returns a random cut
+ /** This function returns the PolyhedralFunction representing the random cut
+  * associated with the given \p stage and the scenario whose index is \p
+  * scenario_index. The \p stage argument must be between 0 and
+  * get_time_horizon() - 1 while \p scenario_index must be between 0 and
+  * get_scenario_set().size() - 1. */
 
- const boost::multi_array< PolyhedralFunction , 2 > & get_random_cuts() const {
-  return random_cuts;
+ PolyhedralFunction & get_random_cut( Index stage , Index scenario_index ) {
+  if( stage >= get_time_horizon() )
+   throw( std::invalid_argument( "SDDPBlock::get_random_cut: invalid stage: " +
+                                 std::to_string( stage ) ) );
+
+  if( scenario_index >= get_scenario_set().size() )
+   throw( std::invalid_argument
+          ( "SDDPBlock::get_random_cut: invalid scenario index: " +
+            std::to_string( scenario_index ) ) );
+
+  return random_cuts[ stage ][ scenario_index ];
  }
 
 /**@} ----------------------------------------------------------------------*/
