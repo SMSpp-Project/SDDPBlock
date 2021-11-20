@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 11 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -396,6 +396,54 @@ void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
 
  // Add the given cuts
  polyhedral_function->add_rows( std::move( A ) , b );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
+                                  double alpha , Index stage ,
+                                  Index scenario_index ) {
+
+ assert( stage < get_time_horizon() );
+ assert( scenario_index < scenario_set.size() );
+
+ if( random_cuts.size() == 0 ) {
+  // Create the PolyhedralFunctions that will store the random cuts.
+
+#pragma omp critical (SDDPBlock_random_cut)
+  {
+   if( random_cuts.size() == 0 )
+    initialize_random_cuts();
+  }
+ }
+
+ random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
+                                                 alpha );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::initialize_random_cuts() {
+
+ const auto time_horizon = get_time_horizon();
+ const auto number_scenarios = scenario_set.size();
+ random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  const auto polyhedral_function = get_polyhedral_function( t );
+  PolyhedralFunction::VarVector active_variables
+   ( polyhedral_function->get_num_active_var() );
+  for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( polyhedral_function->get_active_var( i ) );
+
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   auto variables = active_variables;
+   random_cuts[ t ][ s ].set_variables( std::move( variables ) );
+   random_cuts[ t ][ s ].set_is_convex( polyhedral_function->is_convex() );
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/

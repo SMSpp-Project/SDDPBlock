@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 19 - 11 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -618,14 +618,14 @@ public:
   * get_scenario_set().size() - 1. */
 
  PolyhedralFunction & get_random_cut( Index stage , Index scenario_index ) {
-  if( stage >= get_time_horizon() )
-   throw( std::invalid_argument( "SDDPBlock::get_random_cut: invalid stage: " +
-                                 std::to_string( stage ) ) );
+  if( stage >= random_cuts.size() )
+   throw( std::invalid_argument( "SDDPBlock::get_random_cut: no random cut "
+                                 "for stage " + std::to_string( stage ) ) );
 
-  if( scenario_index >= get_scenario_set().size() )
+  if( scenario_index >= random_cuts[ stage ].size() )
    throw( std::invalid_argument
-          ( "SDDPBlock::get_random_cut: invalid scenario index: " +
-            std::to_string( scenario_index ) ) );
+          ( "SDDPBlock::get_random_cut: no random cut for scenario index " +
+            std::to_string( scenario_index ) + "." ) );
 
   return random_cuts[ stage ][ scenario_index ];
  }
@@ -736,38 +736,7 @@ public:
   *        given cut. */
 
  void store_random_cut( std::vector< double > && coefficients , double alpha ,
-                        Index stage , Index scenario_index ) {
-
-  assert( stage < get_time_horizon() );
-  assert( scenario_index < scenario_set.size() );
-
-  if( random_cuts.size() == 0 ) {
-   // Create the PolyhedralFunctions that will store the random cuts.
-
-   const auto time_horizon = get_time_horizon();
-   const auto number_scenarios = scenario_set.size();
-   random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
-
-   for( Index t = 0 ; t < time_horizon ; ++t ) {
-
-    const auto polyhedral_function = get_polyhedral_function( t );
-    PolyhedralFunction::VarVector active_variables
-     ( polyhedral_function->get_num_active_var() );
-    for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
-     active_variables[ i ] = static_cast< ColVariable * >
-      ( polyhedral_function->get_active_var( i ) );
-
-    for( Index s = 0 ; s < number_scenarios ; ++s ) {
-     auto variables = active_variables;
-     random_cuts[ t ][ s ].set_variables( std::move( variables ) );
-     random_cuts[ t ][ s ].set_is_convex( polyhedral_function->is_convex() );
-    }
-   }
-  }
-
-  random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
-                                                  alpha );
- }
+                        Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
 
@@ -1023,6 +992,11 @@ private:
   * @return A pointer to the Block that was deserialized.
   */
  Block * deserialize_sub_Block( const netCDF::NcGroup & group , Index i );
+
+ /*--------------------------------------------------------------------------*/
+
+ /// initializes the structure that stores the random cuts
+ void initialize_random_cuts();
 
 /*--------------------------------------------------------------------------*/
 
