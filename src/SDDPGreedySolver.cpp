@@ -520,6 +520,22 @@ void SDDPGreedySolver::store_subgradient_initial_state
  auto & polyhedral_function = sddp_block->get_random_cut
   ( stage - 1 , scenario_index );
 
+ if( polyhedral_function.get_num_active_var() == 0 ) {
+  // The PolyhedralFunction representing the random cut has no
+  // Variables. Thus, collect the active Variables of the PolyhedralFunction
+  // representing the future cost function at the given stage and make them
+  // active Variables of the random cut.
+  const auto future_cost_function =
+   sddp_block->get_polyhedral_function( stage );
+  PolyhedralFunction::VarVector active_variables
+   ( future_cost_function->get_num_active_var() );
+  for( Index i = 0 ; i < future_cost_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( future_cost_function->get_active_var( i ) );
+
+  polyhedral_function.set_variables( std::move( active_variables ) );
+ }
+
  /* In order to evaluate the PolyhedralFunction at the initial state, we must
   * set the values of its active Variables to be equal to the initial
   * state. Thus, we save the current values of the active Variables in order
