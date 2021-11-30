@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 15 - 03 - 2021
+ * \date 23 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -92,7 +92,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
 
- auto time_horizon = get_time_horizon();
+ const auto time_horizon = get_time_horizon();
  status_compute = Solver::kLowPrecision;
  fault_stage = Inf<Index>();
  solution_value = 0.0;
@@ -100,9 +100,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  // Initial state for the first stage problem
  if( time_horizon > 0 ) {
-  if( ! initial_state.empty() )
+  if( ! v_initial_state.empty() )
    // Use the initial state given as parameter to the SDDPGreedySolver
-   set_state( initial_state , 0 );
+   set_state( v_initial_state , 0 );
   else {
    const auto & state =
     static_cast< SDDPBlock * >( f_Block )->get_initial_state();
@@ -111,6 +111,11 @@ int SDDPGreedySolver::compute( bool changedvars ) {
     set_state( state , 0 );
   }
  }
+
+ // If required, load the random cuts
+ if( ! f_random_cuts_filename.empty() )
+  static_cast< SDDPBlock * >( f_Block )->
+   deserialize_random_cuts( f_random_cuts_filename );
 
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
@@ -159,6 +164,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   }
   else {
    solution_value += get_sub_solution_value( stage );
+
+   if( ! f_subgradients_filename.empty() )
+    store_subgradients( stage , scenario_id );
   }
 
   if( f_unregister_solver )
@@ -175,6 +183,10 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   ( status_compute == Solver::kLowPrecision ) ||
   ( status_compute == Solver::kStopIter ) ||
   ( status_compute == Solver::kStopTime );
+
+ // Output the subgradients if required.
+
+ output_subgradients( f_subgradients_filename );
 
  return status_compute;
 }
@@ -410,6 +422,224 @@ void SDDPGreedySolver::process_outstanding_Modification( void ) {
 
 void SDDPGreedySolver::set_scenario( Index stage ) {
  static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::store_subgradients( Index stage ,
+                                           Index scenario_index ) {
+
+ // First, we store the initial state.
+
+ std::vector< double > initial_state;
+
+ if( stage == 0 ) {
+  // Store the initial state of the first stage problem.
+
+  if( ! v_initial_state.empty() )
+   // Use the initial state given as parameter to the SDDPGreedySolver.
+   initial_state = v_initial_state;
+  else {
+   // Use the initial state given by SDDPBlock.
+   initial_state = static_cast< SDDPBlock * >( f_Block )->get_initial_state();
+  }
+
+  if( ! initial_state.empty() )
+   f_subgradients.store_initial_state( initial_state , 0 );
+ }
+
+ // Store the solution at the given stage as the initial state of the next
+ // stage.
+
+ f_subgradients.store_initial_state( get_solution( stage ) , stage + 1 );
+
+ // Store the subgradient with respect to the final state.
+ store_subgradient_final_state( stage );
+
+ if( stage > 0 ) {
+  // Store the subgradient with respect to the initial state.
+  store_subgradient_initial_state( stage , scenario_index ,
+                                   get_solution( stage - 1 ) );
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::store_subgradient_final_state( Index stage ) {
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+
+ // There must be a single PolyhedralFunction per sub-Block.
+ assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
+
+ // The solution is already written into the Block, so there is no need to set
+ // the values of the active Variables of the PolyhedralFunction.
+
+ // Find the index of the active row.
+
+ auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
+ polyhedral_function->compute();
+
+ std::vector< double > subgradient;
+
+ if( polyhedral_function->has_linearization() ) {
+  // The PolyhedralFunction has a linearization and, therefore, there is a row
+  // that is active. By optimality conditions, a subgradient of the objective
+  // function if given by *minus* the cut of the future cost function that is
+  // active at the final state.
+  subgradient.resize( polyhedral_function->get_num_active_var() );
+  polyhedral_function->get_linearization_coefficients( subgradient.data() );
+ }
+ else if( polyhedral_function->get_value() ==
+          polyhedral_function->get_global_bound() ) {
+  // The bound is active, so the subgradient is zero.
+  subgradient.assign( polyhedral_function->get_num_active_var() , 0.0 );
+ }
+
+ if( ! subgradient.empty() ) {
+  // Store the subgradient.
+  f_subgradients.store_subgradient_final_state( std::move( subgradient ) ,
+                                                stage );
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::store_subgradient_initial_state
+( Index stage , Index scenario_index ,
+  const std::vector< double > & initial_state ) {
+
+ if( stage == 0 )
+  return;
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+
+ // Get the random cut associated with the previous stage and the given
+ // scenario index.
+
+ auto & polyhedral_function = sddp_block->get_random_cut
+  ( stage - 1 , scenario_index );
+
+ if( polyhedral_function.get_num_active_var() == 0 ) {
+  // The PolyhedralFunction representing the random cut has no
+  // Variables. Thus, collect the active Variables of the PolyhedralFunction
+  // representing the future cost function at the given stage and make them
+  // active Variables of the random cut.
+  const auto future_cost_function =
+   sddp_block->get_polyhedral_function( stage );
+  PolyhedralFunction::VarVector active_variables
+   ( future_cost_function->get_num_active_var() );
+  for( Index i = 0 ; i < future_cost_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( future_cost_function->get_active_var( i ) );
+
+  polyhedral_function.set_variables( std::move( active_variables ) );
+ }
+
+ /* In order to evaluate the PolyhedralFunction at the initial state, we must
+  * set the values of its active Variables to be equal to the initial
+  * state. Thus, we save the current values of the active Variables in order
+  * to undo this modification at the end. */
+
+ std::vector< double > original_variable_values;
+ original_variable_values.reserve( polyhedral_function.get_num_active_var() );
+
+ auto initial_state_it = std::cbegin( initial_state );
+
+ for( auto & variable : polyhedral_function ) {
+  auto & col_variable = static_cast< ColVariable & >( variable );
+
+  // Save the current value of the active Variable.
+  original_variable_values.push_back( col_variable.get_value() );
+
+  // Change the value of the active Variable.
+  col_variable.set_value( * ( initial_state_it++ ) );
+ }
+
+ // Compute the PolyhedralFunction and obtain the index of the active row.
+
+ polyhedral_function.compute();
+
+ std::vector< double > subgradient;
+
+ if( polyhedral_function.has_linearization() ) {
+  // The PolyhedralFunction has a linearization and, therefore, there is a row
+  // that is active. By optimality conditions, a subgradient of the objective
+  // function if given by *minus* the cut of the future cost function that is
+  // active at the final state.
+  subgradient.resize( polyhedral_function.get_num_active_var() );
+  polyhedral_function.get_linearization_coefficients( subgradient.data() );
+ }
+ else if( polyhedral_function.get_value() ==
+          polyhedral_function.get_global_bound() ) {
+  // The bound is active, so the subgradient is zero.
+  subgradient.assign( polyhedral_function.get_num_active_var() , 0.0 );
+ }
+
+ if( ! subgradient.empty() ) {
+  // Store the subgradient.
+  f_subgradients.store_subgradient_initial_state
+   ( std::move( subgradient ) , stage );
+ }
+
+ // Put back the original values of the active Variables.
+
+ auto original_variable_values_it = std::cbegin( original_variable_values );
+ for( auto & variable : polyhedral_function ) {
+  auto & col_variable = static_cast< ColVariable & >( variable );
+  col_variable.set_value( * ( original_variable_values_it++ ) );
+ }
+
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::output_subgradients
+( const std::string & filename ) const {
+
+ if( filename.empty() )
+  return;
+
+ std::ofstream file( filename );
+
+ if( ! file.is_open() )
+  throw( std::runtime_error( "SDDPGreedySolver::output_subgradients: it was "
+                             "not possible to open the file \"" +
+                             filename + "\"." ) );
+
+ const auto separator = ",";
+
+ file << get_time_horizon() << separator
+      << f_subgradients.initial_states.size() << std::endl;
+
+ // Initial states
+
+ for( const auto & state : f_subgradients.initial_states ) {
+  file << state.first;
+  for( const auto & component : state.second )
+   file << separator << component;
+  file << std::endl;
+ }
+
+ // Subgradients with respect to the initial state
+
+ for( const auto & subgradient : f_subgradients.subgradients_initial_state ) {
+  file << subgradient.first << separator << "I";
+  for( const auto & component : subgradient.second )
+   file << separator << component;
+  file << std::endl;
+ }
+
+ // Subgradients with respect to the final state
+
+ for( const auto & subgradient : f_subgradients.subgradients_final_state ) {
+  file << subgradient.first << separator << "F";
+  for( const auto & component : subgradient.second )
+   file << separator << component;
+  file << std::endl;
+ }
+
+ file.close();
 }
 
 /*--------------------------------------------------------------------------*/

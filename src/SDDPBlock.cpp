@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 05 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -278,6 +278,76 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
 }
 
 /*--------------------------------------------------------------------------*/
+
+void SDDPBlock::deserialize_random_cuts( const std::string & filename ) {
+
+ if( filename.empty() )
+  return;
+
+ netCDF::NcFile file( filename.c_str() , netCDF::NcFile::read );
+
+ const auto TimeHorizon = file.getDim( "TimeHorizon" );
+ if( TimeHorizon.isNull() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the dimension TimeHorizon "
+           "was not provided." ) );
+
+ const auto time_horizon = TimeHorizon.getSize();
+
+ if( time_horizon != get_time_horizon() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the expected TimeHorizon "
+           "dimension is " + std::to_string( get_time_horizon() ) +
+           ", but " + std::to_string( time_horizon ) + " was given." ) );
+
+ const auto NumberScenarios = file.getDim( "NumberScenarios" );
+
+ if( NumberScenarios.isNull() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the dimension "
+           "NumberScenarios was not provided." ) );
+
+ const auto number_scenarios = NumberScenarios.getSize();
+
+ if( number_scenarios != scenario_set.size() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the expected NumberScenarios "
+           "dimension is " + std::to_string( scenario_set.size() ) +
+           ", but " + std::to_string( number_scenarios ) + " was given." ) );
+
+ // Possibly clear the previous random cuts
+ random_cuts.resize( boost::extents[ 0 ][ 0 ] );
+
+ // Create the random cuts
+ random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  // Collect the active Variables of the PolyhedralFunction at stage t
+  const auto polyhedral_function = get_polyhedral_function( t );
+  PolyhedralFunction::VarVector active_variables
+   ( polyhedral_function->get_num_active_var() );
+  for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( polyhedral_function->get_active_var( i ) );
+
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   // Set the active Variables of the PolyhedralFunction
+   auto variables = active_variables;
+   random_cuts[ t ][ s ].set_variables( std::move( variables ) );
+
+   // Deserialize the PolyhedralFunction (if provided)
+   auto group_name = "PolyhedralFunction_" +
+    std::to_string( t ) + "_" + std::to_string( s );
+   auto group = file.getGroup( group_name );
+   if( group.isNull() )
+    continue;
+   random_cuts[ t ][ s ].deserialize( group );
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -326,6 +396,54 @@ void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
 
  // Add the given cuts
  polyhedral_function->add_rows( std::move( A ) , b );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
+                                  double alpha , Index stage ,
+                                  Index scenario_index ) {
+
+ assert( stage < get_time_horizon() );
+ assert( scenario_index < scenario_set.size() );
+
+ if( random_cuts.size() == 0 ) {
+  // Create the PolyhedralFunctions that will store the random cuts.
+
+#pragma omp critical (SDDPBlock_random_cut)
+  {
+   if( random_cuts.size() == 0 )
+    initialize_random_cuts();
+  }
+ }
+
+ random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
+                                                 alpha );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::initialize_random_cuts() {
+
+ const auto time_horizon = get_time_horizon();
+ const auto number_scenarios = scenario_set.size();
+ random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  const auto polyhedral_function = get_polyhedral_function( t );
+  PolyhedralFunction::VarVector active_variables
+   ( polyhedral_function->get_num_active_var() );
+  for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( polyhedral_function->get_active_var( i ) );
+
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   auto variables = active_variables;
+   random_cuts[ t ][ s ].set_variables( std::move( variables ) );
+   random_cuts[ t ][ s ].set_is_convex( polyhedral_function->is_convex() );
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/
@@ -487,6 +605,31 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  ::SMSpp_di_unipi_it::serialize( group , "AdmissibleState" ,
                                  netCDF::NcDouble() , AdmissibleState_dim ,
                                  admissible_states , false );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::serialize_random_cuts( const std::string & filename ) const {
+
+ if( filename.empty() || ( random_cuts.num_elements() == 0 ) )
+  return;
+
+ netCDF::NcFile file( filename , netCDF::NcFile::replace );
+
+ const auto time_horizon = get_time_horizon();
+ file.addDim( "TimeHorizon" , time_horizon );
+
+ const auto number_scenarios = random_cuts[ 0 ].size();
+ file.addDim( "NumberScenarios" , number_scenarios );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   auto group_name = "PolyhedralFunction_" +
+    std::to_string( t ) + "_" + std::to_string( s );
+   auto group = file.addGroup( group_name );
+   random_cuts[ t ][ s ].serialize( group );
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/

@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 15 - 03 - 2021
+ * \date 23 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -277,14 +277,65 @@ public:
   strInnerBC = str_par_type_S::strLastAlgPar ,
   ///< name of the file containing the default BlockConfig for the inner Block
   /**< Name of the file containing the default BlockConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
 
   strInnerBSC ,
   ///< name of the file containing the default BlockSolverConfig for inner Block
   /**< Name of the file containing the default BlockSolverConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
+
+  strRandomCutsFile ,
+  ///< name of the file out of which the random cuts will be retrieved
+  /**< A random cut is a cut associated with a particular scenario. This
+   * parameter indicates the path to the file out of which the random cuts
+   * will be deserialized. By default, the path to this file is empty, which
+   * means that no random cut is considered. If provided, the file must have
+   * the format specified by SDDPBlock::deserialize_random_cuts(). */
+
+  strSubgradientsFile ,
+  ///< name of the file in which subgradients of the objective will be saved
+  /**< This is the name of the file in which subgradients of the objectives of
+   * the subproblems will be saved. At each stage (except the first one), the
+   * subgradients of the objective function with respect to the initial state
+   * and with respect to the solution (final state) of the subproblem at that
+   * stage are computed. At the first stage, only the subgradient with respect
+   * to the solution of the first stage subproblem is computed. At the end of
+   * a call to compute(), these subgradients are output to the file whose name
+   * (path) is given by #strSubgradientsFile. This file will have the
+   * following format. The first line contains two integers: the time horizon
+   * T and the number of initial states that will be output (which is either T
+   * or T+1) separated by comma. This line is followed by T or T+1 lines, each
+   * one containing the initial state of some stage. Each of these lines have
+   * the following format:
+   *
+   *     t, s_0, s_1, ..., s_{k-1}
+   *
+   * where t is a stage between 0 and T and (s_0, ..., s_{k-1}) is the initial
+   * state (which has size k) for stage t. If an initial state has been
+   * provided (see #vdblInitialState) or the SDDPBlock contains an initial
+   * state (as returned by SDDPBlock::get_initial_state()), then T+1 initial
+   * states are output (for each t in {0, ..., T}). Otherwise, T initial
+   * states are output (for each t in {1, ..., T}). Notice that, although the
+   * stages that we consider are 0, ..., T-1, an initial state for stage T
+   * (which is a stage that has not been defined) is output. This is just the
+   * final state (solution) of the last stage subproblem.
+   *
+   * After that, each of the next 2*T - 1 lines contains a subgradient of the
+   * objective of the subproblem associated with a particular stage t and with
+   * respect to either the initial state or the final state. There are T
+   * subgradients with respect to the final state (one for each t in {0, ...,
+   * T-1}) and T-1 subgradients with respect to the initial state (one for
+   * each t in {1, ..., T-1}). Each of these lines has the following format:
+   *
+   *     t, s, a_0, ..., a_{k-1}
+   *
+   * where t is a stage between 0 and T-1, s is either the character I (for
+   * initial) or the character F (for final) indicating that the subgradient
+   * is with respect to the initial or the final state, respectively, and a_0,
+   * ..., a_{k-1} are the elements of the subgradient.
+   *
+   * By default, the path to this file is empty, which means that the
+   * subgradients of the objective function will not be output. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -399,6 +450,16 @@ public:
   *   vstrBSCfg, it can come from the "extra" Configuration in the
   *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
   *
+  * - #strRandomCutsFile [""]: the filename (path) to the file containing the
+  *   random cuts (cuts associated with a particular scenario). By default,
+  *   the path to this file is empty, which means that no random cut is
+  *   considered. If provided, the file must have the format specified by
+  *   SDDPBlock::deserialize_random_cuts().
+  *
+  * - #strSubgradientsFile [""]: the filename (path) to the file to which the
+  *   subgradients (if any) will be output. By default, the path to this file
+  *   is empty, which means that no subgradient is output.
+  *
   * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
   * description of each of them.
   *
@@ -414,6 +475,12 @@ public:
     return;
    case( strInnerBSC ):
     f_inner_block_solver_config_filename = value;
+    return;
+   case( strRandomCutsFile ):
+    f_random_cuts_filename = value;
+    return;
+   case( strSubgradientsFile ):
+    f_subgradients_filename = value;
     return;
   }
   Solver::set_par( par , value );
@@ -438,7 +505,7 @@ public:
 
  void set_par( idx_type par , std::vector< double > && value ) override {
   switch( par ) {
-   case( vdblInitialState ): initial_state = value; return;
+   case( vdblInitialState ): v_initial_state = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -515,7 +582,7 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values = { "" , "" };
+  static const std::vector<std::string> default_values = { "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -587,6 +654,8 @@ public:
   switch( par ) {
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
+   case( strRandomCutsFile ): return f_random_cuts_filename;
+   case( strSubgradientsFile ): return f_subgradients_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -606,7 +675,7 @@ public:
  const std::vector< double > & get_vdbl_par( const idx_type par )
   const override {
   switch( par ) {
-   case( vdblInitialState ): return initial_state;
+   case( vdblInitialState ): return v_initial_state;
   }
   return Solver::get_vdbl_par( par );
  }
@@ -647,6 +716,8 @@ public:
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
+  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
+  if( name == "strSubgradientsFile" ) return strSubgradientsFile;
   return Solver::str_par_str2idx( name );
  }
 
@@ -705,7 +776,8 @@ public:
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strInnerBC" , "strInnerBSC" };
+   { "strInnerBC" , "strInnerBSC" , "strRandomCutsFile" ,
+     "strSubgradientsFile" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -955,6 +1027,36 @@ protected:
 private:
 
 /*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE CLASSES -------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ class Subgradients {
+
+  using matrix = std::vector< std::pair< Index , std::vector< double > > >;
+
+ public:
+
+  void store_initial_state( const std::vector< double > & initial_state ,
+                            Index stage ) {
+   initial_states.emplace_back( stage , initial_state );
+  }
+
+  void store_subgradient_final_state( std::vector< double > && subgradient ,
+                                      Index stage ) {
+   subgradients_final_state.emplace_back( stage , std::move( subgradient ) );
+  }
+
+  void store_subgradient_initial_state( std::vector< double > && subgradient ,
+                                        Index stage ) {
+   subgradients_initial_state.emplace_back( stage , std::move( subgradient ) );
+  }
+
+  matrix subgradients_initial_state;
+  matrix subgradients_final_state;
+  matrix initial_states;
+ };
+
+/*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -1067,6 +1169,33 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// output the subgradients (if any)
+ /** This function outputs the subgradients with respect to the initial and
+  * final states, as well as the initial states, into the file with the given
+  * \p filename. The format of the file will follow that specified in the
+  * description of #strSubgradientsFile.
+  *
+  * @param filename The name of the file in which the subgradients and initial
+  * states should be stored. */
+
+ void output_subgradients( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ void store_subgradients( Index stage , Index scenario_index );
+
+/*--------------------------------------------------------------------------*/
+
+ void store_subgradient_final_state( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ void store_subgradient_initial_state
+  ( Index stage , Index scenario_index ,
+    const std::vector< double > & initial_state );
+
+/*--------------------------------------------------------------------------*/
+
  SMSpp_insert_in_factory_h;
 
 /*--------------------------------------------------------------------------*/
@@ -1079,14 +1208,23 @@ private:
  /// Indicates whether the initial state has already been set
  bool f_has_var_solution = false;
 
- /// The value of the solution (if any).
+ /// The value of the solution (if any)
  double solution_value = 0.0;
 
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
 
+ /// The name of the file containing the random cuts
+ std::string f_random_cuts_filename;
+
+ /// The name of the file in which the subgradients will be saved
+ std::string f_subgradients_filename;
+
  /// Initial state for the first stage problem
- std::vector< double > initial_state;
+ std::vector< double > v_initial_state;
+
+ /// Subgradients of the objective of the subproblems
+ Subgradients f_subgradients;
 
 };   // end( class SDDPGreedySolver )
 

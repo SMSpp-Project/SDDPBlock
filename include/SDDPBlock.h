@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 05 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -375,6 +375,28 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// deserialize the random cuts
+ /** This function deserializes the random cuts out of the file whose path is
+  * given by \p filename. If the path to the file is empty, then no operation
+  * is performed. The file must have the following netCDF format:
+  *
+  * - The netCDF dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The netCDF dimension "NumberScenarios" containing the number of
+      scenarios.
+  *
+  * - The netCDF group "PolyhedralFunction_t_s", for each t in {0, ...,
+  *   TimeHorizon - 1} and s in {0, ..., NumberScenarios - 1}, containing the
+  *   serialization of the PolyhedralFunction representing the random cuts
+  *   associated with stage t and scenario s.
+  *
+  * @param filename The path to the file containing the netCDF description of
+  *        the random cuts. */
+
+ void deserialize_random_cuts( const std::string & filename );
+
+/*--------------------------------------------------------------------------*/
+
  /// sets the number of sub-Blocks for each stage
  /** This function sets the number of sub-Blocks that must be constructed at
   * each stage. If this function is invoked after the sub-Blocks of this
@@ -403,6 +425,30 @@ public:
   */
 
  void serialize( netCDF::NcGroup & group ) const override;
+
+/*--------------------------------------------------------------------------*/
+
+ /// serialize the random cuts
+ /** This function serializes the random cuts in the file with the given name
+  * (path). If \p filename is empty, then no operation is performed. The file
+  * will have the following netCDF format:
+  *
+  * - The dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The dimension "NumberScenarios" containing the number of scenarios.
+  *
+  * - The group "PolyhedralFunction_t_s", for each t in {0, ..., TimeHorizon -
+  *   1} and s in {0, ..., NumberScenarios - 1}, containing the serialization
+  *   of the PolyhedralFunction representing the random cuts associated with
+  *   stage t and scenario s. Each individual group is optional. If the group
+  *   "PolyhedralFunction_t_s" is not provided, then the PolyhedralFunction
+  *   associated with stage t and scenario s will not be loaded (which means
+  *   it will have no cuts).
+  *
+  * @param filename The name of the file in which the random cuts will be
+  *        serialized. */
+
+ void serialize_random_cuts( const std::string & filename ) const;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
@@ -562,6 +608,28 @@ public:
   return initial_state;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns a random cut
+ /** This function returns the PolyhedralFunction representing the random cut
+  * associated with the given \p stage and the scenario whose index is \p
+  * scenario_index. The \p stage argument must be between 0 and
+  * get_time_horizon() - 1 while \p scenario_index must be between 0 and
+  * get_scenario_set().size() - 1. */
+
+ PolyhedralFunction & get_random_cut( Index stage , Index scenario_index ) {
+  if( stage >= random_cuts.size() )
+   throw( std::invalid_argument( "SDDPBlock::get_random_cut: no random cut "
+                                 "for stage " + std::to_string( stage ) ) );
+
+  if( scenario_index >= random_cuts[ stage ].size() )
+   throw( std::invalid_argument
+          ( "SDDPBlock::get_random_cut: no random cut for scenario index " +
+            std::to_string( scenario_index ) + "." ) );
+
+  return random_cuts[ stage ][ scenario_index ];
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -648,6 +716,27 @@ public:
              number_cuts_to_keep );
   }
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// store the given random cut
+ /** This function store the random cut given by \p coefficients and \p alpha,
+  * which must be associated with the given \p stage and with the scenario
+  * whose index is \p scenario_index.
+  *
+  * @param coefficients The coefficients of the cut.
+  *
+  * @param alpha The constant of the cut.
+  *
+  * @param stage The stage (a number between 0 and get_time_horizon() - 1)
+  *        associated with the given cut.
+  *
+  * @param scenario_index The index (a number between 0 and
+  *        get_scenario_set().size() - 1) of the scenario associated with the
+  *        given cut. */
+
+ void store_random_cut( std::vector< double > && coefficients , double alpha ,
+                        Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
 
@@ -870,6 +959,11 @@ protected:
  /// An initial state for the first stage problem
  std::vector< double > initial_state;
 
+ /// Random cuts for each stage and each scenario
+ /** This boost::multi_array stores the random cuts for all stages and all
+  * scenarios. A random cut is a cut associated with a particular scenario. */
+ boost::multi_array< PolyhedralFunction , 2 > random_cuts;
+
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -898,6 +992,11 @@ private:
   * @return A pointer to the Block that was deserialized.
   */
  Block * deserialize_sub_Block( const netCDF::NcGroup & group , Index i );
+
+ /*--------------------------------------------------------------------------*/
+
+ /// initializes the structure that stores the random cuts
+ void initialize_random_cuts();
 
 /*--------------------------------------------------------------------------*/
 
