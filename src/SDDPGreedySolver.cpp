@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 23 - 11 - 2021
+ * \date 04 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -636,6 +636,24 @@ void SDDPGreedySolver::output_subgradients
   file << subgradient.first << separator << "F";
   for( const auto & component : subgradient.second )
    file << separator << component;
+  file << std::endl;
+ }
+
+ // Finally, we output the scenarios
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ const auto & scenario_set = sddp_block->get_scenario_set();
+
+ for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+  auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
+  auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
+
+  file << stage;
+
+  for( auto scenario_it = scenario_begin ; scenario_it != scenario_end ;
+       ++scenario_it )
+   file << separator << *scenario_it;
   file << std::endl;
  }
 

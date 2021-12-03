@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 23 - 11 - 2021
+ * \date 04 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -295,18 +295,20 @@ public:
   strSubgradientsFile ,
   ///< name of the file in which subgradients of the objective will be saved
   /**< This is the name of the file in which subgradients of the objectives of
-   * the subproblems will be saved. At each stage (except the first one), the
-   * subgradients of the objective function with respect to the initial state
-   * and with respect to the solution (final state) of the subproblem at that
-   * stage are computed. At the first stage, only the subgradient with respect
-   * to the solution of the first stage subproblem is computed. At the end of
-   * a call to compute(), these subgradients are output to the file whose name
-   * (path) is given by #strSubgradientsFile. This file will have the
-   * following format. The first line contains two integers: the time horizon
-   * T and the number of initial states that will be output (which is either T
-   * or T+1) separated by comma. This line is followed by T or T+1 lines, each
-   * one containing the initial state of some stage. Each of these lines have
-   * the following format:
+   * the subproblems, as well as initial states and scenarios, will be
+   * saved. At each stage (except the first one), the subgradients of the
+   * objective function with respect to the initial state and with respect to
+   * the solution (final state) of the subproblem at that stage are
+   * computed. At the first stage, only the subgradient with respect to the
+   * solution of the first stage subproblem is computed. At the end of a call
+   * to compute(), these subgradients are output to the file whose name (path)
+   * is given by #strSubgradientsFile. This file will have the following
+   * format. The first line contains two integers: the time horizon T and the
+   * number of initial states that will be output (which is either T or T+1)
+   * separated by comma. This line is followed by T or T+1 lines (depending on
+   * whether an initial state for the first stage subproblem has been
+   * provided), each one containing the initial state of some stage. Each of
+   * these lines have the following format:
    *
    *     t, s_0, s_1, ..., s_{k-1}
    *
@@ -333,6 +335,15 @@ public:
    * initial) or the character F (for final) indicating that the subgradient
    * is with respect to the initial or the final state, respectively, and a_0,
    * ..., a_{k-1} are the elements of the subgradient.
+   *
+   * Finally, the scenario considered during compute() (which can be set by
+   * the #intScenarioId parameter or by the function set_scenario_id()) is
+   * output in the last T lines. Each of these lines has the form:
+   *
+   *     t, scenario_t
+   *
+   * where t is a stage in {0, ..., T-1} and scenario_t is a vector containing
+   * the scenario for the stage t.
    *
    * By default, the path to this file is empty, which means that the
    * subgradients of the objective function will not be output. */
