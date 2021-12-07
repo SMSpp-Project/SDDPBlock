@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Multiple parameters to SDDPSolver and SDDPGreedySolver.
+- Support for multiple sub-Blocks per stage in SDDPBlock.
+- ParallelSDDPSolver.
+- SDDPSolverState.
+- SDDPSolver::set_ComputeConfig().
+- Handling Configuration for get_var_solution().
+- Storage of random cuts.
+
+### Changed
+
+- Cuts provided by StOpt are added incrementally.
+
+### Fixed
+
+- Objective value of subproblem in SDDPGreedySolver.
+- Bug in oneStepForward() regarding the simulation id.
+
 ## [0.4.0] - 2021-05-02
 
 ### Added
