@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 04 - 12 - 2021
+ * \date 08 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -242,7 +242,21 @@ public:
   ///< The id of the scenario that must be considered
   /**< This is the id of the scenario that must be considered when trying to
    * solve the deterministic (single-scenario) multistage problem. It must be
-   * a valid id for a scenario handled by the SDDPBlock. */
+   * a valid id for a scenario handled by the SDDPBlock. By default, its value
+   * is 0. */
+
+  intFirstStageScenarioId ,
+  ///< The id of the scenario to be considered at the first stage
+  /**< This parameter specifies the id of the scenario that must be considered
+   * while solving the subproblem at the first stage. If it is -1, then the id
+   * of the scenario to be considered at the first stage is that specified by
+   * #intScenarioId. Otherwise, if it is negative (less than -1), it means
+   * that no scenario must be set while solving the sub-problem at the first
+   * stage (i.e., the data for that subproblem has already been set, except
+   * possibly the initial state). If it is nonnegative, it must be a number
+   * between 0 and the total number of scenarios minus 1. By default, its
+   * value is -1 (i.e., the id of the scenario for the first stage is that
+   * given by #intScenarioId). */
 
   intUnregisterSolver ,
   ///< Indicates whether Solver(s) of the inner Block must be unregistered
@@ -413,6 +427,8 @@ public:
   *
   * - #intScenarioId [0]
   *
+  * - #intFirstStageScenarioId [-1]
+  *
   * - #intUnregisterSolver [0]
   *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
@@ -426,6 +442,8 @@ public:
  void set_par( const idx_type par , const int value ) override {
   switch( par ) {
    case( intScenarioId ): set_scenario_id( value ); return;
+   case( intFirstStageScenarioId ):
+    set_first_stage_scenario_id( value ); return;
    case( intUnregisterSolver ): f_unregister_solver = value; return;
    case( intLogVerb ): log_verbosity = value; return;
   }
@@ -573,6 +591,7 @@ public:
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
    case( intScenarioId ): return 0;
+   case( intFirstStageScenarioId ): return -1;
    case( intUnregisterSolver ): return 0;
    case( intLogVerb ): return 0;
   }
@@ -642,7 +661,8 @@ public:
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
-   case( intScenarioId ): return scenario_id;
+   case( intScenarioId ): return f_scenario_id;
+   case( intFirstStageScenarioId ): return f_first_stage_scenario_id;
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
   }
@@ -708,6 +728,7 @@ public:
 
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
+  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intUnregisterSolver" ) return intUnregisterSolver;
   return Solver::int_par_str2idx( name );
  }
@@ -764,7 +785,7 @@ public:
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "intScenarioId" , "intUnregisterSolver" };
+   { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -866,12 +887,38 @@ public:
   * solve the deterministic single-scenario problem. The \p scenario_id
   * parameter must be the id of a scenario handled by the SDDPBlock.
   *
-  * @param scenario_id The id of the scenario
-  */
+  * @param scenario_id The id of the scenario. */
+
  void set_scenario_id( Index scenario_id ) {
-  if( this->scenario_id == scenario_id )
+  if( f_scenario_id == scenario_id )
    return;
-  this->scenario_id = scenario_id;
+  f_scenario_id = scenario_id;
+  status_compute = Solver::kUnEval;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario that should be considered at the first stage
+ /** This method defines which scenario should be considered at the first
+  * stage when trying to solve the deterministic single-scenario problem. The
+  * \p scenario_id parameter must be one of the following:
+  *
+  * - the id of a scenario handled by the SDDPBlock, which will then be the
+  *   scenario considered at the first stage;
+  *
+  * - -1, which means that the id of the scenario considered at the first
+  *   stage is that given by get_scenario_id();
+  *
+  * - any other negative number, which means that no scenario must be set
+  *   while solving the sub-problem at the first stage (i.e., the data for the
+  *   first stage subproblem has already been set).
+  *
+  * @param scenario_id The id of a scenario or a negative number. */
+
+ void set_first_stage_scenario_id( int scenario_id ) {
+  if( f_first_stage_scenario_id == scenario_id )
+   return;
+  f_first_stage_scenario_id = scenario_id;
   status_compute = Solver::kUnEval;
  }
 
@@ -939,10 +986,34 @@ public:
   * when trying to solve the deterministic (single-scenario) multistage
   * problem.
   *
-  * @return The id of the scenario to be considered
+  * @return The id of the scenario to be considered.
   */
  Index get_scenario_id( void ) const {
-  return scenario_id;
+  return f_scenario_id;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the id of the scenario considered at the first stage
+ /** This method returns the id of the scenario considered at the first stage
+  * when trying to solve the deterministic (single-scenario) multistage
+  * problem or a negative number as follows:
+  *
+  * - If the value returned is nonnegative, then it is the id of a scenario
+  *   handled by the SDDPBlock, which is the scenario considered at the first
+  *   stage.
+  *
+  * - If the value returned is -1, then scenario considered at the first stage
+  *   is that given by get_scenario_id().
+  *
+  * - If the value returned is any other negative number then this means that
+  *   no scenario must be set while solving the sub-problem at the first
+  *   stage.
+  *
+  * @return The id of the scenario to be considered or a negative number.
+  */
+ Index get_first_stage_scenario_id( void ) const {
+  return f_first_stage_scenario_id;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -961,11 +1032,13 @@ public:
  /// sets the scenario to be considered
  /** This method updates the sub-Block of the SDDPBlock associated with the
   *  given \p stage with the data provided by the scenario whose id is
-  *  given by the method get_scenario_id().
+  *  \p scenario_id.
+  *
+  * @param scenario_id The id of a scenario handled by the SDDPBlock.
   *
   * @param stage An integer between 0 and get_time_horizon() - 1.
   */
- void set_scenario( Index stage );
+ void set_scenario( Index scenario_id , Index stage );
 
 /*--------------------------------------------------------------------------*/
 
@@ -989,7 +1062,10 @@ protected:
 /*--------------------------------------------------------------------------*/
 
  /// The id of the scenario that should be considered
- Index scenario_id = 0;
+ Index f_scenario_id = 0;
+
+ /// The id of the scenario that should be considered at the first stage
+ int f_first_stage_scenario_id = -1;
 
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();

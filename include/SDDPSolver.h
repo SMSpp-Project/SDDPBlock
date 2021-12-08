@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 11 - 2021
+ * \date 08 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -298,15 +298,15 @@ public:
    * and #strRandomCutsFile parameters. The default value for this parameter
    * is 0 (i.e., no file output is performed). */
 
-  intFirstStageScenarioIndex ,
-  ///< The index of the scenario to be considered at the first stage
-  /**< This parameter specifies the index of the scenario that must be
-   * considered while solving the subproblem at the first stage. If it is
-   * negative, it means that no scenario must be set while solving the
-   * sub-problem at the first stage (i.e., the data for that subproblem has
-   * already been set, except possibly the initial state). If it is
-   * nonnegative, it must be a number between 0 and the total number of
-   * scenarios minus 1. By default, its value is 0. */
+  intFirstStageScenarioId ,
+  ///< The id of the scenario to be considered at the first stage
+  /**< This parameter specifies the id of the scenario that must be considered
+   * while solving the subproblem at the first stage. If it is negative, it
+   * means that no scenario must be set while solving the sub-problem at the
+   * first stage (i.e., the data for that subproblem has already been set,
+   * except possibly the initial state). If it is nonnegative, it must be a
+   * number between 0 and the total number of scenarios minus 1. By default,
+   * its value is 0. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -555,7 +555,7 @@ public:
   *
   * - #intNbSimulForward
   *
-  * - #intFirstStageScenarioIndex
+  * - #intFirstStageScenarioId
   *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -578,7 +578,7 @@ public:
     sddp_optimizer->set_number_simulations_forward( value ); return;
    case( intLogVerb ): log_verbosity = value; return;
    case( intOutputFrequency ): output_frequency = value; return;
-   case( intFirstStageScenarioIndex ):
+   case( intFirstStageScenarioId ):
     first_stage_scenario_index = value; return;
   }
   Solver::set_par( par , value );
@@ -843,7 +843,7 @@ public:
   *
   * - #intOutputFrequency: 0
   *
-  * - #intFirstStageScenarioIndex: 0
+  * - #intFirstStageScenarioId: 0
   *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
@@ -862,7 +862,7 @@ public:
    case( intNbSimulForward ): return 1;
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
-   case( intFirstStageScenarioIndex ): return 0;
+   case( intFirstStageScenarioId ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -987,7 +987,7 @@ public:
     return sddp_optimizer->get_number_simulations_forward();
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
-   case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
+   case( intFirstStageScenarioId ): return first_stage_scenario_index;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1094,7 +1094,7 @@ public:
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
-  if( name == "intFirstStageScenarioIndex" ) return intFirstStageScenarioIndex;
+  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1188,7 +1188,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioIndex" };
+     "intFirstStageScenarioId" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -2046,7 +2046,7 @@ private:
   number_simulations_for_convergence =
    get_dflt_int_par( intNbSimulCheckForConv );
   output_frequency = get_dflt_int_par( intOutputFrequency );
-  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioIndex );
+  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioId );
 
   // double
 

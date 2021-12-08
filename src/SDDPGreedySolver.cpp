@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 04 - 12 - 2021
+ * \date 08 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -112,6 +112,12 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   }
  }
 
+ // Possibly set the scenario of the first stage
+ if( f_first_stage_scenario_id == -1 )
+  set_scenario( f_scenario_id , 0 );
+ else if( f_first_stage_scenario_id >= 0 )
+  set_scenario( f_first_stage_scenario_id , 0 );
+
  // If required, load the random cuts
  if( ! f_random_cuts_filename.empty() )
   static_cast< SDDPBlock * >( f_Block )->
@@ -123,10 +129,13 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    *f_log << "Solving problem at stage " << stage << std::endl;
 
   if( stage > 0 ) {
+   // Set the state of the subproblem as that given by the solution of the
+   // subproblem at the previous stage.
    set_state( get_solution( stage - 1 ) , stage );
-  }
 
-  set_scenario( stage );
+   // Set the scenario
+   set_scenario( f_scenario_id , stage );
+  }
 
   if( callback ) callback( stage );
 
@@ -165,8 +174,12 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   else {
    solution_value += get_sub_solution_value( stage );
 
-   if( ! f_subgradients_filename.empty() )
+   if( ! f_subgradients_filename.empty() ) {
+    auto scenario_id = f_scenario_id;
+    if( ( stage == 0 ) && ( f_first_stage_scenario_id >= 0 ) )
+     scenario_id = f_first_stage_scenario_id;
     store_subgradients( stage , scenario_id );
+   }
   }
 
   if( f_unregister_solver )
@@ -420,7 +433,7 @@ void SDDPGreedySolver::process_outstanding_Modification( void ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::set_scenario( Index stage ) {
+void SDDPGreedySolver::set_scenario( Index scenario_id , Index stage ) {
  static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage );
 }
 
@@ -645,6 +658,10 @@ void SDDPGreedySolver::output_subgradients
  const auto & scenario_set = sddp_block->get_scenario_set();
 
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+  auto scenario_id = f_scenario_id;
+  if( ( stage == 0 ) && ( f_first_stage_scenario_id >= 0 ) )
+   scenario_id = f_first_stage_scenario_id;
 
   auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
   auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
