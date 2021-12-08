@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 22 - 01 - 2021
+ * \date 04 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -64,33 +64,33 @@ namespace SMSpp_di_unipi_it
  * SDDPBlock represents an optimization problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{X}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_1 \in \mathcal{X}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{X}_1} f_1(x_1) +
  *   \mathbb{E} \left \lbrack \dots +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{X}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{X}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack, \qquad (1)
  * \f]
  *
- * where T is the time horizon, \f$\mathcal{X}^{n_t} \equiv
- * \mathcal{X}^{n_t}(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
+ * where T is the time horizon, \f$\mathcal{X}_t \equiv
+ * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
  * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
  * T-1\}} \f$ is a stochastic process. See SDDPBlock for details. The
  * SDDPGreedySolver considers the problem (1) for a single realization of the
  * stochastic process, i.e., a deterministic problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{\tilde{X}}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{\tilde{X}}_0} f_0(x_0) +
  *   \left \lbrack
- *   \min_{x_1 \in \mathcal{\tilde{X}}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{\tilde{X}}_1} f_1(x_1) +
  *   \left \lbrack \dots +
  *   \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{\tilde{X}}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{\tilde{X}}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack, \qquad (2)
  * \f]
  *
- * with \f$\mathcal{\tilde{X}}^{n_t} \equiv \mathcal{\tilde{X}}^{n_t}(x_{t-1},
+ * with \f$\mathcal{\tilde{X}}_t \equiv \mathcal{\tilde{X}}_t(x_{t-1},
  * \tilde{\xi}_t)\f$ where \f$ \tilde{\xi}_t = \{ \tilde{\xi}_t \}_{t \in \{1,
  * \dots, T-1\}} \f$ is a realization of the stochastic process \f$ \xi
  * \f$. The SDDPGreedySolver is a heuristic as it does not look for an optimal
@@ -102,7 +102,7 @@ namespace SMSpp_di_unipi_it
  *
  * @f{align}
  *   \min       & \ \ f_0(x_0) + \mathcal{P}_{1}(x_0) \qquad (3) \\
- *   {\rm s.t.} & \ \ x_0 \in \mathcal{\tilde{X}}^{n_0}(x_{-1},
+ *   {\rm s.t.} & \ \ x_0 \in \mathcal{\tilde{X}}_0(x_{-1},
  *                            \tilde{\xi}_0)
  * @f}
  *
@@ -112,7 +112,7 @@ namespace SMSpp_di_unipi_it
  *
  * @f{align}
  *   \min       & \ \ f_1(x_1) + \mathcal{P}_{2}(x_1)\\
- *   {\rm s.t.} & \ \ x_1 \in \mathcal{\tilde{X}}^{n_1}(x^*_{0},
+ *   {\rm s.t.} & \ \ x_1 \in \mathcal{\tilde{X}}_1(x^*_{0},
  *                  \tilde{\xi}_1)
  * @f}
  *
@@ -123,7 +123,7 @@ namespace SMSpp_di_unipi_it
  *
  * @f{align}
  *   \min       & \ \ f_t(x_t) + \mathcal{P}_{t+1}(x_t)\\
- *   {\rm s.t.} & \ \ x_t \in \mathcal{\tilde{X}}^{n_t}(x^*_{t-1},
+ *   {\rm s.t.} & \ \ x_t \in \mathcal{\tilde{X}}_t(x^*_{t-1},
  *                  \tilde{\xi}_t)
  * @f}
  *
@@ -277,14 +277,76 @@ public:
   strInnerBC = str_par_type_S::strLastAlgPar ,
   ///< name of the file containing the default BlockConfig for the inner Block
   /**< Name of the file containing the default BlockConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
 
   strInnerBSC ,
   ///< name of the file containing the default BlockSolverConfig for inner Block
   /**< Name of the file containing the default BlockSolverConfig that will be
-   * applied to the inner Block of each BendersBFunction.
-   */
+   * applied to the inner Block of each BendersBFunction. */
+
+  strRandomCutsFile ,
+  ///< name of the file out of which the random cuts will be retrieved
+  /**< A random cut is a cut associated with a particular scenario. This
+   * parameter indicates the path to the file out of which the random cuts
+   * will be deserialized. By default, the path to this file is empty, which
+   * means that no random cut is considered. If provided, the file must have
+   * the format specified by SDDPBlock::deserialize_random_cuts(). */
+
+  strSubgradientsFile ,
+  ///< name of the file in which subgradients of the objective will be saved
+  /**< This is the name of the file in which subgradients of the objectives of
+   * the subproblems, as well as initial states and scenarios, will be
+   * saved. At each stage (except the first one), the subgradients of the
+   * objective function with respect to the initial state and with respect to
+   * the solution (final state) of the subproblem at that stage are
+   * computed. At the first stage, only the subgradient with respect to the
+   * solution of the first stage subproblem is computed. At the end of a call
+   * to compute(), these subgradients are output to the file whose name (path)
+   * is given by #strSubgradientsFile. This file will have the following
+   * format. The first line contains two integers: the time horizon T and the
+   * number of initial states that will be output (which is either T or T+1)
+   * separated by comma. This line is followed by T or T+1 lines (depending on
+   * whether an initial state for the first stage subproblem has been
+   * provided), each one containing the initial state of some stage. Each of
+   * these lines have the following format:
+   *
+   *     t, s_0, s_1, ..., s_{k-1}
+   *
+   * where t is a stage between 0 and T and (s_0, ..., s_{k-1}) is the initial
+   * state (which has size k) for stage t. If an initial state has been
+   * provided (see #vdblInitialState) or the SDDPBlock contains an initial
+   * state (as returned by SDDPBlock::get_initial_state()), then T+1 initial
+   * states are output (for each t in {0, ..., T}). Otherwise, T initial
+   * states are output (for each t in {1, ..., T}). Notice that, although the
+   * stages that we consider are 0, ..., T-1, an initial state for stage T
+   * (which is a stage that has not been defined) is output. This is just the
+   * final state (solution) of the last stage subproblem.
+   *
+   * After that, each of the next 2*T - 1 lines contains a subgradient of the
+   * objective of the subproblem associated with a particular stage t and with
+   * respect to either the initial state or the final state. There are T
+   * subgradients with respect to the final state (one for each t in {0, ...,
+   * T-1}) and T-1 subgradients with respect to the initial state (one for
+   * each t in {1, ..., T-1}). Each of these lines has the following format:
+   *
+   *     t, s, a_0, ..., a_{k-1}
+   *
+   * where t is a stage between 0 and T-1, s is either the character I (for
+   * initial) or the character F (for final) indicating that the subgradient
+   * is with respect to the initial or the final state, respectively, and a_0,
+   * ..., a_{k-1} are the elements of the subgradient.
+   *
+   * Finally, the scenario considered during compute() (which can be set by
+   * the #intScenarioId parameter or by the function set_scenario_id()) is
+   * output in the last T lines. Each of these lines has the form:
+   *
+   *     t, scenario_t
+   *
+   * where t is a stage in {0, ..., T-1} and scenario_t is a vector containing
+   * the scenario for the stage t.
+   *
+   * By default, the path to this file is empty, which means that the
+   * subgradients of the objective function will not be output. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -292,6 +354,33 @@ public:
    * to extend the set of string algorithmic parameters. */
 
  };  // end( str_par_type_SDDP_Greedy_S )
+
+/*--------------------------------------------------------------------------*/
+
+ /// public enum for the vector-of-double parameters
+ /** Public enum describing the different algorithmic parameters of
+  * vector-of-double type that SDDPGreedySolver has in addition to these of
+  * Solver. The value vdblLastAlgPar is provided so that the list can be
+  * easily further extended by derived classes. */
+
+ enum vdbl_par_type_SDDP_Greedy_S {
+
+  vdblInitialState = vdbl_par_type_S::vdblLastAlgPar ,
+  ///< the initial state for the first stage problem
+  /**< The parameter for setting the initial state, i.e., the initial state to
+   * be considered in the subproblem of the first stage. The size of this
+   * vector must be equal to the size of the initial state and the i-th
+   * element in this vector will be the value of the i-th initial state
+   * variable of the first stage subproblem. If this vector is empty, no
+   * initial state is set for the first stage problem. By default, this vector
+   * is empty. */
+
+  vdblLastAlgPar
+  ///< first allowed new vector-of-double parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * vector-of-double parameters. */
+
+ };  // end( vdbl_par_type_SDDP_Greedy_S )
 
 /**@} ----------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
@@ -372,6 +461,16 @@ public:
   *   vstrBSCfg, it can come from the "extra" Configuration in the
   *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
   *
+  * - #strRandomCutsFile [""]: the filename (path) to the file containing the
+  *   random cuts (cuts associated with a particular scenario). By default,
+  *   the path to this file is empty, which means that no random cut is
+  *   considered. If provided, the file must have the format specified by
+  *   SDDPBlock::deserialize_random_cuts().
+  *
+  * - #strSubgradientsFile [""]: the filename (path) to the file to which the
+  *   subgradients (if any) will be output. By default, the path to this file
+  *   is empty, which means that no subgradient is output.
+  *
   * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
   * description of each of them.
   *
@@ -388,6 +487,36 @@ public:
    case( strInnerBSC ):
     f_inner_block_solver_config_filename = value;
     return;
+   case( strRandomCutsFile ):
+    f_random_cuts_filename = value;
+    return;
+   case( strSubgradientsFile ):
+    f_subgradients_filename = value;
+    return;
+  }
+  Solver::set_par( par , value );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set the vector-of-double paramaters of SDDPGreedySolver
+ /** Set a given vector-of-double paramater. Besides considering the
+  * vector-of-double parameters defined in #vdbl_par_type_S, this function
+  * also accepts the following parameters:
+  *
+  * - #vdblInitialState
+  *
+  * Please refer to the #vdbl_par_type_SDDP_Greedy_S enumeration for a
+  * detailed description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( idx_type par , std::vector< double > && value ) override {
+  switch( par ) {
+   case( vdblInitialState ): v_initial_state = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -417,6 +546,17 @@ public:
 
  idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the number of vector-of-double parameters
+ /** Get the number of vector-of-double  parameters.
+  *
+  * @return The number of vector-of-double parameters.
+  */
+
+ idx_type get_num_vdbl_par( void ) const override {
+  return( idx_type( vdblLastAlgPar ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -453,12 +593,39 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values = { "" , "" };
+  static const std::vector<std::string> default_values = { "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
 
   return Solver::get_dflt_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the default value of a vector-of-double parameter
+ /** Get the default value of the vector-of-double parameter with given index.
+  * Please see the #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S
+  * enumerations for a detailed explanation of the possible parameters. This
+  * function returns the following values depending on the desired parameter:
+  *
+  * - #vdblInitialState: an empty vector
+  *
+  * For any other parameter, see Solver::get_dflt_vdbl_par().
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
+  const override {
+  const static std::vector< double > empty;
+
+  if( par == vdblInitialState ) {
+   return empty;
+  }
+
+  return Solver::get_dflt_vdbl_par( par );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -498,8 +665,30 @@ public:
   switch( par ) {
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
+   case( strRandomCutsFile ): return f_random_cuts_filename;
+   case( strSubgradientsFile ): return f_subgradients_filename;
   }
   return Solver::get_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// get a specific vector-of-double parameter
+ /** Get a specific vector-of-double parameter. Please see the
+  * #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::vector< double > & get_vdbl_par( const idx_type par )
+  const override {
+  switch( par ) {
+   case( vdblInitialState ): return v_initial_state;
+  }
+  return Solver::get_vdbl_par( par );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -538,7 +727,26 @@ public:
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
+  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
+  if( name == "strSubgradientsFile" ) return strSubgradientsFile;
   return Solver::str_par_str2idx( name );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the index of the vector-of-double parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a
+  * vector-of-double parameter, and returns its index, i.e., the double value
+  * that can be used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type vdbl_par_str2idx( const std::string & name ) const override {
+  if( name == "vdblInitialState" ) return vdblInitialState;
+  return Solver::vdbl_par_str2idx( name );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -579,12 +787,33 @@ public:
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strInnerBC" , "strInnerBSC" };
+   { "strInnerBC" , "strInnerBSC" , "strRandomCutsFile" ,
+     "strSubgradientsFile" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
 
   return Solver::str_par_idx2str( idx );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the string name of the vector-of-double parameter with given index
+ /** This method takes a vector-of-double parameter index, i.e., the double
+  * value that can be used in [set/get]_par() [see above] to set/get it, and
+  * returns its "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
+  static const std::vector<std::string> parameter_names =
+   { "vdblInitialState" };
+  if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
+   return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
+  return Solver::vdbl_par_idx2str( idx );
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -643,7 +872,6 @@ public:
   if( this->scenario_id == scenario_id )
    return;
   this->scenario_id = scenario_id;
-  scenario_is_set = false;
   status_compute = Solver::kUnEval;
  }
 
@@ -731,19 +959,13 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// sets the scenario to be considered
- /** This method updates the sub-Blocks of the SDDPBlock with the data
-  * provided by the scenario whose id is given by the method
-  * get_scenario_id().
+ /** This method updates the sub-Block of the SDDPBlock associated with the
+  *  given \p stage with the data provided by the scenario whose id is
+  *  given by the method get_scenario_id().
+  *
+  * @param stage An integer between 0 and get_time_horizon() - 1.
   */
- void set_scenario( void );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the initial state
- /** This function sets the state of the subproblem at the first stage
-  * according to the initial state present in the SDDPBlock.
-  */
- void set_initial_state( void );
+ void set_scenario( Index stage );
 
 /*--------------------------------------------------------------------------*/
 
@@ -814,6 +1036,36 @@ protected:
 /*--------------------------------------------------------------------------*/
 
 private:
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE CLASSES -------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ class Subgradients {
+
+  using matrix = std::vector< std::pair< Index , std::vector< double > > >;
+
+ public:
+
+  void store_initial_state( const std::vector< double > & initial_state ,
+                            Index stage ) {
+   initial_states.emplace_back( stage , initial_state );
+  }
+
+  void store_subgradient_final_state( std::vector< double > && subgradient ,
+                                      Index stage ) {
+   subgradients_final_state.emplace_back( stage , std::move( subgradient ) );
+  }
+
+  void store_subgradient_initial_state( std::vector< double > && subgradient ,
+                                        Index stage ) {
+   subgradients_initial_state.emplace_back( stage , std::move( subgradient ) );
+  }
+
+  matrix subgradients_initial_state;
+  matrix subgradients_final_state;
+  matrix initial_states;
+ };
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE METHODS -------------------------------*/
@@ -895,13 +1147,17 @@ private:
 
  double get_sub_solution_value( Index stage ) const {
   assert( stage < get_time_horizon() );
+  double solution_value = 0;
   auto sub_solver = get_sub_solver( stage );
   if( sub_solver->is_var_feasible() )
-   return sub_solver->get_var_value();
+   solution_value = sub_solver->get_var_value();
   else if( get_objective_sense( stage ) == Objective::eMin )
-   return sub_solver->get_ub();
+   solution_value = sub_solver->get_ub();
   else
-   return sub_solver->get_lb();
+   solution_value = sub_solver->get_lb();
+  const auto future_cost = static_cast< SDDPBlock * >( f_Block )->
+   get_future_cost( stage , 0 );
+  return solution_value - future_cost;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -924,6 +1180,33 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// output the subgradients (if any)
+ /** This function outputs the subgradients with respect to the initial and
+  * final states, as well as the initial states, into the file with the given
+  * \p filename. The format of the file will follow that specified in the
+  * description of #strSubgradientsFile.
+  *
+  * @param filename The name of the file in which the subgradients and initial
+  * states should be stored. */
+
+ void output_subgradients( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ void store_subgradients( Index stage , Index scenario_index );
+
+/*--------------------------------------------------------------------------*/
+
+ void store_subgradient_final_state( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ void store_subgradient_initial_state
+  ( Index stage , Index scenario_index ,
+    const std::vector< double > & initial_state );
+
+/*--------------------------------------------------------------------------*/
+
  SMSpp_insert_in_factory_h;
 
 /*--------------------------------------------------------------------------*/
@@ -933,20 +1216,26 @@ private:
  /// The status returned by compute()
  int status_compute = Solver::kUnEval;
 
- /// Indicates whether the scenario has already been set
- bool scenario_is_set = false;
-
- /// Indicates whether the initial state has already been set
- bool initial_state_is_set = false;
-
  /// Indicates whether the initial state has already been set
  bool f_has_var_solution = false;
 
- /// The value of the solution (if any).
+ /// The value of the solution (if any)
  double solution_value = 0.0;
 
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
+
+ /// The name of the file containing the random cuts
+ std::string f_random_cuts_filename;
+
+ /// The name of the file in which the subgradients will be saved
+ std::string f_subgradients_filename;
+
+ /// Initial state for the first stage problem
+ std::vector< double > v_initial_state;
+
+ /// Subgradients of the objective of the subproblems
+ Subgradients f_subgradients;
 
 };   // end( class SDDPGreedySolver )
 

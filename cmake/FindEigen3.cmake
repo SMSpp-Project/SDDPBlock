@@ -16,9 +16,9 @@
 #                                                                             #
 #        Eigen3_INCLUDE_DIR   - Directory containing headers                  #
 #                                                                             #
-#    This module reads hints about search locations from variables:           #
+#    This module can read a search path from the variable:                    #
 #                                                                             #
-#        EIGEN3_INC           - Preferred Eigen3 location                     #
+#        Eigen3_ROOT          - Preferred Eigen3 location                     #
 #                                                                             #
 #    The following IMPORTED target is also defined:                           #
 #                                                                             #
@@ -43,7 +43,6 @@ else ()
     # ----- Find the headers ------------------------------------------------ #
     # Note that find_path() also creates a cache entry
     find_path(Eigen3_INCLUDE_DIR Eigen/Dense
-              HINTS ${EIGEN3_INC}
               PATH_SUFFIXES eigen3
               DOC "Eigen3 include directory.")
 
@@ -90,3 +89,5 @@ endif ()
 # Variables marked as advanced are not displayed in CMake GUIs, see:
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
 mark_as_advanced(Eigen3_INCLUDE_DIR Eigen3_VERSION)
+
+# --------------------------------------------------------------------------- #

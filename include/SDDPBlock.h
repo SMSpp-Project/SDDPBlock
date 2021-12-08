@@ -7,7 +7,7 @@
  *
  * \version 0.1
  *
- * \date 07 - 01 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -60,34 +60,34 @@ namespace SMSpp_di_unipi_it
  * multistage stochastic programming problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{X}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_1 \in \mathcal{X}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{X}_1} f_1(x_1) +
  *   \mathbb{E} \left \lbrack \dots +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{X}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{X}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack,
  * \f]
  *
- * where T is called the time horizon, \f$\mathcal{X}^{n_t} \equiv
- * \mathcal{X}^{n_t}(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
+ * where T is called the time horizon, \f$\mathcal{X}_t \equiv
+ * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
  * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
  * T-1\}} \f$ is a stochastic process. Notice that \f$ x_{-1} \f$ and \f$
  * \xi_0 \f$ are deterministic. For each \f$ t \in \{0, \dots, T-1\}\f$, we
  * call
  *
  * \f[
- *   \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
- *   \mathcal{V}_{t+1}(x_t, \xi_t)
+ *   \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
+ *   \mathcal{V}_{t+1}(x_t)
  * \f]
  *
  * the problem associated with stage \f$ t \f$, where
  *
  * \f[
- *   \mathcal{V}_{t+1}(x_t, \xi_t) =
+ *   \mathcal{V}_{t+1}(x_t) =
  *    \mathbb{E}
  *      \left\lbrack
- *        V_{t+1}(x_t, \xi_{t+1}) \mid \xi_t
+ *        V_{t+1}(x_t, \xi_{t+1})
  *      \right\rbrack
  * \f]
  *
@@ -98,8 +98,8 @@ namespace SMSpp_di_unipi_it
  * \f[
  *
  *    V_{t}(x_{t-1}, \xi_{t}) =
- *    \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
- *    \mathcal{V}_{t+1}(x_t, \xi_t)
+ *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
+ *    \mathcal{V}_{t+1}(x_t)
  * \f]
  *
  * with given \f$ x_{-1} \f$ and (deterministic) \f$ \xi_0\f$. We consider an
@@ -107,7 +107,7 @@ namespace SMSpp_di_unipi_it
  * T-1\} \f$ as the problem
  *
  * \f[
- *    \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
+ *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
  *    \mathcal{P}_{t+1}(x_t)
  *    \qquad (1)
  * \f]
@@ -129,7 +129,8 @@ namespace SMSpp_di_unipi_it
  *
  * - It has T sub-Blocks, each one being a StochasticBlock. The t-th sub-Block
  *   represents an approximation to the problem associated with stage t as
- *   defined in (1).
+ *   defined in (1). See the note below for the case in which it may have more
+ *   than T sub-Blocks.
  *
  * - It has pointers to "T - 1" PolyhedralFunction. The t-th
  *   PolyhedralFunction represents the function \f$ \mathcal{P}_{t+1} \f$ in
@@ -176,6 +177,62 @@ namespace SMSpp_di_unipi_it
  *
  *   But the sub-scenario associated with stage \f$t\f$ must respect the same
  *   order for each scenario in \f$\mathcal{S}\f$.
+ *
+ * In the simplest case, an SDDPBlock has \f$ T \f$ sub-Blocks, the \f$t\f$-th
+ * one being an StochasticBlock associated with stage \f$t\f$. However, it may
+ * be interesting to have more than one sub-Block associated with each stage
+ * in some circumstances. The solution process implemented by SDDPSolver, for
+ * instance, involves the solution of a number of subproblems, each of them
+ * associated with a stage \f$ t \f$, a particular sub-scenario \f$ S_t^i \f$,
+ * and some initial state. There are at least two clear situations under which
+ * the presence of multiple sub-Blocks for each stage can be beneficial to
+ * SDDPSolver.
+ *
+ * -# To change the sub-Block as little as possible.
+ *
+ *    Whenever a subproblem associated with a stage \f$ t \f$ must be solved,
+ *    the data of the Block associated with that subproblem must be updated
+ *    according to some sub-scenario \f$ S_t^i \f$ and some initial state. In
+ *    the case in which the SDDPBlock has \f$ T \f$ sub-Blocks, this means
+ *    that its \f$t\f$-th sub-Block must be updated every time a particular
+ *    scenario and state is considered. In order to allow reoptimization,
+ *    SMS++ is designed to deal with changes in the data of a Block by means
+ *    of its Modification mechanism. However, one would expect, in general,
+ *    that the less a Block is modified, the faster it can be reoptimized. In
+ *    the ideal case, an SDDPBlock would have as much sub-Blocks for each
+ *    stage as there are scenarios. In this case, each sub-Block would be
+ *    associated with a particular scenario, and the data of each of these
+ *    sub-Blocks that depend on the scenarios would be updated only once, in
+ *    the beginning. Of course, the sub-Block must still be modified every
+ *    time before it is solved, because it also depends on the initial
+ *    state. But in general, most of the data in a Block that needs to be
+ *    updated is dependent on the scenarios. Therefore, having one sub-Block
+ *    associated with each scenario would imply that only the initial state of
+ *    the sub-Block must be updated, and the reoptimization could be expected
+ *    to be faster (not to mention the process of modifying the scenario of a
+ *    sub-Block that would also be avoided by itself).
+ *
+ * -# To allow parallelization in a shared-memory multiprocessing system.
+ *
+ *    At each iteration, and for each stage, SDDPSolver must solve a set of
+ *    subproblems, each one associated with some scenario and some initial
+ *    state. If SDDPBlock has only one sub-Block for each stage, then the
+ *    process of solving all those subproblems is inevitably sequential, as
+ *    solving a particular subproblem requires changing the data of that
+ *    sub-Block. The presence of multiple sub-Blocks per stage, however, makes
+ *    it possible to parallelize this procedure. Suppose, for instance, that
+ *    at every iteration, for each stage, SDDPSolver must solve N subproblems,
+ *    each one associated with some scenario and some initial state. Suppose
+ *    also that SDDPBlock has B sub-Blocks per stage and a process running
+ *    ParallelSDDPSolver::compute() has M threads available. In this case, it
+ *    would be possible to allocate min( B , N , M ) subproblems to the
+ *    available threads.
+ *
+ * The decision about the number of Blocks per stage must be well thought out,
+ * as it depends, in particular, on the memory resources available. Besides
+ * the memory required to store multiple sub-Blocks per stage, one has also to
+ * take into account the memory required by the Solver attached to the inner
+ * Block of each sub-Block of this SDDPBlock.
  */
 
 class SDDPBlock : public Block {
@@ -242,40 +299,50 @@ public:
   *   is used to construct the vector of DataMapping of the StochasticBlock
   *   described by the "StochasticBlock_t" group.
   *
-  * - The "NumPolyhedralFunctionsPerStage" dimension, containing the number of
-  *   PolyhedralFunction that are present at each stage. This dimension is
-  *   optional. If it is not provided, then we assume that there is a single
-  *   PolyhedralFunction at each stage.
+  * - The "NumPolyhedralFunctionsPerSubBlock" dimension, containing the number
+  *   of PolyhedralFunction that are present in each sub-Block. This dimension
+  *   is optional. If it is not provided, then we assume that there is a
+  *   single PolyhedralFunction in each sub-Block.
   *
   * - The AbstractPath group containing the description of a vector of
   *   AbstractPath as described in the AbstractPath class. The number of
-  *   AbstractPath must be equal to either "NumPolyhedralFunctionsPerStage" or
-  *   "NumPolyhedralFunctionsPerStage * TimeHorizon". If the number of
-  *   AbstractPath is "NumPolyhedralFunctionsPerStage" then the i-th
-  *   PolyhedralFunction of each stage is given by the i-th AbstractPath. If
-  *   the number of AbstractPath is "NumPolyhedralFunctionsPerStage *
-  *   TimeHorizon" then the i-th PolyhedralFunction of stage t is given by the
-  *   AbstractPath at position "i + t * NumPolyhedralFunctionsPerStage" for
+  *   AbstractPath must be equal to either "NumPolyhedralFunctionsPerSubBlock"
+  *   or "NumPolyhedralFunctionsPerSubBlock * TimeHorizon". If the number of
+  *   AbstractPath is "NumPolyhedralFunctionsPerSubBlock" then the i-th
+  *   PolyhedralFunction of each sub-Block is given by the i-th
+  *   AbstractPath. If the number of AbstractPath is
+  *   "NumPolyhedralFunctionsPerSubBlock * TimeHorizon" then the i-th
+  *   PolyhedralFunction of a sub-Block at stage t is given by the
+  *   AbstractPath at position "i + t * NumPolyhedralFunctionsPerSubBlock" for
   *   each t in {0, ..., TimeHorizon-1} and i in {0, ...,
-  *   NumPolyhedralFunctionsPerStage-1}.  An AbstractPath associated with a
-  *   stage t is taken with respect to the inner Block of the t-th sub-Block
-  *   of this SDDPBlock.
+  *   NumPolyhedralFunctionsPerSubBlock-1}. An AbstractPath associated with a
+  *   stage t is taken with respect to the inner Block of a sub-Block for
+  *   stage t of this SDDPBlock.
+  *
+  * - The "NumSubBlocksPerStage" dimension, containing the number of
+  *   sub-Blocks that must be constructed for each stage. This dimension is
+  *   optional. If it is not provided, then we assume that there is a single
+  *   sub-Block for each stage.
   *
   * - The description of a ScenarioSet, as specified in the comments to
   *   ScenarioSet::deserialize().
   *
-  * - The "StateSize" variable, of type netCDF::Uint and being either a
-  *   scalar or a one-dimensional array indexed over "TimeHorizon" dimension,
+  * - The "InitialState" variable, a one-dimensional array of type
+  *   netCDF::NcDouble, containing an initial state for the first stage
+  *   problem.
+  *
+  * - The "StateSize" variable, of type netCDF::Uint and being either a scalar
+  *   or a one-dimensional array indexed over "TimeHorizon" dimension,
   *   specifying the sizes of the states at each stage. If this variable is a
   *   scalar, then all states are assumed to have the same size given by
   *   "StateSize". If it is an array then, for each t in {0, ...,
-  *   TimeHorizon-1}, StateSize[t] contains the size of the state at stage
-  *   t. The state being a vector, its size is the dimension of the space in
-  *   which it lies.
+  *   TimeHorizon-1}, StateSize[t] contains the size of the final state at
+  *   stage t. The state being a vector, its size is the dimension of the
+  *   space in which it lies.
   *
   * - The "AdmissibleState" variable, of type netCDF::NcDouble, containing an
-  *   admissible state for each stage. An admissible state for a stage is an
-  *   state which makes the problem at that stage feasible.  If "StateSize" is
+  *   admissible state for each stage. An admissible state for a stage is a
+  *   feasible final state for the problem at that stage. If "StateSize" is
   *   scalar and "AdmissibleState" has dimension "StateSize", then all stages
   *   are assumed to have the same admissible state given by
   *   "AdmissibleState". Otherwise, "AdmissibleState" contains the
@@ -306,6 +373,43 @@ public:
 
  void deserialize( const netCDF::NcGroup & group ) override;
 
+/*--------------------------------------------------------------------------*/
+
+ /// deserialize the random cuts
+ /** This function deserializes the random cuts out of the file whose path is
+  * given by \p filename. If the path to the file is empty, then no operation
+  * is performed. The file must have the following netCDF format:
+  *
+  * - The netCDF dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The netCDF dimension "NumberScenarios" containing the number of
+      scenarios.
+  *
+  * - The netCDF group "PolyhedralFunction_t_s", for each t in {0, ...,
+  *   TimeHorizon - 1} and s in {0, ..., NumberScenarios - 1}, containing the
+  *   serialization of the PolyhedralFunction representing the random cuts
+  *   associated with stage t and scenario s.
+  *
+  * @param filename The path to the file containing the netCDF description of
+  *        the random cuts. */
+
+ void deserialize_random_cuts( const std::string & filename );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the number of sub-Blocks for each stage
+ /** This function sets the number of sub-Blocks that must be constructed at
+  * each stage. If this function is invoked after the sub-Blocks of this
+  * SDDPBlocks have been constructed, it has no effect. In particular, it has
+  * no effect if it is invoked after deserialize() is invoked.
+  *
+  * @param n The number of sub-Blocks that must be constructed at each stage.
+  */
+ void set_num_sub_blocks_per_stage( Index n ) {
+  if( v_Block.empty() )
+   num_sub_blocks_per_stage = n;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------------- METHODS FOR Saving THE DATA OF THE SDDPBlock -------------*/
 /*--------------------------------------------------------------------------*/
@@ -322,6 +426,30 @@ public:
 
  void serialize( netCDF::NcGroup & group ) const override;
 
+/*--------------------------------------------------------------------------*/
+
+ /// serialize the random cuts
+ /** This function serializes the random cuts in the file with the given name
+  * (path). If \p filename is empty, then no operation is performed. The file
+  * will have the following netCDF format:
+  *
+  * - The dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The dimension "NumberScenarios" containing the number of scenarios.
+  *
+  * - The group "PolyhedralFunction_t_s", for each t in {0, ..., TimeHorizon -
+  *   1} and s in {0, ..., NumberScenarios - 1}, containing the serialization
+  *   of the PolyhedralFunction representing the random cuts associated with
+  *   stage t and scenario s. Each individual group is optional. If the group
+  *   "PolyhedralFunction_t_s" is not provided, then the PolyhedralFunction
+  *   associated with stage t and scenario s will not be loaded (which means
+  *   it will have no cuts).
+  *
+  * @param filename The name of the file in which the random cuts will be
+  *        serialized. */
+
+ void serialize_random_cuts( const std::string & filename ) const;
+
 /**@} ----------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
 /*--------------------------------------------------------------------------*/
@@ -333,8 +461,8 @@ public:
   *
   * @return The time horizon.
   */
- virtual std::size_t get_time_horizon() const {
-  return v_Block.size();
+ virtual Index get_time_horizon() const {
+  return v_Block.size() / num_sub_blocks_per_stage;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -353,49 +481,81 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// returns a PolyhedralFunction
- /** This function returns a pointer to the i-th PolyhedralFunction of the
-  * given \p stage.
+ /** This function returns a pointer to the i-th PolyhedralFunction of a
+  * sub-Block of the given \p stage.
   *
   * @param stage A number between 0 and get_time_horizon() - 1.
   *
-  * @param i If there are more than one PolyhedralFunction per stage, this
+  * @param i If there are more than one PolyhedralFunction per sub-Block, this
   *        parameter informs the index of the desired PolyhedralFunction at
   *        the given \p stage.
   *
-  * @return A pointer to the i-th PolyhedralFunction of the given \p stage.
-  */
- const PolyhedralFunction * get_polyhedral_function( Index stage ,
-                                                     Index i = 0 ) const {
+  * @param sub_block_index The index of the sub-Block, which must be an
+  *        integer between 0 and get_num_sub_blocks_per_stage() - 1.
+  *
+  * @return A pointer to the i-th PolyhedralFunction of the given \p stage. */
+
+ PolyhedralFunction * get_polyhedral_function
+ ( Index stage , Index i = 0 , Index sub_block_index = 0 ) const {
+
+  if( ! num_polyhedral_per_sub_block )
+   // Well, this is a funny SDDPBlock that has no PolyhedralFunction.
+   return nullptr;
+
   assert( stage < get_time_horizon() );
-  assert( i < num_polyhedral_per_stage );
-  return v_polyhedral_functions[ num_polyhedral_per_stage * stage + i ];
+  assert( sub_block_index < num_sub_blocks_per_stage );
+  assert( i < num_polyhedral_per_sub_block );
+
+  const auto index = ( stage * num_sub_blocks_per_stage + sub_block_index )
+   * num_polyhedral_per_sub_block + i;
+
+  return v_polyhedral_functions[ index ];
  }
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the number of PolyhedralFunction per stage
- /** This function returns the number of PolyhedralFunction present at each
-  * stage.
+ /// returns the number of PolyhedralFunction in each sub-Block
+ /** This function returns the number of PolyhedralFunction present in each
+  * sub-Block.
   *
-  * @return The number of PolyhedralFunction per stage.
+  * @return The number of PolyhedralFunction in each sub-Block.
   */
- Index get_num_polyhedral_function_per_stage() const {
-  return num_polyhedral_per_stage;
+ Index get_num_polyhedral_function_per_sub_block() const {
+  return num_polyhedral_per_sub_block;
  }
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the i-th sub-Block of this SDDPBlock
- /** This function returns the i-th sub-Block of this SDDPBlock. The given
-  * index \p i must be between 0 and get_time_horizon() - 1. If \p i is an
-  * invalid index, an exception is thrown.
+ /// returns the number of sub-Blocks for each stage
+ /** This function returns the number of sub-Blocks for each stage.
   *
-  * @param i The index of the desired sub-Block. It must be a number between 0
-  *        and get_time_horizon() - 1.
-  *
-  * @return The i-th sub-Block of this SDDPBlock.
+  * @return The number of sub-Blocks for each stage.
   */
- virtual StochasticBlock * get_sub_Block( Index i ) const;
+ Index get_num_sub_blocks_per_stage() const {
+  return num_sub_blocks_per_stage;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns a sub-Block of this SDDPBlock
+ /** This function returns the sub-Block of index \p sub_block_index at the
+  * given \p stage of this SDDPBlock. The given \p stage must be an integer
+  * between 0 and get_time_horizon() - 1 and the index of the sub-Block must
+  * be an integer between 0 and get_num_sub_blocks_per_stage() 0 - 1. If any
+  * of them is an invalid index, an exception is thrown.
+  *
+  * @param stage The stage of the desired sub-Block. It must be a number
+  *        between 0 and get_time_horizon() - 1.
+  *
+  * @param sub_block_index The index of the desired sub-Block at the given \p
+  *        stage. It must be a number between 0 and
+  *        get_num_sub_blocks_per_stage() - 1.
+  *
+  * @return The sub-Block of this SDDPBlock associated with the given \p stage
+  *         and having index \p sub_block_index.
+  */
+ virtual StochasticBlock * get_sub_Block( Index stage ,
+                                          Index sub_block_index = 0 ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -440,6 +600,36 @@ public:
   return scenario_set;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns the initial state for the first stage problem
+ /** This function returns the initial state for the first stage problem. */
+ const std::vector< double > & get_initial_state() const {
+  return initial_state;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns a random cut
+ /** This function returns the PolyhedralFunction representing the random cut
+  * associated with the given \p stage and the scenario whose index is \p
+  * scenario_index. The \p stage argument must be between 0 and
+  * get_time_horizon() - 1 while \p scenario_index must be between 0 and
+  * get_scenario_set().size() - 1. */
+
+ PolyhedralFunction & get_random_cut( Index stage , Index scenario_index ) {
+  if( stage >= random_cuts.size() )
+   throw( std::invalid_argument( "SDDPBlock::get_random_cut: no random cut "
+                                 "for stage " + std::to_string( stage ) ) );
+
+  if( scenario_index >= random_cuts[ stage ].size() )
+   throw( std::invalid_argument
+          ( "SDDPBlock::get_random_cut: no random cut for scenario index " +
+            std::to_string( scenario_index ) + "." ) );
+
+  return random_cuts[ stage ][ scenario_index ];
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -454,8 +644,46 @@ public:
 /** @name Methods describing the behavior of an SDDPBlock
  * @{ */
 
- /// add cuts of the problem at the given stage
- /** This function adds cuts of the problem at the given \p stage. The
+ /// add cuts to a sub-Block at the given stage
+ /** This function adds cuts to the sub-Block with index \p sub_block_index at
+  * the given \p stage. The parameters must satisfy the following
+  * requirements:
+  *
+  * 1. \p A must be a matrix with as many columns as there are cuts to be
+  *    added and the number of rows must be equal to the number of Variable
+  *    defined in the BendersBlock associated with stage \p stage.
+  *
+  * 2. \p b must be a vector whose size is equal to the number of
+  *    rows of \p A. The cuts are given by Ax + b.
+  *
+  * 3. \p stage must be an integer between 0 and get_time_horizon() - 1.
+  *
+  * 4. \p sub_block_index must be an integer between 0 and
+  *    get_num_sub_blocks_per_stage() - 1.
+  *
+  * @param A A matrix containing the coefficients of the cuts to be added.
+  *
+  * @param b A vector containing the constants of the cuts to be added.
+  *
+  * @param stage The stage whose cuts should be updated.
+  *
+  * @param sub_block_index The index of the sub-Block whose cuts will be
+  *        updated.
+  *
+  * @param remove_current_cuts If true, all cuts currently part of sub-Block
+  *        with index \p sub_block_index at the given \p stage are removed
+  *        before the given cuts are added. If false, the current cuts are
+  *        kept. */
+
+ void add_cuts( PolyhedralFunction::MultiVector && A ,
+                PolyhedralFunction::RealVector && b , Index stage ,
+                Index sub_block_index ,
+                Index number_cuts_to_keep = Inf< Index >() );
+
+/*--------------------------------------------------------------------------*/
+
+ /// add cuts to all sub-Blocks at the given stage
+ /** This function adds cuts to all subs-Blocks at the given \p stage. The
   * parameters must satisfy the following requirements:
   *
   * 1. \p A must be a matrix with as many columns as there are cuts to be
@@ -463,7 +691,7 @@ public:
   *    defined in the BendersBlock associated with stage \p stage.
   *
   * 2. \p b must be a vector whose size is equal to the number of
-  *    rows of \p A. Teh cuts are given by Ax + b.
+  *    rows of \p A. The cuts are given by Ax + b.
   *
   * 3. \p stage must be an integer between 0 and get_time_horizon() - 1.
   *
@@ -473,75 +701,204 @@ public:
   *
   * @param stage The stage whose cuts should be updated.
   *
-  * @param replace_last_cuts Indicates whether the last cuts present in the
-  *        PolyhedralFunction associated with the given \p stage must be
-  *        removed.
-  */
+  * @param remove_current_cuts If true, all cuts currently part of sub-Block
+  *        with index \p sub_block_index at the given \p stage are removed
+  *        before the given cuts are added. If false, the current cuts are
+  *        kept. */
+
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,
-                bool replace_last_cuts );
+                Index number_cuts_to_keep = Inf< Index >() ) {
+  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i ) {
+   auto A_ = A;
+   auto b_ = b;
+   add_cuts( std::move( A_ ) , std::move( b_ ) , stage , i ,
+             number_cuts_to_keep );
+  }
+ }
 
 /*--------------------------------------------------------------------------*/
 
- double get_future_cost( Index stage ) const;
+ /// store the given random cut
+ /** This function store the random cut given by \p coefficients and \p alpha,
+  * which must be associated with the given \p stage and with the scenario
+  * whose index is \p scenario_index.
+  *
+  * @param coefficients The coefficients of the cut.
+  *
+  * @param alpha The constant of the cut.
+  *
+  * @param stage The stage (a number between 0 and get_time_horizon() - 1)
+  *        associated with the given cut.
+  *
+  * @param scenario_index The index (a number between 0 and
+  *        get_scenario_set().size() - 1) of the scenario associated with the
+  *        given cut. */
+
+ void store_random_cut( std::vector< double > && coefficients , double alpha ,
+                        Index stage , Index scenario_index );
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the number of cuts currently present at the given \p stage
+ /** This function returns the number of cuts currently present in the i-th
+  * PolyhedralFunction of the sub-Block with index \p sub_block_index at the
+  * given \p stage. The parameter \p i is the index of the PolyhedralFunction
+  * to which the cuts should be added (its default value is 0).
+  *
+  * @param stage The stage whose cuts should be updated.
+  *
+  * @param sub_block_index The index of a sub-Block at the given \p stage.
+  *
+  * @param i The index of the PolyhedralFunction in the indicated sub-Block.
+  *
+  * @return The number of cuts currently present in the i-th
+  *         PolyhedralFunction of the sub-Block with index \p sub_block_index
+  *         at the given \p stage. */
+
+ Index get_number_cuts( Index stage , Index sub_block_index , Index i = 0 )
+  const {
+
+  if( stage >= get_time_horizon() )
+   throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
+                                 "index: " + std::to_string( stage ) ) );
+
+  return get_polyhedral_function( stage , i , sub_block_index )->get_nrows();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the current future cost of the given sub-Block at the given stage
+ double get_future_cost( Index stage , Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
  /// sets the values of the state Variable of the problem at the given stage
- /** This function sets the values of the state Variable of the problem at the
-  * given \p stage. The size of the \p values array parameter must be equal to
-  * the number N of state Variable of the problem at the given \p stage, so
-  * that the value of the i-th state Variable will be values( i ), for each i
-  * in {0, ..., N-1}.
+ /** This function sets the values of the state Variable of the problem
+  * associated with the sub-Block with index \p sub_block_index at the given
+  * \p stage. The size of the \p values array parameter must be equal to the
+  * number N of state Variable of the problem at the given \p stage, so that
+  * the value of the i-th state Variable will be values( i ), for each i in
+  * {0, ..., N-1}.
   *
   * @param values The Eigen::ArrayXd containing the values of the Variable.
   *
-  * @param stage The stage whose state Variable must be set.
-  */
- void set_state( const Eigen::ArrayXd & values , Index stage );
+  * @param stage The stage whose state Variable must be set. This must be an
+  *              integer between 0 and get_time_horizon() - 1.
+  *
+  * @param sub_block_index The index of the sub-Block at the given \p
+  *        stage. This must be an integer between 0 and
+  *        get_num_sub_blocks_per_stage() - 1. */
+
+ void set_state( const Eigen::ArrayXd & values , Index stage ,
+                 Index sub_block_index );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the values of the state Variable of all sub-Blocks at the given stage
+ /** This function sets the values of the state Variable of all sub-Blocks at
+  * the given \p stage. The size of the \p values array parameter must be
+  * equal to the number N of state Variable of the problem at the given \p
+  * stage, so that the value of the i-th state Variable will be values( i ),
+  * for each i in {0, ..., N-1}.
+  *
+  * @param values The Eigen::ArrayXd containing the values of the Variable.
+  *
+  * @param stage The stage whose state Variable must be set. This must be an
+  *              integer between 0 and get_time_horizon() - 1. */
+
+ void set_state( const Eigen::ArrayXd & values , Index stage ) {
+  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
+   set_state( values , stage , i );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the values of the state Variable of the problem at the given stage
+ /** This function returns the current values of the state Variable of the
+  * problem associated with the sub-Block with index \p sub_block_index at the
+  * given \p stage.
+  *
+  * @param stage The stage whose state Variable values are desired.
+  *
+  * @param sub_block_index The index of the sub-Block at the given \p
+  *        stage. This must be an integer between 0 and
+  *        get_num_sub_blocks_per_stage() - 1.
+  *
+  * @return The current values of the state Variable of the problem at the
+  *         given \p stage. */
+
+ std::vector< double > get_state( Index stage ,
+                                  Index sub_block_index = 0 ) const;
 
 /*--------------------------------------------------------------------------*/
 
  /// sets the values of the state Variable of the problem at the given stage
- /** This function sets the values of the state Variable of the problem at the
-  * given \p stage. The size of the \p values array parameter must be equal to
-  * the number N of state Variable of the problem at the given \p stage, so
-  * that the value of the i-th state Variable will be values[ i ], for each i
-  * in {0, ..., N-1}.
+ /** This function sets the values of the state Variable of the problem
+  * associated with the sub-Block with index \p sub_block_index at the given
+  * \p stage. The size of the \p values array parameter must be equal to the
+  * number N of state Variable of the problem at the given \p stage, so that
+  * the value of the i-th state Variable will be values[ i ], for each i in
+  * {0, ..., N-1}.
   *
   * @param values The vector containing the values of the Variable.
   *
   * @param stage The stage whose state Variable must be set.
-  */
- void set_state( const std::vector<double> & values , Index stage );
+  *
+  * @param sub_block_index The index of the sub-Block at the given \p
+  *        stage. This must be an integer between 0 and
+  *        get_num_sub_blocks_per_stage() - 1. */
+
+ void set_state( const std::vector<double> & values , Index stage ,
+                 Index sub_block_index );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the values of the state Variable of all sub-Blocks at the given stage
+ /** This function sets the values of the state Variable of all sub-Blocks at
+  * the given \p stage. The size of the \p values array parameter must be
+  * equal to the number N of state Variable of the problem at the given \p
+  * stage, so that the value of the i-th state Variable will be values[ i ],
+  * for each i in {0, ..., N-1}.
+  *
+  * @param values The vector containing the values of the Variable.
+  *
+  * @param stage The stage whose state Variable must be set. */
+
+ void set_state( const std::vector<double> & values , Index stage ) {
+  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
+   set_state( values , stage , i );
+ }
 
 /*--------------------------------------------------------------------------*/
 
  /// sets the values of the state Variable of the problem at the given stage
- /** This function sets the values of the state Variable of the problem at the
-  * given \p stage, according to the admissible state of this SDDPBlock.
-  */
- void set_admissible_state( Index stage );
+ /** This function sets the values of the state Variable of the problem
+  * associated with the sub-Block with index \p sub_block_index at the given
+  * \p stage, according to the admissible state of this SDDPBlock.
+  *
+  * @param stage The stage whose state must be set.
+  *
+  * @param sub_block_index The index of the sub-Block at the given \p
+  *        stage. This must be an integer between 0 and
+  *        get_num_sub_blocks_per_stage() - 1. */
+
+ void set_admissible_state( Index stage , Index sub_block_index = 0 );
 
 /*--------------------------------------------------------------------------*/
 
  /// updates the sub-Block at the given stage for the given scenario
- /** This function updates the sub-Block at the given \p stage for the given
-  * \p scenario.
+ /** This function updates the sub-Block whose index is \p sub_block_index at
+  * the given \p stage for the given \p scenario.
   *
   * @param scenario_id The id of the scenario that must be set.
-  */
- void set_scenario( Index scenario_id , Index stage );
-
-/*--------------------------------------------------------------------------*/
-
- /// updates all sub-Block for the given scenario
- /** This function updates all sub-Block for the given scenario \p
-  * scenario_id.
   *
-  * @param scenario_id The id of the scenario that must be set.
-  */
- void set_scenario( Index scenario_id );
+  * @param sub_block_index The index of the sub-Block at the given \p
+  *        stage. This must be an integer between 0 and
+  *        get_num_sub_blocks_per_stage() - 1. */
+
+ void set_scenario( Index scenario_id , Index stage ,
+                    Index sub_block_index = 0 );
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -566,10 +923,19 @@ protected:
 /*--------------------------------------------------------------------------*/
 
  /// Pointers to the PolyhedralFunction of each sub-Block
+ /** This vector stores the pointers to the PolyhedralFunction of each
+  * sub-Block of this SDDPBlock. The pointer to the i-th PolyhedralFunction of
+  * the j-th sub-Block of stage t is located at position
+  *
+  *   ( t * num_sub_blocks_per_stage + j ) * num_polyhedral_per_sub_block + i
+  */
  std::vector< PolyhedralFunction * > v_polyhedral_functions;
 
- /// Number of PolyhedralFunctions for each stage
- Index num_polyhedral_per_stage;
+ /// Number of PolyhedralFunctions for each sub-Block
+ Index num_polyhedral_per_sub_block = 1;
+
+ /// Number of sub-Blocks for each stage
+ Index num_sub_blocks_per_stage = 1;
 
  /// Simulator for the forward step of the SDDP method
  std::shared_ptr< ScenarioSimulator > simulator_forward;
@@ -589,6 +955,14 @@ protected:
 
  /// A vector containing the concatenation of states for each time instant
  std::vector< double > admissible_states;
+
+ /// An initial state for the first stage problem
+ std::vector< double > initial_state;
+
+ /// Random cuts for each stage and each scenario
+ /** This boost::multi_array stores the random cuts for all stages and all
+  * scenarios. A random cut is a cut associated with a particular scenario. */
+ boost::multi_array< PolyhedralFunction , 2 > random_cuts;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -618,6 +992,11 @@ private:
   * @return A pointer to the Block that was deserialized.
   */
  Block * deserialize_sub_Block( const netCDF::NcGroup & group , Index i );
+
+ /*--------------------------------------------------------------------------*/
+
+ /// initializes the structure that stores the random cuts
+ void initialize_random_cuts();
 
 /*--------------------------------------------------------------------------*/
 

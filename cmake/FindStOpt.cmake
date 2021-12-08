@@ -20,10 +20,9 @@
 #                                                                             #
 #    for each <LibraryName> in: StOpt, StOpt_geners.                          #
 #                                                                             #
-#    This module reads hints about search locations from variables:           #
+#    This module can read a search path from the variable:                    #
 #                                                                             #
-#        STOPT_INC                   - Preferred include directory            #
-#        STOPT_LIB                   - Preferred library directory            #
+#        StOpt_ROOT          - Preferred StOpt location                       #
 #                                                                             #
 #    The following IMPORTED targets are also defined:                         #
 #                                                                             #
@@ -62,26 +61,22 @@ else ()
     # Note that find_path() creates a cache entry
     find_path(StOpt_geners_INCLUDE_DIR
               NAMES geners/uriUtils.hh
-              PATHS ${STOPT_INC}
               DOC "geners include directory.")
 
     # Note that find_library() creates a cache entry
     find_library(StOpt_geners_LIBRARY
                  NAMES geners
-                 PATHS ${STOPT_LIB}
                  DOC "geners library.")
 
     # ----- Find the StOpt library ------------------------------------------ #
     # Note that find_path() creates a cache entry
     find_path(StOpt_INCLUDE_DIR
               NAMES StOpt/sddp/OptimizerSDDPBase.h
-              PATHS ${STOPT_INC}
               DOC "StOpt include directory.")
 
     # Note that find_library() creates a cache entry
     find_library(StOpt_LIBRARY
                  NAMES StOpt
-                 PATHS ${STOPT_LIB}
                  DOC "StOpt library.")
 
     # ----- Handle the standard arguments ----------------------------------- #
@@ -129,3 +124,5 @@ mark_as_advanced(StOpt_geners_INCLUDE_DIR
                  StOpt_geners_LIBRARY
                  StOpt_INCLUDE_DIR
                  StOpt_LIBRARY)
+
+# --------------------------------------------------------------------------- #

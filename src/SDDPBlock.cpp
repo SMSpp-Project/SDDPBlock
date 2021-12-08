@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 07 - 01 - 2021
+ * \date 20 - 11 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -149,12 +149,21 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
  ::SMSpp_di_unipi_it::deserialize_dim( group , "TimeHorizon" ,
                                        time_horizon , false );
 
+ // NumSubBlocksPerStage
+
+ Index NumSubBlocksPerStage;
+ if( ::SMSpp_di_unipi_it::deserialize_dim
+     ( group , "NumSubBlocksPerStage" , NumSubBlocksPerStage ) ) {
+  num_sub_blocks_per_stage = NumSubBlocksPerStage;
+ }
+
  // StochasticBlock
 
- v_Block.reserve( time_horizon );
+ v_Block.reserve( time_horizon * num_sub_blocks_per_stage );
 
  for( Index i = 0 ; i < time_horizon ; ++i )
-  v_Block.push_back( deserialize_sub_Block( group , i ) );
+  for( Index j = 0 ; j < num_sub_blocks_per_stage ; ++j )
+   v_Block.push_back( deserialize_sub_Block( group , i ) );
 
  // PolyhedralFunctions
 
@@ -163,12 +172,14 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
  auto paths = AbstractPath::vector_deserialize( path_group );
 
  if( ! ::SMSpp_di_unipi_it::deserialize_dim
-     ( group , "NumPolyhedralFunctionsPerStage" , num_polyhedral_per_stage ) )
-  num_polyhedral_per_stage = 1;
+     ( group , "NumPolyhedralFunctionsPerSubBlock" ,
+       num_polyhedral_per_sub_block ) ) {
+  num_polyhedral_per_sub_block = 1;
+ }
 
- if( paths.size() != num_polyhedral_per_stage * time_horizon &&
-     ! ( paths.size() == num_polyhedral_per_stage && time_horizon > 1 ) ) {
-  if( num_polyhedral_per_stage == 1 )
+ if( paths.size() != num_polyhedral_per_sub_block * time_horizon &&
+     ! ( paths.size() == num_polyhedral_per_sub_block && time_horizon > 1 ) ) {
+  if( num_polyhedral_per_sub_block == 1 )
    throw ( std::invalid_argument
            ( "SDDPBlock::deserialize: The number of AbstractPath to "
              "PolyhedralFunction must be either equal to 1 or equal to "
@@ -178,33 +189,40 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
            ( "SDDPBlock::deserialize: The number of AbstractPath to "
              "PolyhedralFunction must be either equal to K or equal to K "
              "times the time horizon, where K is the number of "
-             "PolyhedralFunction per stage." ) );
+             "PolyhedralFunction per sub-Block." ) );
  }
 
  v_polyhedral_functions.clear();
- v_polyhedral_functions.reserve( num_polyhedral_per_stage * time_horizon );
+ v_polyhedral_functions.reserve
+  ( num_sub_blocks_per_stage * num_polyhedral_per_sub_block * time_horizon );
 
  for( Index t = 0 ; t < time_horizon ; ++t ) {
-  auto reference_block = static_cast< StochasticBlock * >( v_Block[ t ] )->
-   get_nested_Blocks().front();
-  assert( reference_block );
-  for( Index i = 0 ; i < num_polyhedral_per_stage ; ++i ) {
-   Index path_index = num_polyhedral_per_stage * t + i;
-   if( paths.size() == num_polyhedral_per_stage )
-    path_index = i;
-   auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
-    ( paths[ path_index ].get_element< Function >( reference_block ) );
-   if( ! polyhedral_function )
-    throw ( std::invalid_argument
-            ( "SDDPBlock::deserialize: PolyhedralFunction for stage "
-              + std::to_string( t ) + " was not found." ) );
-   v_polyhedral_functions.push_back( polyhedral_function );
+  for( Index j = 0 ; j < num_sub_blocks_per_stage ; ++j ) {
+   auto reference_block = get_sub_Block( t , j )->get_nested_Block( 0 );
+   assert( reference_block );
+   for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+    Index path_index = num_polyhedral_per_sub_block * t + i;
+    if( paths.size() == num_polyhedral_per_sub_block )
+     path_index = i;
+    auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
+     ( paths[ path_index ].get_element< Function >( reference_block ) );
+    if( ! polyhedral_function )
+     throw ( std::invalid_argument
+             ( "SDDPBlock::deserialize: PolyhedralFunction for stage "
+               + std::to_string( t ) + " was not found." ) );
+    v_polyhedral_functions.push_back( polyhedral_function );
+   }
   }
  }
 
  // Scenarios
 
  scenario_set.deserialize( group );
+
+ // Initial state
+
+ ::SMSpp_di_unipi_it::deserialize( group , "InitialState" ,
+                                   initial_state , false );
 
  // StateSize
 
@@ -260,6 +278,76 @@ void SDDPBlock::deserialize( const netCDF::NcGroup & group ) {
 }
 
 /*--------------------------------------------------------------------------*/
+
+void SDDPBlock::deserialize_random_cuts( const std::string & filename ) {
+
+ if( filename.empty() )
+  return;
+
+ netCDF::NcFile file( filename.c_str() , netCDF::NcFile::read );
+
+ const auto TimeHorizon = file.getDim( "TimeHorizon" );
+ if( TimeHorizon.isNull() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the dimension TimeHorizon "
+           "was not provided." ) );
+
+ const auto time_horizon = TimeHorizon.getSize();
+
+ if( time_horizon != get_time_horizon() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the expected TimeHorizon "
+           "dimension is " + std::to_string( get_time_horizon() ) +
+           ", but " + std::to_string( time_horizon ) + " was given." ) );
+
+ const auto NumberScenarios = file.getDim( "NumberScenarios" );
+
+ if( NumberScenarios.isNull() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the dimension "
+           "NumberScenarios was not provided." ) );
+
+ const auto number_scenarios = NumberScenarios.getSize();
+
+ if( number_scenarios != scenario_set.size() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_random_cuts: the expected NumberScenarios "
+           "dimension is " + std::to_string( scenario_set.size() ) +
+           ", but " + std::to_string( number_scenarios ) + " was given." ) );
+
+ // Possibly clear the previous random cuts
+ random_cuts.resize( boost::extents[ 0 ][ 0 ] );
+
+ // Create the random cuts
+ random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  // Collect the active Variables of the PolyhedralFunction at stage t
+  const auto polyhedral_function = get_polyhedral_function( t );
+  PolyhedralFunction::VarVector active_variables
+   ( polyhedral_function->get_num_active_var() );
+  for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( polyhedral_function->get_active_var( i ) );
+
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   // Set the active Variables of the PolyhedralFunction
+   auto variables = active_variables;
+   random_cuts[ t ][ s ].set_variables( std::move( variables ) );
+
+   // Deserialize the PolyhedralFunction (if provided)
+   auto group_name = "PolyhedralFunction_" +
+    std::to_string( t ) + "_" + std::to_string( s );
+   auto group = file.getGroup( group_name );
+   if( group.isNull() )
+    continue;
+   random_cuts[ t ][ s ].deserialize( group );
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -273,11 +361,16 @@ void SDDPBlock::add_Modification( sp_Mod mod , Observer::ChnlName chnl ) {
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
 /*--------------------------------------------------------------------------*/
 
-StochasticBlock * SDDPBlock::get_sub_Block( Index i ) const {
- if( i >= v_Block.size() )
-  throw( std::invalid_argument( "SDDPBlock::get_sub_Block: invalid sub-Block "
-                                "index: " + std::to_string( i ) ) );
- return static_cast< StochasticBlock * >( v_Block[ i ] );
+StochasticBlock * SDDPBlock::get_sub_Block
+( Index stage , Index sub_block_index ) const {
+ if( stage >= get_time_horizon() )
+  throw( std::invalid_argument( "SDDPBlock::get_sub_Block: invalid stage " +
+                                std::to_string( stage ) ) );
+ if( sub_block_index >= num_sub_blocks_per_stage )
+  throw( std::invalid_argument( "SDDPBlock::get_sub_Block: invalid sub-Block in"
+                                "dex " + std::to_string( sub_block_index ) ) );
+ const auto index = stage * num_sub_blocks_per_stage + sub_block_index;
+ return static_cast< StochasticBlock * >( v_Block[ index ] );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -285,68 +378,130 @@ StochasticBlock * SDDPBlock::get_sub_Block( Index i ) const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPBlock::add_cuts( PolyhedralFunction::MultiVector && A ,
-                          PolyhedralFunction::RealVector && b ,
-                          Index stage , bool replace_last_cuts ) {
+                          PolyhedralFunction::RealVector && b , Index stage ,
+                          Index sub_block_index ,
+                          Index number_cuts_to_keep ) {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::add_cuts: invalid stage index: " +
                                 std::to_string( stage ) ) );
 
- if( replace_last_cuts ) {
-  /*
-  const auto num_cuts = b.size();
-  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
-  assert( num_rows >= num_cuts );
-  Range range( num_rows - num_cuts , num_rows );
-  v_polyhedral_functions[ stage ]->modify_rows( std::move( A ) , b , range );
-  */
+ auto polyhedral_function =
+  get_polyhedral_function( stage , 0 , sub_block_index );
 
-  const auto num_rows = v_polyhedral_functions[ stage ]->get_nrows();
-  v_polyhedral_functions[ stage ]->delete_rows( Range( 0 , num_rows ) );
-  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
- }
- else
-  v_polyhedral_functions[ stage ]->add_rows( std::move( A ) , b );
+ const auto num_rows = polyhedral_function->get_nrows();
+
+ // Possibly remove the last (num_rows - number_cuts_to_keep) cuts
+ if( number_cuts_to_keep < num_rows )
+  polyhedral_function->delete_rows( Range( number_cuts_to_keep , num_rows) );
+
+ // Add the given cuts
+ polyhedral_function->add_rows( std::move( A ) , b );
 }
 
 /*--------------------------------------------------------------------------*/
 
-double SDDPBlock::get_future_cost( Index stage ) const {
+void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
+                                  double alpha , Index stage ,
+                                  Index scenario_index ) {
+
+ assert( stage < get_time_horizon() );
+ assert( scenario_index < scenario_set.size() );
+
+ if( random_cuts.size() == 0 ) {
+  // Create the PolyhedralFunctions that will store the random cuts.
+
+#pragma omp critical (SDDPBlock_random_cut)
+  {
+   if( random_cuts.size() == 0 )
+    initialize_random_cuts();
+  }
+ }
+
+ random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
+                                                 alpha );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::initialize_random_cuts() {
+
+ const auto time_horizon = get_time_horizon();
+ const auto number_scenarios = scenario_set.size();
+ random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  const auto polyhedral_function = get_polyhedral_function( t );
+  PolyhedralFunction::VarVector active_variables
+   ( polyhedral_function->get_num_active_var() );
+  for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( polyhedral_function->get_active_var( i ) );
+
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   auto variables = active_variables;
+   random_cuts[ t ][ s ].set_variables( std::move( variables ) );
+   random_cuts[ t ][ s ].set_is_convex( polyhedral_function->is_convex() );
+  }
+ }
+}
+
+/*--------------------------------------------------------------------------*/
+
+double SDDPBlock::get_future_cost( Index stage , Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::get_future_cost: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- v_polyhedral_functions[ stage ]->compute();
- return v_polyhedral_functions[ stage ]->get_value();
+ auto function = get_polyhedral_function( stage , 0 , sub_block_index );
+ if( ! function )
+  // If this SDDPBlock has no PolyhedralFunction, the future cost must be 0
+  return 0;
+ function->compute();
+ return function->get_value();
 }
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ) {
+void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ,
+                           Index sub_block_index ) {
  assert( stage < get_time_horizon() );
+ assert( sub_block_index < get_num_sub_blocks_per_stage() );
  auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
-    get_nested_Blocks().front() );
+  ( get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
  benders_block->set_variable_values( values );
 }
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::set_state( const std::vector<double> & values , Index stage ) {
+void SDDPBlock::set_state( const std::vector<double> & values , Index stage ,
+                           Index sub_block_index ) {
  assert( stage < get_time_horizon() );
+ assert( sub_block_index < get_num_sub_blocks_per_stage() );
  auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
-    get_nested_Blocks().front() );
+  ( get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
  benders_block->set_variable_values( values );
 }
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::set_admissible_state( Index stage ) {
+std::vector< double > SDDPBlock::get_state( Index stage ,
+                                            Index sub_block_index ) const {
  assert( stage < get_time_horizon() );
+ assert( sub_block_index < get_num_sub_blocks_per_stage() );
+ auto benders_block = static_cast< BendersBlock * >
+  ( get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
+ return benders_block->get_variable_values();
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::set_admissible_state( Index stage , Index sub_block_index ) {
+ assert( stage < get_time_horizon() );
+ assert( sub_block_index < get_num_sub_blocks_per_stage() );
 
  auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< StochasticBlock * >( v_Block[ stage ] )->
-    get_nested_Blocks().front() );
+  ( get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
 
  auto admissible_state = get_admissible_state( stage );
  benders_block->set_variable_values( admissible_state );
@@ -354,20 +509,13 @@ void SDDPBlock::set_admissible_state( Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::set_scenario( Index scenario_id ) {
- for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
-  this->set_scenario( scenario_id ,  stage );
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPBlock::set_scenario( Index scenario_id , Index stage ) {
+void SDDPBlock::set_scenario( Index scenario_id , Index stage ,
+                              Index sub_block_index ) {
  auto sub_scenario_begin = scenario_set.
   sub_scenario_begin( scenario_id , stage );
 
  try {
-  static_cast< StochasticBlock * >( v_Block[ stage ] )->
-   set_data( sub_scenario_begin );
+  get_sub_Block( stage , sub_block_index )->set_data( sub_scenario_begin );
  }
  catch( const std::exception & e ) {
   std::cout << "SDDPBlock::set_scenario: exception while setting scenario "
@@ -394,34 +542,49 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  const auto time_horizon = get_time_horizon();
  auto TimeHorizon_dim = group.addDim( "TimeHorizon" , time_horizon );
 
+ // NumSubBlocksPerStage
+
+ group.addDim( "NumSubBlocksPerStage" , num_sub_blocks_per_stage );
+
  // StochasticBlock_i
 
- for( Index i = 0 ; i < v_Block.size() ; ++i ) {
+ for( Index i = 0 ; i < get_time_horizon() ; ++i ) {
   auto sub_group = group.addGroup( "StochasticBlock_" +
                                    std::to_string( i ) );
-  v_Block[ i ]->serialize( sub_group );
+  get_sub_Block( i )->serialize( sub_group );
  }
 
  // AbstractPaths to PolyhedralFunctions
 
  std::vector< AbstractPath > paths;
- paths.reserve( v_polyhedral_functions.size() );
+ paths.reserve( get_time_horizon() * num_polyhedral_per_sub_block );
 
- for( Index i = 0 ; i < paths.size() ; ++i ) {
-  auto reference_block = static_cast< StochasticBlock * >( v_Block[ i ] )->
-   get_nested_Blocks().front();
-  assert( reference_block );
-  paths.emplace_back( v_polyhedral_functions[ i ] , reference_block );
+ for( Index t = 0 ; t < get_time_horizon() ; ++t ) {
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+   auto reference_block = get_sub_Block( t )->get_nested_Block( 0 );
+   assert( reference_block );
+   paths.emplace_back( get_polyhedral_function( t , i ) , reference_block );
+  }
  }
 
  AbstractPath::serialize( paths , group );
 
- if( num_polyhedral_per_stage != 1 )
-  group.addDim( "NumPolyhedralFunctionsPerStage" , num_polyhedral_per_stage );
+ if( num_polyhedral_per_sub_block != 1 )
+  group.addDim( "NumPolyhedralFunctionsPerSubBlock" ,
+                num_polyhedral_per_sub_block );
 
  // Scenarios
 
  scenario_set.serialize( group );
+
+ // Initial state
+
+ auto InitialStateSize = group.addDim( "InitialStateSize" ,
+                                       initial_state.size() );
+
+ ::SMSpp_di_unipi_it::serialize( group , "InitialState" ,
+                                 netCDF::NcDouble() , InitialStateSize ,
+                                 initial_state , false );
 
  // StateSize
 
@@ -442,6 +605,31 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
  ::SMSpp_di_unipi_it::serialize( group , "AdmissibleState" ,
                                  netCDF::NcDouble() , AdmissibleState_dim ,
                                  admissible_states , false );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::serialize_random_cuts( const std::string & filename ) const {
+
+ if( filename.empty() || ( random_cuts.num_elements() == 0 ) )
+  return;
+
+ netCDF::NcFile file( filename , netCDF::NcFile::replace );
+
+ const auto time_horizon = get_time_horizon();
+ file.addDim( "TimeHorizon" , time_horizon );
+
+ const auto number_scenarios = random_cuts[ 0 ].size();
+ file.addDim( "NumberScenarios" , number_scenarios );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index s = 0 ; s < number_scenarios ; ++s ) {
+   auto group_name = "PolyhedralFunction_" +
+    std::to_string( t ) + "_" + std::to_string( s );
+   auto group = file.addGroup( group_name );
+   random_cuts[ t ][ s ].serialize( group );
+  }
+ }
 }
 
 /*--------------------------------------------------------------------------*/
