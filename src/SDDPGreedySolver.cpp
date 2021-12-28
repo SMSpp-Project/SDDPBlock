@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 08 - 12 - 2021
+ * \date 28 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -140,6 +140,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   if( callback ) callback( stage );
 
   configure_inner_block( stage );
+
+  load_cuts( stage );
 
   auto sub_status = solve( stage , true );
 
@@ -603,6 +605,123 @@ void SDDPGreedySolver::store_subgradient_initial_state
   col_variable.set_value( * ( original_variable_values_it++ ) );
  }
 
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::load_cuts( Index stage ) {
+
+ if( f_load_cuts_filename.empty() )
+  return;
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ const auto time_horizon = sddp_block->get_time_horizon();
+
+ if( stage >= time_horizon )
+  throw( std::logic_error( "SDDPGreedySolver::load_cuts: invalid stage: " +
+                           std::to_string( stage ) + "." ) );
+
+ std::ifstream cuts_file( f_load_cuts_filename );
+
+ // Make sure the file is open.
+ if( ! cuts_file.is_open() )
+  throw( std::runtime_error( "SDDPGreedySolver::load_cuts: It was not possible "
+                             "to open the file \"" + f_load_cuts_filename +
+                             "\"." ) );
+
+ PolyhedralFunction::MultiVector A;
+ PolyhedralFunction::RealVector b;
+
+ std::string line;
+
+ if( cuts_file.good() )
+  // Skip the first line containing the header.
+  std::getline( cuts_file , line );
+
+ const auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
+ const auto num_active_var = polyhedral_function->get_num_active_var();
+
+ int line_number = 0;
+
+ // Read the cuts.
+
+ while( std::getline( cuts_file , line ) ) {
+  ++line_number;
+
+  std::stringstream line_stream( line );
+
+  // Try to read the stage.
+  int current_stage;
+  if( ! ( line_stream >> current_stage ) )
+   break;
+
+  if( current_stage >= time_horizon )
+   throw( std::logic_error
+          ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename + "\""
+            " contains an invalid stage: " + std::to_string( current_stage ) +
+            "." ) );
+
+  if( current_stage != stage )
+   continue;
+
+  if( line_stream.peek() != ',' )
+   throw( std::logic_error( "SDDPGreedySolver::load_cuts: File \"" +
+                            f_load_cuts_filename + "\" has an invalid "
+                            "format." ) );
+  line_stream.ignore();
+
+  // Read the cut.
+
+  PolyhedralFunction::RealVector a( num_active_var );
+
+  int i = 0;
+  double value;
+  while( line_stream >> value ) {
+   if( i > num_active_var )
+    throw( std::logic_error
+           ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
+             "\" contains an invalid cut at line " +
+             std::to_string( line_number ) + "." ) );
+
+   if( i < num_active_var )
+    a[ i ] = value;
+   else
+    b.push_back( value );
+
+   ++i;
+
+   if( line_stream.peek() == ',' )
+    line_stream.ignore();
+  }
+
+  if( i < num_active_var )
+   throw( std::logic_error
+          ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
+            "\" contains an invalid cut at line " +
+            std::to_string( line_number ) + "." ) );
+
+  A.push_back( a );
+ }
+
+ cuts_file.close();
+
+ // Now, add the cuts to all PolyhedralFunctions.
+
+ const auto num_sub_blocks_per_stage =
+  sddp_block->get_num_sub_blocks_per_stage();
+
+ // We assume that there is only one PolyhedralFunction per sub-Block.
+
+ assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
+
+ for( Index sub_block_index = 0 ; sub_block_index < num_sub_blocks_per_stage ;
+      ++sub_block_index ) {
+
+  auto polyhedral_function =
+   sddp_block->get_polyhedral_function( stage , 0 , sub_block_index );
+
+  polyhedral_function->add_rows( std::move( A ) , b );
+ }
 }
 
 /*--------------------------------------------------------------------------*/
