@@ -45,6 +45,7 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 /*----------------------- METHODS of SDDPGreedySolver ----------------------*/
 /*--------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -70,6 +71,12 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
   delete f_inner_block_config;
   f_inner_block_config = nullptr;
 
+  delete f_get_var_solution_config;
+  f_get_var_solution_config = nullptr;
+
+  delete f_get_dual_solution_config;
+  f_get_dual_solution_config = nullptr;
+
   return;
  }
 
@@ -82,7 +89,7 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
 
  // First, we try to extract a BlockConfig and/or a BlockSolverConfig from the
  // extra Configuration, as well as the Configuration to be passed to
- // get_var_solution() an get_dual_solution() of the inner Solver.
+ // get_var_solution() and get_dual_solution() of the inner Solver.
 
  if( auto config = dynamic_cast< SimpleConfiguration<
      std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
