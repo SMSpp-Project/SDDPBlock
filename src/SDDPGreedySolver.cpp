@@ -45,8 +45,119 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 /*----------------------- METHODS of SDDPGreedySolver ----------------------*/
 /*--------------------------------------------------------------------------*/
 
+/*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
+/*--------------------------------------------------------------------------*/
+
+SDDPGreedySolver::~SDDPGreedySolver() {
+ delete f_inner_block_config;
+ delete f_inner_block_solver_config;
+ delete f_get_var_solution_config;
+ delete f_get_dual_solution_config;
+}
+
 /*--------------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
+
+ ThinComputeInterface::set_ComputeConfig( scfg );
+
+ if( ! scfg ) { // factory reset
+  delete f_inner_block_solver_config;
+  f_inner_block_solver_config = nullptr;
+
+  delete f_inner_block_config;
+  f_inner_block_config = nullptr;
+
+  return;
+ }
+
+ if( ! scfg->f_extra_Configuration )
+  // No extra Configuration has been provided. There is nothing else to do.
+  return;
+
+ BlockConfig * block_config = nullptr;
+ BlockSolverConfig * block_solver_config = nullptr;
+
+ // First, we try to extract a BlockConfig and/or a BlockSolverConfig from the
+ // extra Configuration, as well as the Configuration to be passed to
+ // get_var_solution() an get_dual_solution() of the inner Solver.
+
+ if( auto config = dynamic_cast< SimpleConfiguration<
+     std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
+
+  // The extra Configuration is a vector. The first element of this
+  // vector, if present and not nullptr, must be a BlockConfig for the inner
+  // Blocks of the BendersBFunctions. The second element, if present and not
+  // nullptr, must be a BlockSolverConfig for the inner Blocks of the
+  // BendersBFunctions. The third element, if present and not nullptr, must be
+  // a Configuration to be passed to get_var_solution() when retrieving the
+  // Solutions to the inner Blocks of the BendersBFunctions. Finally, the
+  // fourth element, if present and not nullptr, must be a Configuration to be
+  // passed to get_dual_solution() when retrieving the Solutions to the inner
+  // Blocks of the BendersBFunctions.
+
+  if( ( ! config->f_value.empty() ) && config->f_value.front() ) {
+   // A BlockConfig must have been provided.
+   if( ! ( block_config =
+           dynamic_cast< BlockConfig * >( config->f_value.front() ) ) )
+    throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
+                                  "first element of the extra Configuration "
+                                  "is not a BlockConfig." ) );
+  }
+
+  if( config->f_value.size() >= 2 && config->f_value[ 1 ] ) {
+   // A BlockSolverConfig must have been provided.
+   if( ! ( block_solver_config =
+           dynamic_cast< BlockSolverConfig * >( config->f_value[ 1 ] ) ) )
+    throw( std::invalid_argument( "SDDGreedyPSolver::set_ComputeConfig: The "
+                                  "second element of the extra Configuration "
+                                  "is not a BlockSolverConfig." ) );
+  }
+
+  if( config->f_value.size() >= 3 && config->f_value[ 2 ] ) {
+   // A Configuration for get_var_solution() of the Solver attached to the
+   // inner Blocks.
+   f_get_var_solution_config = config->f_value[ 2 ]->clone();
+  }
+
+  if( config->f_value.size() >= 4 && config->f_value[ 3 ] ) {
+   // A Configuration for get_dual_solution() of the Solver attached to the
+   // inner Blocks.
+   f_get_dual_solution_config = config->f_value[ 3 ]->clone();
+  }
+ }
+ else {
+  // The extra Configuration must be either a BlockConfig or a
+  // BlockSolverConfig.
+  if( auto bc = dynamic_cast< BlockConfig * >( scfg->f_extra_Configuration ) )
+   block_config = bc;
+  else if( auto bsc =
+           dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
+   block_solver_config = bsc;
+  else
+   throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
+                                 "extra Configuration is invalid." ) );
+ }
+
+ // Now, replace the old Configurations if new ones have been provided.
+
+ if( block_config ) {
+  // A BlockConfig has been provided. Delete the old BlockConfig and clone the
+  // given one.
+  delete f_inner_block_config;
+  f_inner_block_config = block_config->clone();
+ }
+
+ if( block_solver_config ) {
+  // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
+  // and clone the given one.
+  delete f_inner_block_solver_config;
+  f_inner_block_solver_config = block_solver_config->clone();
+ }
+}
+
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::set_Block( Block * block ) {
@@ -233,15 +344,16 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
   throw( std::logic_error( "SDDPGreedySolver::get_var_solution: subproblem "
                            "at the last stage does not have a solution." ) );
  else {
-  solver->get_var_solution();
+  solver->get_var_solution( f_get_var_solution_config );
 
-  // TODO make SDDPGreedySolver a CDASolver?
+  // TODO SDDPGreedySolver is not a CDASolver and, therefore, it does not
+  // implement the get_dual_solution() method. That is why we retrieve the
+  // dual solution here. Should we make SDDPGreedySolver a CDASolver?
   for( Index t = 0 ; t < get_time_horizon() ; ++t ) {
    auto solver = get_sub_solver( t );
    if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) ) {
-    //assert( cda_solver->has_dual_solution() );
     if( cda_solver->has_dual_solution() )
-     cda_solver->get_dual_solution();
+     cda_solver->get_dual_solution( f_get_dual_solution_config );
    }
   }
  }
@@ -344,10 +456,10 @@ int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
 
  if( write_solution ) {
   if( solver->has_var_solution() )
-   solver->get_var_solution();
+   solver->get_var_solution( f_get_var_solution_config );
   if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) )
    if( cda_solver->has_dual_solution() )
-    cda_solver->get_dual_solution();
+    cda_solver->get_dual_solution( f_get_dual_solution_config );
  }
 
  return status;

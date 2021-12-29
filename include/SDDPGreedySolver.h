@@ -425,7 +425,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// destructor
- virtual ~SDDPGreedySolver() { }
+ virtual ~SDDPGreedySolver();
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -562,6 +562,66 @@ public:
   }
   Solver::set_par( par , value );
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set the whole set of parameters of this SDDPGreedySolver in one blow
+ /** This method sets the whole set of parameters of this SDDPGreedySolver in
+  * one blow using a ComputeConfig object.
+  *
+  * Besides considering all the parameters of an SDDPGreedySolver, it can also
+  * be used to configure the inner Block of every BendersBFunction by means of
+  * the extra Configuration (ComputeConfig::f_extra_Configuration). If the
+  * pointer to the extra Configuration is not nullptr, it can be any of the
+  * following:
+  *
+  * - a pointer to a BlockConfig, which will be used to configure the inner
+  *   Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a BlockSolverConfig, which will be used to configure the
+  *   Solver of the inner Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a SimpleConfiguration< std::vector< Configuration * > >.
+  *
+  * In the last case, the first element of the vector, if present, must be
+  * either nullptr or a pointer to a BlockConfig. The second element, if
+  * present, must be either nullptr or a pointer to a BlockSolverConfig. These
+  * will be used to configure the inner Block of the BendersBFunction at every
+  * stage and their Solver. The third element, if present, must be either
+  * nullptr or a pointer to a Configuration. This Configuration will be used
+  * to retrieve the Solution from the inner Block of the BendersBFunction, at
+  * every stage, after it is solved. This Configuration will be passed to
+  * get_var_solution() of the inner Solver. The relevant part of the Solution
+  * of the inner Block is the values of the active Variables of the
+  * PolyhedralFunction. Thus, this Configuration can be used to specify that
+  * only that portion of the Solution should be retrieved. Finally, the fourth
+  * element, if present, must be either nullptr or a pointer to a
+  * Configuration. This Configuration will be used to retrieve the dual
+  * Solution from the inner Block of the BendersBFunction, at every stage,
+  * after it is solved. This Configuration will be passed to
+  * get_dual_solution() of the inner Solver.
+  *
+  * If the extra Configuration is not any of the specified above, an exception
+  * is thrown.
+  *
+  * Here, we are assuming that the same Configuration can be applied to the
+  * inner Block of the BendersBFunction at all stages. However, in principle,
+  * the inner Block of the BendersBFunction at different stages could require
+  * different Configuration. If this case ever happens, the implementation of
+  * this method should be adapted to take it into consideration.
+  *
+  * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
+  * Configuration of this SDDPGreedySolver is reset to its default one.
+  *
+  * It is important to notice that every Configuration provided by \p scfg is
+  * cloned (see Configuration::clone()) and, therefore, the caller is
+  * responsible for destroying all these Configuration and the Configuration
+  * pointed by \p scfg.
+  *
+  * @param scfg a pointer to a ComputeConfig.
+  */
+
+ void set_ComputeConfig( ComputeConfig *scfg = nullptr ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -1114,6 +1174,12 @@ protected:
 
  /// Default BlockConfig for the inner Blocks
  BlockSolverConfig * f_inner_block_solver_config = nullptr;
+
+ /// Configuration to be passed to the get_var_solution() method
+ Configuration * f_get_var_solution_config = nullptr;
+
+ /// Configuration to be passed to the get_dual_solution() method
+ Configuration * f_get_dual_solution_config = nullptr;
 
  /// Names of the BlockConfig file for the inner Blocks
  std::vector< std::string > v_BC_filename;
