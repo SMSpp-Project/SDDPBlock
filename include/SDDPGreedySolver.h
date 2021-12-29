@@ -1373,6 +1373,14 @@ private:
   * sub-Block. See the #strLoadCuts parameter for a description of the format
   * that the file must have.
   *
+  * It is important to notice that the cuts are added to the
+  * PolyhedralFunction and any other cuts that were possibly already there in
+  * the PolyhedralFunction are kept there. Moreover, cuts for stage t are
+  * loaded within compute(), right before the subproblem associated with stage
+  * t is solved. If cuts are not to be loaded on subsequent calls to
+  * compute(), the value of parameter #strLoadCuts must be updated to the
+  * empty string.
+  *
   * @param stage The stage (between 0 and get_time_horizon() - 1) for which
   *        cuts should be loaded. */
 
