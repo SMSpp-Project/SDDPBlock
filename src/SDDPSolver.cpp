@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 11 - 2021
+ * \date 29 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -59,6 +59,10 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 /*-------------------------- METHODS of SDDPSolver -------------------------*/
 /*--------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
 void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
 
  ThinComputeInterface::set_ComputeConfig( scfg );
@@ -66,6 +70,13 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( ! scfg ) { // factory reset
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = nullptr;
+
+  delete f_inner_block_config;
+  f_inner_block_config = nullptr;
+
+  delete f_get_var_solution_config;
+  f_get_var_solution_config = nullptr;
+
   return;
  }
 
@@ -83,13 +94,13 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( auto config = dynamic_cast< SimpleConfiguration<
      std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
 
-  // The extra Configuration is a vector. So, the first element of this
-  // vector, if present and not nullptr, must be a BlockConfig for the inner
-  // Blocks of the BendersBFunctions. The second element, if present and not
-  // nullptr, must be a BlockSolverConfig for the inner Blocks of the
-  // BendersBFunctions. The third element, if present and not nullptr, must be
-  // a Configuration to be passed to get_var_solution() when retrieving the
-  // Solutions to the inner Blocks of the BendersBFunctions.
+  // The extra Configuration is a vector. The first element of this vector, if
+  // present and not nullptr, must be a BlockConfig for the inner Blocks of
+  // the BendersBFunctions. The second element, if present and not nullptr,
+  // must be a BlockSolverConfig for the inner Blocks of the
+  // BendersBFunctions. Finally, the third element, if present and not
+  // nullptr, must be a Configuration to be passed to get_var_solution() when
+  // retrieving the Solutions to the inner Blocks of the BendersBFunctions.
 
   if( ( ! config->f_value.empty() ) && config->f_value.front() ) {
    // A BlockConfig must have been provided.
@@ -224,6 +235,8 @@ void SDDPSolver::set_Block( Block * block ) {
  }
 }
 
+/*--------------------------------------------------------------------------*/
+/*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 
 int SDDPSolver::compute( bool changedvars ) {

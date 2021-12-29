@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 08 - 12 - 2021
+ * \date 28 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -298,6 +298,23 @@ public:
   /**< Name of the file containing the default BlockSolverConfig that will be
    * applied to the inner Block of each BendersBFunction. */
 
+  strLoadCuts ,
+  ///< name of the file out of which cuts will be loaded
+  /**< This parameter indicates the path to the file out of which cuts will be
+   * loaded. By default, the path to this file is empty, which means that no
+   * cut is loaded. If provided, the file must have the format the following
+   * format. The first line contains the header, which will be simply
+   * ignored. Each of the following lines must contain a cut described as
+   * follows:
+   *
+   *     s, a_0, a_1, ..., a_{k-1}, b
+   *
+   * where s is a stage between 0 and get_time_horizon() - 1, which indicates
+   * the stage with which the cut is associated, a_0, ..., a_{k-1} are the
+   * coefficients of the cut (a_i being the coefficient associated with the
+   * i-th state variable), and b is the constant (independent) term of the
+   * cut. */
+
   strRandomCutsFile ,
   ///< name of the file out of which the random cuts will be retrieved
   /**< A random cut is a cut associated with a particular scenario. This
@@ -408,7 +425,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// destructor
- virtual ~SDDPGreedySolver() { }
+ virtual ~SDDPGreedySolver();
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -479,15 +496,19 @@ public:
   *   vstrBSCfg, it can come from the "extra" Configuration in the
   *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
   *
-  * - #strRandomCutsFile [""]: the filename (path) to the file containing the
-  *   random cuts (cuts associated with a particular scenario). By default,
-  *   the path to this file is empty, which means that no random cut is
-  *   considered. If provided, the file must have the format specified by
+  * - #strLoadCuts [""]: the filename of (path to) the file out of which cuts
+  *   will be loaded. By default, the path to this file is empty, which means
+  *   that no cut is loaded.
+  *
+  * - #strRandomCutsFile [""]: the filename of (path to) the file containing
+  *   the random cuts (cuts associated with a particular scenario). By
+  *   default, the path to this file is empty, which means that no random cut
+  *   is considered. If provided, the file must have the format specified by
   *   SDDPBlock::deserialize_random_cuts().
   *
-  * - #strSubgradientsFile [""]: the filename (path) to the file to which the
-  *   subgradients (if any) will be output. By default, the path to this file
-  *   is empty, which means that no subgradient is output.
+  * - #strSubgradientsFile [""]: the filename of (path to) the file to which
+  *   the subgradients (if any) will be output. By default, the path to this
+  *   file is empty, which means that no subgradient is output.
   *
   * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
   * description of each of them.
@@ -504,6 +525,9 @@ public:
     return;
    case( strInnerBSC ):
     f_inner_block_solver_config_filename = value;
+    return;
+   case( strLoadCuts ):
+    f_load_cuts_filename = value;
     return;
    case( strRandomCutsFile ):
     f_random_cuts_filename = value;
@@ -538,6 +562,66 @@ public:
   }
   Solver::set_par( par , value );
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set the whole set of parameters of this SDDPGreedySolver in one blow
+ /** This method sets the whole set of parameters of this SDDPGreedySolver in
+  * one blow using a ComputeConfig object.
+  *
+  * Besides considering all the parameters of an SDDPGreedySolver, it can also
+  * be used to configure the inner Block of every BendersBFunction by means of
+  * the extra Configuration (ComputeConfig::f_extra_Configuration). If the
+  * pointer to the extra Configuration is not nullptr, it can be any of the
+  * following:
+  *
+  * - a pointer to a BlockConfig, which will be used to configure the inner
+  *   Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a BlockSolverConfig, which will be used to configure the
+  *   Solver of the inner Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a SimpleConfiguration< std::vector< Configuration * > >.
+  *
+  * In the last case, the first element of the vector, if present, must be
+  * either nullptr or a pointer to a BlockConfig. The second element, if
+  * present, must be either nullptr or a pointer to a BlockSolverConfig. These
+  * will be used to configure the inner Block of the BendersBFunction at every
+  * stage and their Solver. The third element, if present, must be either
+  * nullptr or a pointer to a Configuration. This Configuration will be used
+  * to retrieve the Solution from the inner Block of the BendersBFunction, at
+  * every stage, after it is solved. This Configuration will be passed to
+  * get_var_solution() of the inner Solver. The relevant part of the Solution
+  * of the inner Block is the values of the active Variables of the
+  * PolyhedralFunction. Thus, this Configuration can be used to specify that
+  * only that portion of the Solution should be retrieved. Finally, the fourth
+  * element, if present, must be either nullptr or a pointer to a
+  * Configuration. This Configuration will be used to retrieve the dual
+  * Solution from the inner Block of the BendersBFunction, at every stage,
+  * after it is solved. This Configuration will be passed to
+  * get_dual_solution() of the inner Solver.
+  *
+  * If the extra Configuration is not any of the specified above, an exception
+  * is thrown.
+  *
+  * Here, we are assuming that the same Configuration can be applied to the
+  * inner Block of the BendersBFunction at all stages. However, in principle,
+  * the inner Block of the BendersBFunction at different stages could require
+  * different Configuration. If this case ever happens, the implementation of
+  * this method should be adapted to take it into consideration.
+  *
+  * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
+  * Configuration of this SDDPGreedySolver is reset to its default one.
+  *
+  * It is important to notice that every Configuration provided by \p scfg is
+  * cloned (see Configuration::clone()) and, therefore, the caller is
+  * responsible for destroying all these Configuration and the Configuration
+  * pointed by \p scfg.
+  *
+  * @param scfg a pointer to a ComputeConfig.
+  */
+
+ void set_ComputeConfig( ComputeConfig *scfg = nullptr ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -612,7 +696,8 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values = { "" , "" , "" , "" };
+  static const std::vector<std::string> default_values =
+   { "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -685,6 +770,7 @@ public:
   switch( par ) {
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
+   case( strLoadCuts ): return f_load_cuts_filename;
    case( strRandomCutsFile ): return f_random_cuts_filename;
    case( strSubgradientsFile ): return f_subgradients_filename;
   }
@@ -748,6 +834,7 @@ public:
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
+  if( name == "strLoadCuts" ) return strLoadCuts;
   if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   if( name == "strSubgradientsFile" ) return strSubgradientsFile;
   return Solver::str_par_str2idx( name );
@@ -808,7 +895,7 @@ public:
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strInnerBC" , "strInnerBSC" , "strRandomCutsFile" ,
+   { "strInnerBC" , "strInnerBSC" , "strLoadCuts" , "strRandomCutsFile" ,
      "strSubgradientsFile" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
@@ -1088,6 +1175,12 @@ protected:
  /// Default BlockConfig for the inner Blocks
  BlockSolverConfig * f_inner_block_solver_config = nullptr;
 
+ /// Configuration to be passed to the get_var_solution() method
+ Configuration * f_get_var_solution_config = nullptr;
+
+ /// Configuration to be passed to the get_dual_solution() method
+ Configuration * f_get_dual_solution_config = nullptr;
+
  /// Names of the BlockConfig file for the inner Blocks
  std::vector< std::string > v_BC_filename;
 
@@ -1269,6 +1362,32 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// load cuts for the given \p stage
+ /** This function loads cuts for the given \p stage from a file that can be
+  * specified by the #strLoadCuts parameter. If no file has been specified,
+  * this function does nothing. If a file has been specified, cuts for the
+  * given \p stage will be retrieved from that file and loaded in the
+  * corresponding PolyhedralFunction(s). If the SDDPBlock has multiple
+  * sub-Blocks per stage then the cuts are loaded in every sub-Block. However,
+  * this function assumes that there is only one PolyhedralFunction per
+  * sub-Block. See the #strLoadCuts parameter for a description of the format
+  * that the file must have.
+  *
+  * It is important to notice that the cuts are added to the
+  * PolyhedralFunction and any other cuts that were possibly already there in
+  * the PolyhedralFunction are kept there. Moreover, cuts for stage t are
+  * loaded within compute(), right before the subproblem associated with stage
+  * t is solved. If cuts are not to be loaded on subsequent calls to
+  * compute(), the value of parameter #strLoadCuts must be updated to the
+  * empty string.
+  *
+  * @param stage The stage (between 0 and get_time_horizon() - 1) for which
+  *        cuts should be loaded. */
+
+ void load_cuts( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
  void store_subgradients( Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
@@ -1300,6 +1419,9 @@ private:
 
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
+
+ /// The name of the file out of which cuts are loaded
+ std::string f_load_cuts_filename;
 
  /// The name of the file containing the random cuts
  std::string f_random_cuts_filename;

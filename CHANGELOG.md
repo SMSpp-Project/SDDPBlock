@@ -15,9 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for multiple sub-Blocks per stage in SDDPBlock.
 - ParallelSDDPSolver.
 - SDDPSolverState.
-- SDDPSolver::set_ComputeConfig().
+- set_ComputeConfig() for SDDPSolver and SDDPGreedySolver.
 - Handling Configuration for get_var_solution().
 - Storage of random cuts.
+- Load cuts from file.
 
 ### Changed
 
