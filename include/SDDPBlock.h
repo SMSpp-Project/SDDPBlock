@@ -383,7 +383,7 @@ public:
   * - The netCDF dimension "TimeHorizon" containing the number of stages.
   *
   * - The netCDF dimension "NumberScenarios" containing the number of
-      scenarios.
+  *   scenarios.
   *
   * - The netCDF group "PolyhedralFunction_t_s", for each t in {0, ...,
   *   TimeHorizon - 1} and s in {0, ..., NumberScenarios - 1}, containing the

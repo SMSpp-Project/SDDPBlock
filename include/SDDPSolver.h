@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 08 - 12 - 2021
+ * \date 29 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -750,11 +750,16 @@ public:
   * Here, we are assuming that the same Configuration can be applied to the
   * inner Block of the BendersBFunction at all stages. However, in principle,
   * the inner Block of the BendersBFunction at different stages could require
-  * different Configuration. If this case ever happen, the implementation of
+  * different Configuration. If this case ever happens, the implementation of
   * this method should be adapted to take it into consideration.
   *
   * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
-  * Configuration of this SDDPSolver is reset to its default.
+  * Configuration of this SDDPSolver is reset to its default one.
+  *
+  * It is important to notice that every Configuration provided by \p scfg is
+  * cloned (see Configuration::clone()) and, therefore, the caller is
+  * responsible for destroying all these Configuration and the Configuration
+  * pointed by \p scfg.
   *
   * @param scfg a pointer to a ComputeConfig.
   */
