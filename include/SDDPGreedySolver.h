@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 28 - 12 - 2021
+ * \date 11 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -33,6 +33,8 @@
 
 #include "SDDPBlock.h"
 #include "Solver.h"
+
+#include <random>
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -243,7 +245,9 @@ public:
   /**< This is the id of the scenario that must be considered when trying to
    * solve the deterministic (single-scenario) multistage problem. It must be
    * a valid id for a scenario handled by the SDDPBlock. By default, its value
-   * is 0. */
+   * is 0, which means that the scenario with id 0 will be considered when
+   * solving the subproblems at each stage (except possibly at the first
+   * stage; see #intFirstStageScenarioId). */
 
   intFirstStageScenarioId ,
   ///< The id of the scenario to be considered at the first stage
@@ -253,9 +257,10 @@ public:
    * #intScenarioId. Otherwise, if it is negative (less than -1), it means
    * that no scenario must be set while solving the sub-problem at the first
    * stage (i.e., the data for that subproblem has already been set, except
-   * possibly the initial state). If it is nonnegative, it must be a number
-   * between 0 and the total number of scenarios minus 1. By default, its
-   * value is -1 (i.e., the id of the scenario for the first stage is that
+   * possibly the initial state). If it is nonnegative, then it is the id of
+   * the scenario to be considered at the first stage and thus it must be a
+   * number between 0 and the total number of scenarios minus 1. By default,
+   * its value is -1 (i.e., the id of the scenario for the first stage is that
    * given by #intScenarioId). */
 
   intUnregisterSolver ,
@@ -270,6 +275,24 @@ public:
    * that inner Block, then it is used to unregister the Solver(s) of that
    * inner Block. Otherwise, all Solver(s) of that inner Block are
    * unregistered by a call to Block::unregister_Solvers(). */
+
+  intScenarioSeed ,
+  ///< Seed for the random number engine that selects the scenarios
+  /**< This parameter determines whether the scenarios to be considered at
+   * each stage (from the second stage onwards) should be randomly selected.
+   * The id of the scenario for the first stage problem is always determined
+   * by #intFirstStageScenarioId. If #intScenarioSeed is negative, then the
+   * scenarios to be considered are determined by #intScenarioId (and
+   * #intFirstStageScenarioId). If #intScenarioSeed is nonnegative, then the
+   * scenarios for all stages except the first one are selected at random and
+   * #intScenarioSeed serves as the seed for the random number engine that
+   * selects the scenarios. The default value for this parameter is negative,
+   * which means that the scenarios are not selected at random and, thus, are
+   * determined by #intScenarioId (and #intFirstStageScenarioId). Notice that
+   * this parameter has a higher priority over the parameter
+   * #intScenarioId. This means that if #intScenarioSeed is nonnegative, then
+   * the scenarios for each stage from the second stage onwards are selected
+   * at random, no matter the value of #intScenarioId. */
 
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
@@ -448,6 +471,8 @@ public:
   *
   * - #intUnregisterSolver [0]
   *
+  * - #intScenarioSeed [-1]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -463,6 +488,14 @@ public:
     set_first_stage_scenario_id( value ); return;
    case( intUnregisterSolver ): f_unregister_solver = value; return;
    case( intLogVerb ): log_verbosity = value; return;
+   case( intScenarioSeed ): {
+    if( value >= 0 ) {
+     f_seed = value;
+     random_number_engine.seed( f_seed );
+    }
+    else
+     f_seed = Inf<Index>();
+   }
   }
   Solver::set_par( par , value );
  }
@@ -678,6 +711,7 @@ public:
    case( intFirstStageScenarioId ): return -1;
    case( intUnregisterSolver ): return 0;
    case( intLogVerb ): return 0;
+   case( intScenarioSeed ): return -1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -750,6 +784,7 @@ public:
    case( intFirstStageScenarioId ): return f_first_stage_scenario_id;
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
+   case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -816,6 +851,7 @@ public:
   if( name == "intScenarioId" ) return intScenarioId;
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intUnregisterSolver" ) return intUnregisterSolver;
+  if( name == "intScenarioSeed" ) return intScenarioSeed;
   return Solver::int_par_str2idx( name );
  }
 
@@ -872,7 +908,8 @@ public:
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" };
+   { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
+     "intScenarioSeed" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1149,9 +1186,11 @@ protected:
 /*--------------------------------------------------------------------------*/
 
  /// The id of the scenario that should be considered
+ /**< This is the id of the scenario that must be considered at all stages
+  * (except possibly the first stage). */
  Index f_scenario_id = 0;
 
- /// The id of the scenario that should be considered at the first stage
+ /// The id of the scenario that must be considered at the first stage
  int f_first_stage_scenario_id = -1;
 
  /// The stage at which some special event has happened
@@ -1388,6 +1427,28 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the id of the scenario that must be considered at the given stage
+ /** This function returns the id of the scenario that must be considered at
+  * the given \p stage.
+  *
+  * @param stage A stage (between 0 and get_time_horizon() - 1).
+  *
+  * @return The id of the scenario that must be considered at the given
+  *         \p stage. */
+
+ Index get_scenario_id( Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sample a new scenario for the given \p stage
+ /** This function selects, at random, a new scenario for the given \p stage.
+  *
+  * @param stage A stage (between 0 and get_time_horizon() - 1). */
+
+ void sample_scenario( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
  void store_subgradients( Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
@@ -1434,6 +1495,18 @@ private:
 
  /// Subgradients of the objective of the subproblems
  Subgradients f_subgradients;
+
+ /// IDs of the scenarios to be considered at each stage
+ std::vector< Index > v_random_scenario_id;
+
+ /// Distribution for selecting the scenarios at each stage
+ std::uniform_int_distribution< Index > scenario_distribution;
+
+ /// Random number engine to select the scenarios
+ std::mt19937 random_number_engine;
+
+ /// Seed for the random number engine that selects the scenarios
+ Index f_seed = Inf<Index>();
 
 };   // end( class SDDPGreedySolver )
 

@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 28 - 12 - 2021
+ * \date 11 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -251,8 +251,12 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    // subproblem at the previous stage.
    set_state( get_solution( stage - 1 ) , stage );
 
-   // Set the scenario
-   set_scenario( f_scenario_id , stage );
+   // If required, sample a scenario for this stage.
+   if( f_seed < Inf<Index>() )
+    sample_scenario( stage );
+
+   // Set the scenario.
+   set_scenario( get_scenario_id( stage ) , stage );
   }
 
   if( callback ) callback( stage );
@@ -295,10 +299,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    solution_value += get_sub_solution_value( stage );
 
    if( ! f_subgradients_filename.empty() ) {
-    auto scenario_id = f_scenario_id;
-    if( ( stage == 0 ) && ( f_first_stage_scenario_id >= 0 ) )
-     scenario_id = f_first_stage_scenario_id;
-    store_subgradients( stage , scenario_id );
+    store_subgradients( stage , get_scenario_id( stage ) );
    }
   }
 
@@ -770,7 +771,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
   std::stringstream line_stream( line );
 
   // Try to read the stage.
-  int current_stage;
+  Index current_stage;
   if( ! ( line_stream >> current_stage ) )
    break;
 
@@ -793,7 +794,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
   PolyhedralFunction::RealVector a( num_active_var );
 
-  int i = 0;
+  Index i = 0;
   double value;
   while( line_stream >> value ) {
    if( i > num_active_var )
@@ -897,10 +898,7 @@ void SDDPGreedySolver::output_subgradients
 
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
-  auto scenario_id = f_scenario_id;
-  if( ( stage == 0 ) && ( f_first_stage_scenario_id >= 0 ) )
-   scenario_id = f_first_stage_scenario_id;
-
+  auto scenario_id = get_scenario_id( stage );
   auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
   auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
 
@@ -913,6 +911,32 @@ void SDDPGreedySolver::output_subgradients
  }
 
  file.close();
+}
+
+/*--------------------------------------------------------------------------*/
+
+Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
+ if( stage == 0 ) {
+  if( f_first_stage_scenario_id >= 0 )
+   return f_first_stage_scenario_id;
+  return f_scenario_id;
+ }
+ else if( f_seed < Inf<Index>() ) { // Random scenarios are being considered
+  assert( stage < v_random_scenario_id.size() );
+  return v_random_scenario_id[ stage ];
+ }
+ return f_scenario_id;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::sample_scenario( Index stage ) {
+ using param_type = std::uniform_int_distribution< Index >::param_type;
+ v_random_scenario_id.resize( get_time_horizon() );
+ const auto num_scenarios =
+  static_cast< SDDPBlock * >( f_Block )->get_scenario_set().size();
+ v_random_scenario_id[ stage ] = scenario_distribution
+  ( random_number_engine , param_type( 0 , num_scenarios - 1 ) );
 }
 
 /*--------------------------------------------------------------------------*/
