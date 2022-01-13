@@ -241,6 +241,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   static_cast< SDDPBlock * >( f_Block )->
    deserialize_random_cuts( f_random_cuts_filename );
 
+ // Clear the data from previous call to compute()
+ f_simulation_data.clear();
+
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
   if( f_log && log_verbosity )
@@ -318,9 +321,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   ( status_compute == Solver::kStopIter ) ||
   ( status_compute == Solver::kStopTime );
 
- // Output the subgradients if required.
+ // Output the data obtained during the simulation if required.
 
- output_subgradients( f_simulation_data_filename );
+ output_simulation_data( f_simulation_data_filename );
 
  return status_compute;
 }
@@ -851,7 +854,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::output_subgradients
+void SDDPGreedySolver::output_simulation_data
 ( const std::string & filename ) const {
 
  if( filename.empty() )
@@ -860,8 +863,8 @@ void SDDPGreedySolver::output_subgradients
  std::ofstream file( filename );
 
  if( ! file.is_open() )
-  throw( std::runtime_error( "SDDPGreedySolver::output_subgradients: it was "
-                             "not possible to open the file \"" +
+  throw( std::runtime_error( "SDDPGreedySolver::output_simulation_data: "
+                             "it was not possible to open the file \"" +
                              filename + "\"." ) );
 
  const auto separator = ",";

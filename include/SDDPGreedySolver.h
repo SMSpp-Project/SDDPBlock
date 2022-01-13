@@ -360,23 +360,25 @@ public:
    * means that no random cut is considered. If provided, the file must have
    * the format specified by SDDPBlock::deserialize_random_cuts(). */
 
-  strSubgradientsFile ,
-  ///< name of the file in which subgradients of the objective will be saved
-  /**< This is the name of the file in which subgradients of the objectives of
-   * the subproblems, as well as initial states and scenarios, will be
-   * saved. At each stage (except the first one), the subgradients of the
-   * objective function with respect to the initial state and with respect to
-   * the solution (final state) of the subproblem at that stage are
-   * computed. At the first stage, only the subgradient with respect to the
-   * solution of the first stage subproblem is computed. At the end of a call
-   * to compute(), these subgradients are output to the file whose name (path)
-   * is given by #strSubgradientsFile. This file will have the following
-   * format. The first line contains two integers: the time horizon T and the
-   * number of initial states that will be output (which is either T or T+1)
-   * separated by comma. This line is followed by T or T+1 lines (depending on
-   * whether an initial state for the first stage subproblem has been
-   * provided), each one containing the initial state of some stage. Each of
-   * these lines have the following format:
+  strSimulationData ,
+  ///< name of the file in which data from the simulation will be saved
+  /**< This is the name of the file in which some data obtained during the
+   * simulation (i.e., the most recent call to compuet()), which includes
+   * subgradients and values of the objectives of the subproblems, initial
+   * states, and scenarios, will be saved. At each stage (except the first
+   * one), the subgradients of the objective function with respect to the
+   * initial state and with respect to the solution (final state) of the
+   * subproblem at that stage are computed. At the first stage, only the
+   * subgradient with respect to the solution of the first stage subproblem is
+   * computed. At the end of a call to compute(), these subgradients are
+   * output to the file whose name (path) is given by #strSimulationData. This
+   * file will have the following format. The first line contains two
+   * integers: the time horizon T and the number of initial states that will
+   * be output (which is either T or T+1) separated by comma. This line is
+   * followed by T or T+1 lines (depending on whether an initial state for the
+   * first stage subproblem has been provided), each one containing the
+   * initial state of some stage. Each of these lines have the following
+   * format:
    *
    *     t, s_0, s_1, ..., s_{k-1}
    *
@@ -423,8 +425,8 @@ public:
    * where t is a stage in {0, ..., T-1} and scenario_t is a vector containing
    * the scenario for the stage t.
    *
-   * By default, the path to this file is empty, which means that the
-   * subgradients of the objective function will not be output. */
+   * By default, the path to this file is empty, which means that no data
+   * obtained during the simulation will be output. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -568,9 +570,9 @@ public:
   *   is considered. If provided, the file must have the format specified by
   *   SDDPBlock::deserialize_random_cuts().
   *
-  * - #strSubgradientsFile [""]: the filename of (path to) the file to which
-  *   the subgradients (if any) will be output. By default, the path to this
-  *   file is empty, which means that no subgradient is output.
+  * - #strSimulationData [""]: the filename of (path to) the file to which the
+  *   data obtained during the simulation (if any) will be output. By default,
+  *   the path to this file is empty, which means that no data is output.
   *
   * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
   * description of each of them.
@@ -594,7 +596,7 @@ public:
    case( strRandomCutsFile ):
     f_random_cuts_filename = value;
     return;
-   case( strSubgradientsFile ):
+   case( strSimulationData ):
     f_simulation_data_filename = value;
     return;
   }
@@ -838,7 +840,7 @@ public:
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
    case( strLoadCuts ): return f_load_cuts_filename;
    case( strRandomCutsFile ): return f_random_cuts_filename;
-   case( strSubgradientsFile ): return f_simulation_data_filename;
+   case( strSimulationData ): return f_simulation_data_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -904,7 +906,7 @@ public:
   if( name == "strInnerBSC" ) return strInnerBSC;
   if( name == "strLoadCuts" ) return strLoadCuts;
   if( name == "strRandomCutsFile" ) return strRandomCutsFile;
-  if( name == "strSubgradientsFile" ) return strSubgradientsFile;
+  if( name == "strSimulationData" ) return strSimulationData;
   return Solver::str_par_str2idx( name );
  }
 
@@ -965,7 +967,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "strInnerBC" , "strInnerBSC" , "strLoadCuts" , "strRandomCutsFile" ,
-     "strSubgradientsFile" };
+     "strSimulationData" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1332,6 +1334,13 @@ private:
    objective_values.emplace_back( stage , objective_value );
   }
 
+  void clear() {
+   subgradients_initial_state.clear();
+   subgradients_final_state.clear();
+   initial_states.clear();
+   objective_values.clear();
+  }
+
   // Subgradients of the objective of the subproblems with respect to the
   // initial state
   matrix subgradients_initial_state;
@@ -1461,16 +1470,17 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- /// output the subgradients (if any)
- /** This function outputs the subgradients with respect to the initial and
-  * final states, as well as the initial states, into the file with the given
-  * \p filename. The format of the file will follow that specified in the
-  * description of #strSubgradientsFile.
+ /// output the simulation data (if any)
+ /** This function outputs the data obtained during the simulation (i.e., the
+  * most recent call to compuet()), which includes subgradients with respect
+  * to the initial and final states, objective values, initial states, and
+  * scenarios, into the file with the given \p filename. The format of the
+  * file will follow that specified in the description of #strSimulationData.
   *
-  * @param filename The name of the file in which the subgradients and initial
-  * states should be stored. */
+  * @param filename The name of the file in which the data obtained during the
+  *        simulation should be stored. */
 
- void output_subgradients( const std::string & filename ) const;
+ void output_simulation_data( const std::string & filename ) const;
 
 /*--------------------------------------------------------------------------*/
 
