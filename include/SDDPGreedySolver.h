@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 11 - 01 - 2022
+ * \date 13 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1046,6 +1046,43 @@ public:
   status_compute = Solver::kUnEval;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario to be considered
+ /** This method updates the sub-Block of the SDDPBlock associated with the
+  *  given \p stage with the data provided by the scenario whose id is
+  *  \p scenario_id.
+  *
+  * @param scenario_id The id of a scenario handled by the SDDPBlock.
+  *
+  * @param stage An integer between 0 and get_time_horizon() - 1.
+  */
+ void set_scenario( Index scenario_id , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the callback function
+ /** It sets the callback function that is called right before the sub-problem
+  * at each stage is solved. The parameter of the callback function is the
+  * stage associated with the sub-problem that will be solved.
+  */
+ void set_callback( std::function< void( Index ) > function ) {
+  callback = function;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the random number engine used to select the scenarios
+ /** This function sets the random number engine that is used to select the
+  * scenario at each stage when random scenarios must be considered (see the
+  * #intScenarioSeed parameter).
+  *
+  * @param A random number engine.
+  */
+ void set_random_number_engine( std::mt19937 random_number_engine ) {
+  this->random_number_engine = random_number_engine;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
@@ -1153,26 +1190,15 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// sets the scenario to be considered
- /** This method updates the sub-Block of the SDDPBlock associated with the
-  *  given \p stage with the data provided by the scenario whose id is
-  *  \p scenario_id.
+ /// returns a copy of the random number engine used to select the scenarios
+ /** This function returns a copy of the random number engine that is used to
+  * select the scenario at each stage when random scenarios must be considered
+  * (see the #intScenarioSeed parameter).
   *
-  * @param scenario_id The id of a scenario handled by the SDDPBlock.
-  *
-  * @param stage An integer between 0 and get_time_horizon() - 1.
+  * @return A copy of the random number engine used to select the scenarios.
   */
- void set_scenario( Index scenario_id , Index stage );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the callback function
- /** It sets the callback function that is called right before the sub-problem
-  * at each stage is solved. The parameter of the callback function is the
-  * stage associated with the sub-problem that will be solved.
-  */
- void set_callback( std::function< void( Index ) > function ) {
-  callback = function;
+ std::mt19937 get_random_number_engine() const {
+  return random_number_engine;
  }
 
 /**@} ----------------------------------------------------------------------*/
