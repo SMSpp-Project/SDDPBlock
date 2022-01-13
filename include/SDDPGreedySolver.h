@@ -595,7 +595,7 @@ public:
     f_random_cuts_filename = value;
     return;
    case( strSubgradientsFile ):
-    f_subgradients_filename = value;
+    f_simulation_data_filename = value;
     return;
   }
   Solver::set_par( par , value );
@@ -838,7 +838,7 @@ public:
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
    case( strLoadCuts ): return f_load_cuts_filename;
    case( strRandomCutsFile ): return f_random_cuts_filename;
-   case( strSubgradientsFile ): return f_subgradients_filename;
+   case( strSubgradientsFile ): return f_simulation_data_filename;
   }
   return Solver::get_str_par( par );
  }
@@ -1307,7 +1307,7 @@ private:
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
- class Subgradients {
+ class SimulationData {
 
   using matrix = std::vector< std::pair< Index , std::vector< double > > >;
 
@@ -1573,14 +1573,14 @@ private:
  /// The name of the file containing the random cuts
  std::string f_random_cuts_filename;
 
- /// The name of the file in which the subgradients will be saved
- std::string f_subgradients_filename;
+ /// The name of the file in which the simulation data will be saved
+ std::string f_simulation_data_filename;
 
  /// Initial state for the first stage problem
  std::vector< double > v_initial_state;
 
  /// Data obtained during the simulation
- Subgradients f_subgradients;
+ SimulationData f_simulation_data;
 
  /// Frequency at which scenarios should be sampled
  int f_scenario_change_frequency = 1;

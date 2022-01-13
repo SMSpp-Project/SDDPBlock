@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 11 - 01 - 2022
+ * \date 13 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -298,7 +298,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   else {
    solution_value += get_sub_solution_value( stage );
 
-   if( ! f_subgradients_filename.empty() ) {
+   if( ! f_simulation_data_filename.empty() ) {
     store_subgradients( stage , get_scenario_id( stage ) );
    }
   }
@@ -320,7 +320,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  // Output the subgradients if required.
 
- output_subgradients( f_subgradients_filename );
+ output_subgradients( f_simulation_data_filename );
 
  return status_compute;
 }
@@ -580,13 +580,13 @@ void SDDPGreedySolver::store_subgradients( Index stage ,
   }
 
   if( ! initial_state.empty() )
-   f_subgradients.store_initial_state( initial_state , 0 );
+   f_simulation_data.store_initial_state( initial_state , 0 );
  }
 
  // Store the solution at the given stage as the initial state of the next
  // stage.
 
- f_subgradients.store_initial_state( get_solution( stage ) , stage + 1 );
+ f_simulation_data.store_initial_state( get_solution( stage ) , stage + 1 );
 
  // Store the subgradient with respect to the final state.
  store_subgradient_final_state( stage );
@@ -599,8 +599,8 @@ void SDDPGreedySolver::store_subgradients( Index stage ,
 
  // Store the objective value disregarding the future value
 
- f_subgradients.store_objective_value( get_sub_solution_value( stage ) ,
-                                       stage );
+ f_simulation_data.store_objective_value( get_sub_solution_value( stage ) ,
+                                          stage );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -638,8 +638,8 @@ void SDDPGreedySolver::store_subgradient_final_state( Index stage ) {
 
  if( ! subgradient.empty() ) {
   // Store the subgradient.
-  f_subgradients.store_subgradient_final_state( std::move( subgradient ) ,
-                                                stage );
+  f_simulation_data.store_subgradient_final_state( std::move( subgradient ) ,
+                                                   stage );
  }
 }
 
@@ -718,8 +718,8 @@ void SDDPGreedySolver::store_subgradient_initial_state
 
  if( ! subgradient.empty() ) {
   // Store the subgradient.
-  f_subgradients.store_subgradient_initial_state
-   ( std::move( subgradient ) , stage );
+  f_simulation_data.store_subgradient_initial_state( std::move( subgradient ) ,
+                                                     stage );
  }
 
  // Put back the original values of the active Variables.
@@ -867,11 +867,11 @@ void SDDPGreedySolver::output_subgradients
  const auto separator = ",";
 
  file << get_time_horizon() << separator
-      << f_subgradients.initial_states.size() << std::endl;
+      << f_simulation_data.initial_states.size() << std::endl;
 
  // Initial states
 
- for( const auto & state : f_subgradients.initial_states ) {
+ for( const auto & state : f_simulation_data.initial_states ) {
   file << state.first;
   for( const auto & component : state.second )
    file << separator << component;
@@ -880,7 +880,7 @@ void SDDPGreedySolver::output_subgradients
 
  // Subgradients with respect to the initial state
 
- for( const auto & subgradient : f_subgradients.subgradients_initial_state ) {
+ for( const auto & subgradient : f_simulation_data.subgradients_initial_state ) {
   file << subgradient.first << separator << "I";
   for( const auto & component : subgradient.second )
    file << separator << component;
@@ -889,7 +889,7 @@ void SDDPGreedySolver::output_subgradients
 
  // Subgradients with respect to the final state
 
- for( const auto & subgradient : f_subgradients.subgradients_final_state ) {
+ for( const auto & subgradient : f_simulation_data.subgradients_final_state ) {
   file << subgradient.first << separator << "F";
   for( const auto & component : subgradient.second )
    file << separator << component;
@@ -898,7 +898,7 @@ void SDDPGreedySolver::output_subgradients
 
  // Objective values
 
- for( const auto & objective_value : f_subgradients.objective_values ) {
+ for( const auto & objective_value : f_simulation_data.objective_values ) {
   file << objective_value.first << separator << objective_value.second
        << std::endl;
  }
