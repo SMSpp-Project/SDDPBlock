@@ -289,8 +289,8 @@ public:
    * considered during the forward pass. By default, this number is 1. */
 
   intOutputFrequency ,
-  ///< The frequency in which file outputs are performed
-  /**< This parameter determines the frequency in which file outputs are
+  ///< The frequency at which file outputs are performed
+  /**< This parameter determines the frequency at which file outputs are
    * performed (saving the approximations to the future cost functions or
    * serializing an SDDPSolverState). If it is positive, these file outputs
    * are performed every #intOutputFrequency iterations and once at the end of

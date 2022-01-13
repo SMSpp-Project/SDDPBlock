@@ -294,6 +294,20 @@ public:
    * the scenarios for each stage from the second stage onwards are selected
    * at random, no matter the value of #intScenarioId. */
 
+  intScenarioChangeFrequency ,
+  ///< Frequency at which scenarios should possibly change
+  /**< This parameter determines the frequency at which scenarios should
+   * possibly change when the scenarios are chosen at random (see the
+   * #intScenarioSeed parameter). If it is positive, scenarios are sampled
+   * every #intScenarioChangeFrequency stages. When a scenario is not sampled
+   * for some stage, the id of the scenario for that stage will be the same as
+   * the id of the scenario for the previous stage. If the value for this
+   * parameter is nonpositive, then scenarios are not sampled at all and,
+   * therefore, the id of the scenario for each stage will be the same as the
+   * id of the scenario for the first stage. The default value for this
+   * parameter is 1, which means that scenarios are sampled for every
+   * stage. */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -473,6 +487,8 @@ public:
   *
   * - #intScenarioSeed [-1]
   *
+  * - #intScenarioChangeFrequency [1]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -496,6 +512,9 @@ public:
     else
      f_seed = Inf<Index>();
    }
+   case( intScenarioChangeFrequency ):
+    f_scenario_change_frequency = value;
+    return;
   }
   Solver::set_par( par , value );
  }
@@ -712,6 +731,7 @@ public:
    case( intUnregisterSolver ): return 0;
    case( intLogVerb ): return 0;
    case( intScenarioSeed ): return -1;
+   case( intScenarioChangeFrequency ): return 1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -785,6 +805,7 @@ public:
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
    case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
+   case( intScenarioChangeFrequency ): return f_scenario_change_frequency;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -852,6 +873,7 @@ public:
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intUnregisterSolver" ) return intUnregisterSolver;
   if( name == "intScenarioSeed" ) return intScenarioSeed;
+  if( name == "intScenarioChangeFrequency" ) return intScenarioChangeFrequency;
   return Solver::int_par_str2idx( name );
  }
 
@@ -909,7 +931,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
-     "intScenarioSeed" };
+     "intScenarioSeed" , "intScenarioChangeFrequency" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1466,6 +1488,19 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ /// checks whether a scenario should be sampled for the given \p stage
+ /** This function returns true if and only if a scenario should be sampled
+  * for the given \p stage.
+  *
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @return true if and only if a scenario should be sampled for the given \p
+  *         stage.
+  */
+ bool should_sample( Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
  /// sample a new scenario for the given \p stage
  /** This function selects, at random, a new scenario for the given \p stage.
   *
@@ -1521,6 +1556,9 @@ private:
 
  /// Subgradients of the objective of the subproblems
  Subgradients f_subgradients;
+
+ /// Frequency at which scenarios should be sampled
+ int f_scenario_change_frequency = 1;
 
  /// IDs of the scenarios to be considered at each stage
  std::vector< Index > v_random_scenario_id;

@@ -246,14 +246,14 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   if( f_log && log_verbosity )
    *f_log << "Solving problem at stage " << stage << std::endl;
 
+  // If required, sample a scenario for this stage.
+  if( f_seed < Inf<Index>() )
+   sample_scenario( stage );
+
   if( stage > 0 ) {
    // Set the state of the subproblem as that given by the solution of the
    // subproblem at the previous stage.
    set_state( get_solution( stage - 1 ) , stage );
-
-   // If required, sample a scenario for this stage.
-   if( f_seed < Inf<Index>() )
-    sample_scenario( stage );
 
    // Set the scenario.
    set_scenario( get_scenario_id( stage ) , stage );
@@ -930,13 +930,34 @@ Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
 
 /*--------------------------------------------------------------------------*/
 
+bool SDDPGreedySolver::should_sample( Index stage ) const {
+ if( ( f_scenario_change_frequency > 0 ) &&
+     ( stage % f_scenario_change_frequency == 0 ) )
+  return true;
+ return false;
+}
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPGreedySolver::sample_scenario( Index stage ) {
- using param_type = std::uniform_int_distribution< Index >::param_type;
  v_random_scenario_id.resize( get_time_horizon() );
- const auto num_scenarios =
-  static_cast< SDDPBlock * >( f_Block )->get_scenario_set().size();
- v_random_scenario_id[ stage ] = scenario_distribution
-  ( random_number_engine , param_type( 0 , num_scenarios - 1 ) );
+
+ if( stage == 0 ) {
+  // The ID of the scenario for the first stage subproblem is not random.
+  v_random_scenario_id[ stage ] = get_scenario_id( stage );
+  return;
+ }
+
+ if( should_sample( stage ) ) {
+  using param_type = std::uniform_int_distribution< Index >::param_type;
+  const auto num_scenarios =
+   static_cast< SDDPBlock * >( f_Block )->get_scenario_set().size();
+  v_random_scenario_id[ stage ] = scenario_distribution
+   ( random_number_engine , param_type( 0 , num_scenarios - 1 ) );
+ }
+ else {
+  v_random_scenario_id[ stage ] = v_random_scenario_id[ stage - 1 ];
+ }
 }
 
 /*--------------------------------------------------------------------------*/
