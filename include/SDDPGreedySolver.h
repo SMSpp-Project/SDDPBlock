@@ -404,6 +404,16 @@ public:
    * is with respect to the initial or the final state, respectively, and a_0,
    * ..., a_{k-1} are the elements of the subgradient.
    *
+   * Then, each of the next T lines contains two elements
+   *
+   *     t, c
+   *
+   * where t is a stage between 0 and T-1 and c is the value of the objective
+   * function of the subproblem associated with stage t, disregarding the
+   * value of the cost-to-go function (or value function, future value
+   * function, future cost function). That is, the objective value of the
+   * subroblem is f = c + F, where F is the value of the cost-to-go function.
+   *
    * Finally, the scenario considered during compute() (which can be set by
    * the #intScenarioId parameter or by the function set_scenario_id()) is
    * output in the last T lines. Each of these lines has the form:
@@ -1318,9 +1328,24 @@ private:
    subgradients_initial_state.emplace_back( stage , std::move( subgradient ) );
   }
 
+  void store_objective_value( double objective_value , Index stage ) {
+   objective_values.emplace_back( stage , objective_value );
+  }
+
+  // Subgradients of the objective of the subproblems with respect to the
+  // initial state
   matrix subgradients_initial_state;
+
+  // Subgradients of the objective of the subproblems with respect to the
+  // final state
   matrix subgradients_final_state;
+
+  // Initial states
   matrix initial_states;
+
+  // Values of the objectives of the subproblems disregarding the future value
+  // function
+  std::vector< std::pair< Index , double > > objective_values;
  };
 
 /*--------------------------------------------------------------------------*/
@@ -1554,7 +1579,7 @@ private:
  /// Initial state for the first stage problem
  std::vector< double > v_initial_state;
 
- /// Subgradients of the objective of the subproblems
+ /// Data obtained during the simulation
  Subgradients f_subgradients;
 
  /// Frequency at which scenarios should be sampled

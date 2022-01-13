@@ -596,6 +596,11 @@ void SDDPGreedySolver::store_subgradients( Index stage ,
   store_subgradient_initial_state( stage , scenario_index ,
                                    get_solution( stage - 1 ) );
  }
+
+ // Store the objective value disregarding the future value
+
+ f_subgradients.store_objective_value( get_sub_solution_value( stage ) ,
+                                       stage );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -889,6 +894,13 @@ void SDDPGreedySolver::output_subgradients
   for( const auto & component : subgradient.second )
    file << separator << component;
   file << std::endl;
+ }
+
+ // Objective values
+
+ for( const auto & objective_value : f_subgradients.objective_values ) {
+  file << objective_value.first << separator << objective_value.second
+       << std::endl;
  }
 
  // Finally, we output the scenarios
