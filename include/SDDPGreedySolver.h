@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 13 - 01 - 2022
+ * \date 14 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -437,6 +437,50 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// public enum for the vector-of-int parameters
+ /** Public enum describing the different algorithmic parameters of
+  * vector-of-int type that SDDPGreedySolver has in addition to these of
+  * Solver. The value vintLastAlgPar is provided so that the list can be
+  * easily further extended by derived classes. */
+
+ enum vint_par_type_SDDP_Greedy_S {
+
+  vintStagesSample = vint_par_type_S::vintLastAlgPar ,
+  ///< Stages at which a new scenario must be sampled
+  /**< When scenarios are selected at random (see #intScenarioSeed), this
+   * parameter specifies the stages at which scenarios must be sampled. If, at
+   * a stage t > 0, a scenario is not sampled, then the id of the scenario to
+   * be considered at stage t is the same as the id of the scenario that was
+   * considered at stage t-1. Thus, if #vintStagesSample contains the stages S
+   * = {t_0, t_1, ..., t_k}, with t_i < t_{i+1} for all i in {0, ..., k-1},
+   * then scenarios are sampled at each stage t_i for i in {0, ..., k} and the
+   * id to be considered at a stage t > 0 that does not belong to S is the
+   * same as the id of the scenario that was (sampled and) considered at stage
+   *
+   *     t_j = min{ t_i in S | t >= t_i }
+   *
+   * Recall that the id of the scenario to be considered at the first stage
+   * (stage 0) is determined by #intScenarioId. However, if 0 belongs to
+   * #vintStagesSample, then the id of the scenario for the first stage is
+   * also sampled and #intScenarioId is ignored.
+   *
+   * The #vintStagesSample parameter is an alternative to the parameter
+   * #intScenarioChangeFrequency. The parameter #intScenarioChangeFrequency
+   * has a higher priority, which means that #vintStagesSample is ignored if
+   * #intScenarioChangeFrequency is positive.
+   *
+   * Each element of this vector must be between 0 and get_time_horizon() -
+   * 1. By default, this vector is empty. */
+
+  vintLastAlgPar
+  ///< first allowed new vector-of-int parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * vector-of-int parameters. */
+
+ };  // end( vint_par_type_SDDP_Greedy_S )
+
+/*--------------------------------------------------------------------------*/
+
  /// public enum for the vector-of-double parameters
  /** Public enum describing the different algorithmic parameters of
   * vector-of-double type that SDDPGreedySolver has in addition to these of
@@ -605,6 +649,30 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// set the vector-of-int paramaters of SDDPGreedySolver
+ /** Set a given vector-of-int paramater. Besides considering the
+  * vector-of-int parameters defined in #vint_par_type_S, this function
+  * also accepts the following parameters:
+  *
+  * - #vintStagesSample
+  *
+  * Please refer to the #vint_par_type_SDDP_Greedy_S enumeration for a
+  * detailed description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( idx_type par , std::vector< int > && value ) override {
+  switch( par ) {
+   case( vintStagesSample ): v_stages_to_sample = value; return;
+  }
+  Solver::set_par( par , value );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// set the vector-of-double paramaters of SDDPGreedySolver
  /** Set a given vector-of-double paramater. Besides considering the
   * vector-of-double parameters defined in #vdbl_par_type_S, this function
@@ -715,6 +783,17 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// get the number of vector-of-int parameters
+ /** Get the number of vector-of-int  parameters.
+  *
+  * @return The number of vector-of-int parameters.
+  */
+
+ idx_type get_num_vint_par( void ) const override {
+  return( idx_type( vintLastAlgPar ) );
+ }
+
+/*--------------------------------------------------------------------------*/
  /// get the number of vector-of-double parameters
  /** Get the number of vector-of-double  parameters.
   *
@@ -769,6 +848,33 @@ public:
    return default_values[ par - str_par_type_S::strLastAlgPar ];
 
   return Solver::get_dflt_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the default value of a vector-of-int parameter
+ /** Get the default value of the vector-of-int parameter with given index.
+  * Please see the #vint_par_type_SDDP_Greedy_S and #vint_par_type_S
+  * enumerations for a detailed explanation of the possible parameters. This
+  * function returns the following values depending on the desired parameter:
+  *
+  * - #vintStagesSample: an empty vector
+  *
+  * For any other parameter, see Solver::get_dflt_vint_par().
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::vector< int > & get_dflt_vint_par( const idx_type par )
+  const override {
+  const static std::vector< int > empty;
+
+  if( par == vintStagesSample ) {
+   return empty;
+  }
+
+  return Solver::get_dflt_vint_par( par );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -847,6 +953,26 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// get a specific vector-of-int parameter
+ /** Get a specific vector-of-int parameter. Please see the
+  * #vint_par_type_SDDP_Greedy_S and #vint_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::vector< int > & get_vint_par( const idx_type par )
+  const override {
+  switch( par ) {
+   case( vintStagesSample ): return v_stages_to_sample;
+  }
+  return Solver::get_vint_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// get a specific vector-of-double parameter
  /** Get a specific vector-of-double parameter. Please see the
   * #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S enumerations for a
@@ -912,6 +1038,23 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the index of the vector-of-int parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a
+  * vector-of-int parameter, and returns its index, i.e., the int value that
+  * can be used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type vint_par_str2idx( const std::string & name ) const override {
+  if( name == "vintStagesSample" ) return vintStagesSample;
+  return Solver::vint_par_str2idx( name );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// returns the index of the vector-of-double parameter with given string name
  /** This method takes a string, which is assumed to be the name of a
   * vector-of-double parameter, and returns its index, i.e., the double value
@@ -973,6 +1116,26 @@ public:
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
 
   return Solver::str_par_idx2str( idx );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the string name of the vector-of-double parameter with given index
+ /** This method takes a vector-of-double parameter index, i.e., the double
+  * value that can be used in [set/get]_par() [see above] to set/get it, and
+  * returns its "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & vint_par_idx2str( const idx_type idx ) const override {
+  static const std::vector<std::string> parameter_names =
+   { "vintStagesSample" };
+  if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
+   return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
+  return Solver::vint_par_idx2str( idx );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1597,6 +1760,9 @@ private:
 
  /// IDs of the scenarios to be considered at each stage
  std::vector< Index > v_random_scenario_id;
+
+ /// Stages at which scenarios must be sampled
+ std::vector< int > v_stages_to_sample;
 
  /// Distribution for selecting the scenarios at each stage
  std::uniform_int_distribution< Index > scenario_distribution;
