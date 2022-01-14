@@ -294,14 +294,14 @@ public:
    * the scenarios for each stage from the second stage onwards are selected
    * at random, no matter the value of #intScenarioId. */
 
-  intScenarioChangeFrequency ,
-  ///< Frequency at which scenarios should possibly change
-  /**< This parameter determines the frequency at which scenarios should
-   * possibly change when the scenarios are chosen at random (see the
-   * #intScenarioSeed parameter). If it is positive, scenarios are sampled
-   * every #intScenarioChangeFrequency stages. When a scenario is not sampled
-   * for some stage, the id of the scenario for that stage will be the same as
-   * the id of the scenario for the previous stage. If the value for this
+  intScenarioSampleFrequency ,
+  ///< Frequency at which scenarios should be sampled
+  /**< This parameter determines the frequency at which scenarios should be
+   * sampled when the scenarios are chosen at random (see the #intScenarioSeed
+   * parameter). If it is positive, scenarios are sampled every
+   * #intScenarioSampleFrequency stages. When a scenario is not sampled for
+   * some stage, the id of the scenario for that stage will be the same as the
+   * id of the scenario for the previous stage. If the value for this
    * parameter is nonpositive, then scenarios are not sampled at all and,
    * therefore, the id of the scenario for each stage will be the same as the
    * id of the scenario for the first stage. The default value for this
@@ -465,9 +465,9 @@ public:
    * also sampled and #intScenarioId is ignored.
    *
    * The #vintStagesSample parameter is an alternative to the parameter
-   * #intScenarioChangeFrequency. The parameter #intScenarioChangeFrequency
+   * #intScenarioSampleFrequency. The parameter #intScenarioSampleFrequency
    * has a higher priority, which means that #vintStagesSample is ignored if
-   * #intScenarioChangeFrequency is positive.
+   * #intScenarioSampleFrequency is positive.
    *
    * Each element of this vector must be between 0 and get_time_horizon() -
    * 1. By default, this vector is empty. */
@@ -543,7 +543,7 @@ public:
   *
   * - #intScenarioSeed [-1]
   *
-  * - #intScenarioChangeFrequency [1]
+  * - #intScenarioSampleFrequency [1]
   *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
@@ -568,8 +568,8 @@ public:
     else
      f_seed = Inf<Index>();
    }
-   case( intScenarioChangeFrequency ):
-    f_scenario_change_frequency = value;
+   case( intScenarioSampleFrequency ):
+    f_scenario_sample_frequency = value;
     return;
   }
   Solver::set_par( par , value );
@@ -822,7 +822,7 @@ public:
    case( intUnregisterSolver ): return 0;
    case( intLogVerb ): return 0;
    case( intScenarioSeed ): return -1;
-   case( intScenarioChangeFrequency ): return 1;
+   case( intScenarioSampleFrequency ): return 1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -923,7 +923,7 @@ public:
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
    case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
-   case( intScenarioChangeFrequency ): return f_scenario_change_frequency;
+   case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1011,7 +1011,7 @@ public:
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intUnregisterSolver" ) return intUnregisterSolver;
   if( name == "intScenarioSeed" ) return intScenarioSeed;
-  if( name == "intScenarioChangeFrequency" ) return intScenarioChangeFrequency;
+  if( name == "intScenarioSampleFrequency" ) return intScenarioSampleFrequency;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1086,7 +1086,7 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
-     "intScenarioSeed" , "intScenarioChangeFrequency" };
+     "intScenarioSeed" , "intScenarioSampleFrequency" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1756,7 +1756,7 @@ private:
  SimulationData f_simulation_data;
 
  /// Frequency at which scenarios should be sampled
- int f_scenario_change_frequency = 1;
+ int f_scenario_sample_frequency = 1;
 
  /// IDs of the scenarios to be considered at each stage
  std::vector< Index > v_random_scenario_id;
