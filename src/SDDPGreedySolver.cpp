@@ -946,9 +946,17 @@ Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
 /*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::should_sample( Index stage ) const {
- if( ( f_seed < Inf<Index>() ) && ( f_scenario_sample_frequency > 0 ) &&
+ if( f_seed == Inf<Index>() )
+  return false;
+
+ if( ( f_scenario_sample_frequency > 0 ) &&
      ( stage % f_scenario_sample_frequency == 0 ) )
   return true;
+
+ if( std::find( v_stages_to_sample.begin() , v_stages_to_sample.end() , stage )
+     != v_stages_to_sample.end() )
+  return true;
+
  return false;
 }
 

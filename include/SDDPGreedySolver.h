@@ -465,9 +465,10 @@ public:
    * also sampled and #intScenarioId is ignored.
    *
    * The #vintStagesSample parameter is an alternative to the parameter
-   * #intScenarioSampleFrequency. The parameter #intScenarioSampleFrequency
-   * has a higher priority, which means that #vintStagesSample is ignored if
-   * #intScenarioSampleFrequency is positive.
+   * #intScenarioSampleFrequency. The parameters #vintStagesSample and
+   * #intScenarioSampleFrequency can be used together so that a scenario is
+   * sampled at a stage t if t belongs to #vintStagesSample or t satisfies the
+   * condition specified by #intScenarioSampleFrequency.
    *
    * Each element of this vector must be between 0 and get_time_horizon() -
    * 1. By default, this vector is empty. */
