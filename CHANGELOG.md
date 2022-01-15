@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Handling Configuration for get_var_solution().
 - Storage of random cuts.
 - Load cuts from file.
+- Allow scenarios to be randomly chosen in SDDPGreedySolver.
 
 ### Changed
 

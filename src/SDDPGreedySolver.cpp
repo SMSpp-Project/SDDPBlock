@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 28 - 12 - 2021
+ * \date 13 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -241,18 +241,25 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   static_cast< SDDPBlock * >( f_Block )->
    deserialize_random_cuts( f_random_cuts_filename );
 
+ // Clear the data from previous call to compute()
+ f_simulation_data.clear();
+
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
   if( f_log && log_verbosity )
    *f_log << "Solving problem at stage " << stage << std::endl;
+
+  // If required, sample a scenario for this stage.
+  if( f_seed < Inf<Index>() )
+   sample_scenario( stage );
 
   if( stage > 0 ) {
    // Set the state of the subproblem as that given by the solution of the
    // subproblem at the previous stage.
    set_state( get_solution( stage - 1 ) , stage );
 
-   // Set the scenario
-   set_scenario( f_scenario_id , stage );
+   // Set the scenario.
+   set_scenario( get_scenario_id( stage ) , stage );
   }
 
   if( callback ) callback( stage );
@@ -294,11 +301,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   else {
    solution_value += get_sub_solution_value( stage );
 
-   if( ! f_subgradients_filename.empty() ) {
-    auto scenario_id = f_scenario_id;
-    if( ( stage == 0 ) && ( f_first_stage_scenario_id >= 0 ) )
-     scenario_id = f_first_stage_scenario_id;
-    store_subgradients( stage , scenario_id );
+   if( ! f_simulation_data_filename.empty() ) {
+    store_subgradients( stage , get_scenario_id( stage ) );
    }
   }
 
@@ -317,9 +321,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   ( status_compute == Solver::kStopIter ) ||
   ( status_compute == Solver::kStopTime );
 
- // Output the subgradients if required.
+ // Output the data obtained during the simulation if required.
 
- output_subgradients( f_subgradients_filename );
+ output_simulation_data( f_simulation_data_filename );
 
  return status_compute;
 }
@@ -579,13 +583,13 @@ void SDDPGreedySolver::store_subgradients( Index stage ,
   }
 
   if( ! initial_state.empty() )
-   f_subgradients.store_initial_state( initial_state , 0 );
+   f_simulation_data.store_initial_state( initial_state , 0 );
  }
 
  // Store the solution at the given stage as the initial state of the next
  // stage.
 
- f_subgradients.store_initial_state( get_solution( stage ) , stage + 1 );
+ f_simulation_data.store_initial_state( get_solution( stage ) , stage + 1 );
 
  // Store the subgradient with respect to the final state.
  store_subgradient_final_state( stage );
@@ -595,6 +599,11 @@ void SDDPGreedySolver::store_subgradients( Index stage ,
   store_subgradient_initial_state( stage , scenario_index ,
                                    get_solution( stage - 1 ) );
  }
+
+ // Store the objective value disregarding the future value
+
+ f_simulation_data.store_objective_value( get_sub_solution_value( stage ) ,
+                                          stage );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -632,8 +641,8 @@ void SDDPGreedySolver::store_subgradient_final_state( Index stage ) {
 
  if( ! subgradient.empty() ) {
   // Store the subgradient.
-  f_subgradients.store_subgradient_final_state( std::move( subgradient ) ,
-                                                stage );
+  f_simulation_data.store_subgradient_final_state( std::move( subgradient ) ,
+                                                   stage );
  }
 }
 
@@ -712,8 +721,8 @@ void SDDPGreedySolver::store_subgradient_initial_state
 
  if( ! subgradient.empty() ) {
   // Store the subgradient.
-  f_subgradients.store_subgradient_initial_state
-   ( std::move( subgradient ) , stage );
+  f_simulation_data.store_subgradient_initial_state( std::move( subgradient ) ,
+                                                     stage );
  }
 
  // Put back the original values of the active Variables.
@@ -770,7 +779,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
   std::stringstream line_stream( line );
 
   // Try to read the stage.
-  int current_stage;
+  Index current_stage;
   if( ! ( line_stream >> current_stage ) )
    break;
 
@@ -793,7 +802,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
   PolyhedralFunction::RealVector a( num_active_var );
 
-  int i = 0;
+  Index i = 0;
   double value;
   while( line_stream >> value ) {
    if( i > num_active_var )
@@ -845,7 +854,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::output_subgradients
+void SDDPGreedySolver::output_simulation_data
 ( const std::string & filename ) const {
 
  if( filename.empty() )
@@ -854,18 +863,18 @@ void SDDPGreedySolver::output_subgradients
  std::ofstream file( filename );
 
  if( ! file.is_open() )
-  throw( std::runtime_error( "SDDPGreedySolver::output_subgradients: it was "
-                             "not possible to open the file \"" +
+  throw( std::runtime_error( "SDDPGreedySolver::output_simulation_data: "
+                             "it was not possible to open the file \"" +
                              filename + "\"." ) );
 
  const auto separator = ",";
 
  file << get_time_horizon() << separator
-      << f_subgradients.initial_states.size() << std::endl;
+      << f_simulation_data.initial_states.size() << std::endl;
 
  // Initial states
 
- for( const auto & state : f_subgradients.initial_states ) {
+ for( const auto & state : f_simulation_data.initial_states ) {
   file << state.first;
   for( const auto & component : state.second )
    file << separator << component;
@@ -874,7 +883,7 @@ void SDDPGreedySolver::output_subgradients
 
  // Subgradients with respect to the initial state
 
- for( const auto & subgradient : f_subgradients.subgradients_initial_state ) {
+ for( const auto & subgradient : f_simulation_data.subgradients_initial_state ) {
   file << subgradient.first << separator << "I";
   for( const auto & component : subgradient.second )
    file << separator << component;
@@ -883,11 +892,18 @@ void SDDPGreedySolver::output_subgradients
 
  // Subgradients with respect to the final state
 
- for( const auto & subgradient : f_subgradients.subgradients_final_state ) {
+ for( const auto & subgradient : f_simulation_data.subgradients_final_state ) {
   file << subgradient.first << separator << "F";
   for( const auto & component : subgradient.second )
    file << separator << component;
   file << std::endl;
+ }
+
+ // Objective values
+
+ for( const auto & objective_value : f_simulation_data.objective_values ) {
+  file << objective_value.first << separator << objective_value.second
+       << std::endl;
  }
 
  // Finally, we output the scenarios
@@ -897,10 +913,7 @@ void SDDPGreedySolver::output_subgradients
 
  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
-  auto scenario_id = f_scenario_id;
-  if( ( stage == 0 ) && ( f_first_stage_scenario_id >= 0 ) )
-   scenario_id = f_first_stage_scenario_id;
-
+  auto scenario_id = get_scenario_id( stage );
   auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
   auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
 
@@ -913,6 +926,61 @@ void SDDPGreedySolver::output_subgradients
  }
 
  file.close();
+}
+
+/*--------------------------------------------------------------------------*/
+
+Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
+ if( stage == 0 ) {
+  if( f_first_stage_scenario_id >= 0 )
+   return f_first_stage_scenario_id;
+  return f_scenario_id;
+ }
+ else if( f_seed < Inf<Index>() ) { // Random scenarios are being considered
+  assert( stage < v_random_scenario_id.size() );
+  return v_random_scenario_id[ stage ];
+ }
+ return f_scenario_id;
+}
+
+/*--------------------------------------------------------------------------*/
+
+bool SDDPGreedySolver::should_sample( Index stage ) const {
+ if( f_seed == Inf<Index>() )
+  return false;
+
+ if( ( f_scenario_sample_frequency > 0 ) &&
+     ( stage % f_scenario_sample_frequency == 0 ) )
+  return true;
+
+ if( std::find( v_stages_to_sample.begin() , v_stages_to_sample.end() , stage )
+     != v_stages_to_sample.end() )
+  return true;
+
+ return false;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::sample_scenario( Index stage ) {
+ v_random_scenario_id.resize( get_time_horizon() );
+
+ if( stage == 0 ) {
+  // The ID of the scenario for the first stage subproblem is not random.
+  v_random_scenario_id[ stage ] = get_scenario_id( stage );
+  return;
+ }
+
+ if( should_sample( stage ) ) {
+  using param_type = std::uniform_int_distribution< Index >::param_type;
+  const auto num_scenarios =
+   static_cast< SDDPBlock * >( f_Block )->get_scenario_set().size();
+  v_random_scenario_id[ stage ] = scenario_distribution
+   ( random_number_engine , param_type( 0 , num_scenarios - 1 ) );
+ }
+ else {
+  v_random_scenario_id[ stage ] = v_random_scenario_id[ stage - 1 ];
+ }
 }
 
 /*--------------------------------------------------------------------------*/
