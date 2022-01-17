@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 14 - 01 - 2022
+ * \date 17 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -1297,6 +1297,12 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ OFValue get_var_value( void ) override {
+  return solution_value;
+ }
+
+/*--------------------------------------------------------------------------*/
+
  OFValue get_lb( void ) override {
   if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
    return solution_value;
@@ -1522,6 +1528,46 @@ private:
  };
 
 /*--------------------------------------------------------------------------*/
+
+ class Logger {
+
+ public:
+
+  Logger( SDDPGreedySolver * solver ,
+          std::ostream * log_stream , int log_verbosity ) {
+   this->solver = solver;
+   this->log_verbosity = log_verbosity;
+   this->f_log = log_stream;
+
+   if( solver ) {
+    this->stage_width =
+     std::max( 6ul , std::to_string( solver->get_time_horizon() ).size() );
+    const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
+    this->scenario_width =
+     std::max( 9ul ,
+               std::to_string( sddp_block->get_scenario_set().size() ).size() );
+   }
+  }
+
+  void log( double objective_value , double future_value ) const;
+  void log( double objective_value ) const;
+  void log() const;
+  void log( Index stage , Index scenario ) const;
+  void log_header() const;
+  void show_status() const;
+
+ private:
+
+  const int precision = 7;
+  const int width = precision + 6;
+  unsigned long stage_width;
+  unsigned long scenario_width;
+  int log_verbosity = 0;
+  std::ostream * f_log = nullptr;
+  SDDPGreedySolver * solver = nullptr;
+ };
+
+/*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -1609,9 +1655,14 @@ private:
    solution_value = sub_solver->get_ub();
   else
    solution_value = sub_solver->get_lb();
-  const auto future_cost = static_cast< SDDPBlock * >( f_Block )->
-   get_future_cost( stage , 0 );
-  return solution_value - future_cost;
+  return solution_value - get_future_value( stage );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_future_value( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  return static_cast< SDDPBlock * >( f_Block )->get_future_cost( stage , 0 );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1723,6 +1774,34 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ void reset_compute_time() {
+  f_compute_start_time = std::chrono::system_clock::now();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_compute_time() const {
+  const auto now = std::chrono::system_clock::now();
+  std::chrono::duration< double > time = now - f_compute_start_time;
+  return time.count();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ void reset_subproblem_time() {
+  f_subproblem_start_time = std::chrono::system_clock::now();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_subproblem_time() const {
+  const auto now = std::chrono::system_clock::now();
+  std::chrono::duration< double > time = now - f_subproblem_start_time;
+  return time.count();
+ }
+
+/*--------------------------------------------------------------------------*/
+
  SMSpp_insert_in_factory_h;
 
 /*--------------------------------------------------------------------------*/
@@ -1773,6 +1852,12 @@ private:
 
  /// Seed for the random number engine that selects the scenarios
  Index f_seed = Inf<Index>();
+
+ /// Point in time at which the most recent call to compute() has started
+ std::chrono::time_point< std::chrono::system_clock > f_compute_start_time;
+
+ /// Point in time at which the solution of the most recent subproblem started
+ std::chrono::time_point< std::chrono::system_clock > f_subproblem_start_time;
 
 };   // end( class SDDPGreedySolver )
 
