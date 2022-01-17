@@ -1083,6 +1083,7 @@ void SDDPGreedySolver::Logger::log( Index stage , Index scenario ) const {
   return;
  *f_log << std::setw( stage_width ) << stage << std::setw( 3 ) << "";
  *f_log << std::setw( scenario_width - 1 ) << scenario << std::setw( 3 ) << "";
+ *f_log << std::flush;
 }
 
 /*--------------------------------------------------------------------------*/
