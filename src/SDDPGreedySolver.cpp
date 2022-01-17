@@ -255,11 +255,12 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
   reset_subproblem_time();
-  logger.log( stage );
 
   // If required, sample a scenario for this stage.
   if( f_seed < Inf<Index>() )
    sample_scenario( stage );
+
+  logger.log( stage , get_scenario_id( stage ) );
 
   if( stage > 0 ) {
    // Set the state of the subproblem as that given by the solution of the
@@ -1077,10 +1078,11 @@ void SDDPGreedySolver::Logger::log() const {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::Logger::log( Index stage ) const {
+void SDDPGreedySolver::Logger::log( Index stage , Index scenario ) const {
  if( ( ! f_log ) || ( ! log_verbosity ) )
   return;
  *f_log << std::setw( stage_width ) << stage << std::setw( 3 ) << "";
+ *f_log << std::setw( scenario_width - 1 ) << scenario << std::setw( 3 ) << "";
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1090,13 +1092,17 @@ void SDDPGreedySolver::Logger::log_header() const {
   return;
 
  *f_log << std::setw( stage_width ) << "      "
+        << " |" << std::setw( scenario_width ) << "         "
         << " |        Objective value        |               |    Total"
         << std::endl;
+
  *f_log << std::setw( stage_width ) << " Stage"
+        << " |" << std::setw( scenario_width ) << " Scenario"
         << " |    Present    |    Future     |   Time (s)    |   time (s)"
         << std::endl;
- *f_log << std::string( stage_width , '-' )
-        << "----------------------------------------------------------------"
+
+ *f_log << std::string( stage_width + scenario_width - 1 , '-' )
+        << "-------------------------------------------------------------------"
         << std::endl;
 }
 

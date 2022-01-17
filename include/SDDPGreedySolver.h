@@ -1537,15 +1537,22 @@ private:
           std::ostream * log_stream , int log_verbosity ) {
    this->solver = solver;
    this->log_verbosity = log_verbosity;
-   f_log = log_stream;
-   stage_width =
-    std::max( 6ul , std::to_string( solver->get_time_horizon() ).size() );
+   this->f_log = log_stream;
+
+   if( solver ) {
+    this->stage_width =
+     std::max( 6ul , std::to_string( solver->get_time_horizon() ).size() );
+    const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
+    this->scenario_width =
+     std::max( 9ul ,
+               std::to_string( sddp_block->get_scenario_set().size() ).size() );
+   }
   }
 
   void log( double objective_value , double future_value ) const;
   void log( double objective_value ) const;
   void log() const;
-  void log( Index stage ) const;
+  void log( Index stage , Index scenario ) const;
   void log_header() const;
   void show_status() const;
 
@@ -1553,9 +1560,10 @@ private:
 
   const int precision = 7;
   const int width = precision + 6;
-  unsigned long stage_width = 6ul;
+  unsigned long stage_width;
+  unsigned long scenario_width;
   int log_verbosity = 0;
-  std::ostream * f_log;
+  std::ostream * f_log = nullptr;
   SDDPGreedySolver * solver = nullptr;
  };
 
