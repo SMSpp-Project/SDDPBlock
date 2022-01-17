@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 13 - 01 - 2022
+ * \date 17 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -199,6 +199,8 @@ void SDDPGreedySolver::set_Block( Block * block ) {
 
 int SDDPGreedySolver::compute( bool changedvars ) {
 
+ reset_compute_time();
+
  if( ! f_Block )
   return kBlockLocked;
 
@@ -244,10 +246,14 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  // Clear the data from previous call to compute()
  f_simulation_data.clear();
 
+ // Header of the log
+ Logger logger( this , f_log , log_verbosity );
+ logger.log_header();
+
  for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
 
-  if( f_log && log_verbosity )
-   *f_log << "Solving problem at stage " << stage << std::endl;
+  reset_subproblem_time();
+  logger.log( stage );
 
   // If required, sample a scenario for this stage.
   if( f_seed < Inf<Index>() )
@@ -271,35 +277,49 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   auto sub_status = solve( stage , true );
 
   if( sub_status == Solver::kInfeasible ) {
+   const auto obj_sign = get_benders_function( stage )->is_convex() ? - 1 : 1;
+   logger.log( - obj_sign * Inf< double >() );
+
    fault_stage = stage;
    if( stage == 0 ) status_compute = kInfeasible;
    else status_compute = kSubproblemInfeasible;
    break;
   }
   else if( sub_status == Solver::kUnbounded ) {
+   const auto obj_sign = get_benders_function( stage )->is_convex() ? - 1 : 1;
+   logger.log( obj_sign * Inf< double >() );
+
    fault_stage = stage;
    status_compute = Solver::kUnbounded;
    break;
   }
   else if( sub_status >= Solver::kError ) {
+   logger.log();
    fault_stage = stage;
    status_compute = kError;
    break;
   }
   else if( ! get_sub_solver( stage )->has_var_solution() ) {
+   logger.log();
    fault_stage = stage;
    status_compute = kSolutionNotFound;
    break;
   }
   else if( sub_status == Solver::kStopTime || sub_status == Solver::kStopIter ) {
-   solution_value += get_sub_solution_value( stage );
+   const auto sub_solution_value = get_sub_solution_value( stage );
+   solution_value += sub_solution_value;
    if( fault_stage == Inf<Index>() ) {
     fault_stage = stage;
     status_compute = sub_status;
    }
+
+   logger.log( sub_solution_value , get_future_value( stage ) );
   }
   else {
-   solution_value += get_sub_solution_value( stage );
+   const auto sub_solution_value = get_sub_solution_value( stage );
+   solution_value += sub_solution_value;
+
+   logger.log( sub_solution_value , get_future_value( stage ) );
 
    if( ! f_simulation_data_filename.empty() ) {
     store_subgradients( stage , get_scenario_id( stage ) );
@@ -315,15 +335,20 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  if( ! owned )              // if the Block was actually locked
   f_Block->unlock( f_id );  // unlock it
 
- f_has_var_solution =
-  ( status_compute == Solver::kOK ) ||
-  ( status_compute == Solver::kLowPrecision ) ||
-  ( status_compute == Solver::kStopIter ) ||
-  ( status_compute == Solver::kStopTime );
+ // Has a feasible solution been found?
+
+ f_has_var_solution = ( status_compute == Solver::kOK )
+  || ( status_compute == Solver::kLowPrecision )
+  || ( status_compute == Solver::kStopIter )
+  || ( status_compute == Solver::kStopTime );
 
  // Output the data obtained during the simulation if required.
 
  output_simulation_data( f_simulation_data_filename );
+
+ // Final log
+
+ logger.show_status();
 
  return status_compute;
 }
@@ -981,6 +1006,154 @@ void SDDPGreedySolver::sample_scenario( Index stage ) {
  else {
   v_random_scenario_id[ stage ] = v_random_scenario_id[ stage - 1 ];
  }
+}
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- METHODS of Logger ---------------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::Logger::log( double objective_value ,
+                                    double future_value ) const {
+
+ if( ( ! f_log ) || ( ! log_verbosity ) )
+  return;
+
+ if( objective_value == Inf< double >() )
+  *f_log << std::setw( width ) << "+Inf";
+ else if( objective_value == -Inf< double >() )
+  *f_log << std::setw( width ) << "-Inf";
+ else
+  *f_log << std::setprecision( precision )
+         << std::scientific << objective_value;
+
+ *f_log << std::setw( 3 ) << "";
+
+ if( future_value == Inf< double >() )
+  *f_log << std::setw( width ) << "+Inf";
+ else if( future_value == -Inf< double >() )
+  *f_log << std::setw( width ) << "-Inf";
+ else
+  *f_log << std::setprecision( precision )
+         << std::scientific << future_value;
+
+ *f_log << std::setw( 3 ) << "";
+
+ *f_log << solver->get_subproblem_time() << "   "
+        << solver->get_compute_time() << std::endl;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::Logger::log( double objective_value ) const {
+
+ if( ( ! f_log ) || ( ! log_verbosity ) )
+  return;
+
+ if( objective_value == Inf< double >() )
+  *f_log << std::setw( width ) << "+Inf";
+ else if( objective_value == -Inf< double >() )
+  *f_log << std::setw( width ) << "-Inf";
+ else
+  *f_log << std::setprecision( precision ) <<
+   std::scientific << objective_value;
+
+ *f_log << std::setw( width + 6 ) << "-   "
+        << solver->get_subproblem_time() << "   "
+        << solver->get_compute_time() << std::endl;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::Logger::log() const {
+ if( ( ! f_log ) || ( ! log_verbosity ) )
+  return;
+ *f_log << std::setw( width + 3 ) << "-   "
+        << std::setw( width + 3 ) << "-   "
+        << solver->get_subproblem_time() << "   "
+        << solver->get_compute_time() << std::endl;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::Logger::log( Index stage ) const {
+ if( ( ! f_log ) || ( ! log_verbosity ) )
+  return;
+ *f_log << std::setw( stage_width ) << stage << std::setw( 3 ) << "";
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::Logger::log_header() const {
+ if( ( ! f_log ) || ( ! log_verbosity ) )
+  return;
+
+ *f_log << std::setw( stage_width ) << "      "
+        << " |        Objective value        |               |    Total"
+        << std::endl;
+ *f_log << std::setw( stage_width ) << " Stage"
+        << " |    Present    |    Future     |   Time (s)    |   time (s)"
+        << std::endl;
+ *f_log << std::string( stage_width , '-' )
+        << "----------------------------------------------------------------"
+        << std::endl;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::Logger::show_status() const {
+
+ if( ( ! f_log ) || ( ! log_verbosity ) )
+  return;
+
+ const auto fault_stage = solver->get_fault_stage();
+
+ switch( solver->get_status() ) {
+
+  case( kError ):
+   *f_log << "Error while solving the subproblem at stage "
+          << fault_stage << std::endl;
+   break;
+
+  case( kUnbounded ):
+   *f_log << "The subproblem at stage " << fault_stage
+          << " is unbounded." << std::endl;
+   break;
+
+  case( kInfeasible ):
+   *f_log << "The problem is infeasible." << std::endl;
+   break;
+
+  case( kStopTime ):
+   *f_log << "A feasible solution has been found. The solution process "
+          << "of subproblem at stage " << fault_stage
+          << " terminated due a time limit." << std::endl;
+   break;
+
+  case( kStopIter ):
+   *f_log << "A feasible solution has been found. The solution process "
+          << "of subproblem at stage " << fault_stage
+          << " terminated due to an iteration limit." << std::endl;
+   break;
+
+  case( kLowPrecision ):
+   *f_log << "A feasible solution has been found." << std::endl;
+   break;
+
+  case( kSubproblemInfeasible ):
+   *f_log << "The subproblem at stage " << fault_stage
+          << " is infeasible." << std::endl;
+   break;
+
+  case( kSolutionNotFound ):
+   *f_log << "A solution for the subproblem at stage "
+          << fault_stage << " has not been found." << std::endl;
+   break;
+ }
+
+ if( solver->has_var_solution() )
+  *f_log << "Objective value: " << solver->get_var_value() << std::endl;
+
+ *f_log << "Total time (s):  " << solver->get_compute_time() << std::endl;
 }
 
 /*--------------------------------------------------------------------------*/
