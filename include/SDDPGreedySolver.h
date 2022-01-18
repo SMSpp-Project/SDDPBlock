@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 17 - 01 - 2022
+ * \date 18 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -308,6 +308,13 @@ public:
    * parameter is 1, which means that scenarios are sampled for every
    * stage. */
 
+  intSimulationDataOutputPrecision ,
+  ///< Precision of the simulation data output
+  /**< This parameter determines the precision of the simulation data that is
+   * output (see #strSimulationData). The value of this parameter will be
+   * passed to the std::setprecision() function when the simulation data is
+   * output. The default value for this parameter is 20. */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -546,6 +553,8 @@ public:
   *
   * - #intScenarioSampleFrequency [1]
   *
+  * - #intSimulationDataOutputPrecision [20]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -571,6 +580,9 @@ public:
    }
    case( intScenarioSampleFrequency ):
     f_scenario_sample_frequency = value;
+    return;
+   case( intSimulationDataOutputPrecision ):
+    f_simulation_data_output_precision = value;
     return;
   }
   Solver::set_par( par , value );
@@ -824,6 +836,7 @@ public:
    case( intLogVerb ): return 0;
    case( intScenarioSeed ): return -1;
    case( intScenarioSampleFrequency ): return 1;
+   case( intSimulationDataOutputPrecision ): return 20;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -925,6 +938,8 @@ public:
    case( intLogVerb ): return log_verbosity;
    case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
    case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
+   case( intSimulationDataOutputPrecision ):
+    return f_simulation_data_output_precision;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1013,6 +1028,8 @@ public:
   if( name == "intUnregisterSolver" ) return intUnregisterSolver;
   if( name == "intScenarioSeed" ) return intScenarioSeed;
   if( name == "intScenarioSampleFrequency" ) return intScenarioSampleFrequency;
+  if( name == "intSimulationDataOutputPrecision" )
+   return intSimulationDataOutputPrecision;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1087,7 +1104,8 @@ public:
 
   static const std::vector<std::string> parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
-     "intScenarioSeed" , "intScenarioSampleFrequency" };
+     "intScenarioSeed" , "intScenarioSampleFrequency" ,
+     "intSimulationDataOutputPrecision" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1819,6 +1837,9 @@ private:
 
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
+
+ /// Precision of the simulation data that is output
+ int f_simulation_data_output_precision = 20;
 
  /// The name of the file out of which cuts are loaded
  std::string f_load_cuts_filename;

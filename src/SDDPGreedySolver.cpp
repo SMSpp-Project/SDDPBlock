@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 17 - 01 - 2022
+ * \date 18 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -896,6 +896,8 @@ void SDDPGreedySolver::output_simulation_data
                              filename + "\"." ) );
 
  const auto separator = ",";
+
+ file << std::setprecision( f_simulation_data_output_precision );
 
  file << get_time_horizon() << separator
       << f_simulation_data.initial_states.size() << std::endl;
