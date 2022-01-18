@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- SDDPGreedySolver::set_ComputeConfig().
+- Load cuts from file.
+- Allow scenarios to be randomly chosen in SDDPGreedySolver.
+
 ## [0.5.0] - 2021-12-08
 
 ### Added
@@ -15,11 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for multiple sub-Blocks per stage in SDDPBlock.
 - ParallelSDDPSolver.
 - SDDPSolverState.
-- set_ComputeConfig() for SDDPSolver and SDDPGreedySolver.
+- SDDPSolver::set_ComputeConfig().
 - Handling Configuration for get_var_solution().
 - Storage of random cuts.
-- Load cuts from file.
-- Allow scenarios to be randomly chosen in SDDPGreedySolver.
 
 ### Changed
 
