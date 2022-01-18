@@ -1760,7 +1760,7 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- void store_subgradients( Index stage , Index scenario_index );
+ void store_simulation_data( Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
 

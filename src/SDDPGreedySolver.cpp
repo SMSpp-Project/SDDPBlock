@@ -325,7 +325,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    logger.log( sub_solution_value , get_future_value( stage ) );
 
    if( ! f_simulation_data_filename.empty() ) {
-    store_subgradients( stage , get_scenario_id( stage ) );
+    store_simulation_data( stage , get_scenario_id( stage ) );
    }
   }
 
@@ -592,8 +592,8 @@ void SDDPGreedySolver::set_scenario( Index scenario_id , Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::store_subgradients( Index stage ,
-                                           Index scenario_index ) {
+void SDDPGreedySolver::store_simulation_data( Index stage ,
+                                              Index scenario_index ) {
 
  // First, we store the initial state.
 
