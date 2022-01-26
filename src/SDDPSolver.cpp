@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 29 - 12 - 2021
+ * \date 25 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -28,6 +28,7 @@
 #include "SDDPSolver.h"
 #include "StochasticBlock.h"
 
+#include <chrono>
 #include <Eigen/Core>
 
 #include "boost/iostreams/stream.hpp"
@@ -1037,6 +1038,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   const Index scenario_index , const bool scenario_must_be_set ,
   const Index sub_block_index ) const {
 
+ const auto start_time = std::chrono::system_clock::now();
+
  const auto current_stage = get_current_backward_stage();
 
  /* In the first stage, the scenario will not be set if the given scenario
@@ -1201,6 +1204,10 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                                  current_stage , actual_scenario_index );
   }
 
+ /*************/
+ /* DEBUGGING */
+ /*************/
+
   // Debugging the BendersBFunction
 
 #ifdef BENDERSBFUNCTION_DEBUG
@@ -1215,14 +1222,27 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                            "linearization is available." ) );
  }
 
- if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 ) {
-  auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
-  *( sddp_solver->f_log ) << "  Solution:       (";
-  for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
-   if( i > 0 ) *( sddp_solver->f_log ) << ", ";
-   *( sddp_solver->f_log ) << solution( i );
+ /********************/
+ /* FINAL LOG OUTPUT */
+ /********************/
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+
+  const auto end_time = std::chrono::system_clock::now();
+  const std::chrono::duration< double > duration = end_time - start_time;
+  const auto time = duration.count();
+  const auto log = sddp_solver->f_log;
+  *log << "  Time (s):       " << time << std::endl;
+
+  if( sddp_solver->log_verbosity >= 10 ) {
+   auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
+   *log << "  Solution:       (";
+   for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
+    if( i > 0 ) *( sddp_solver->f_log ) << ", ";
+    *log << solution( i );
+   }
+   *log << ")" << std::endl;
   }
-  *( sddp_solver->f_log ) << ")" << std::endl;
  }
 
  return linearization;
@@ -1268,6 +1288,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
   const int & simulation_id , const Index scenario_index ,
   const bool scenario_must_be_set , const Index sub_block_index ) const {
+
+ const auto start_time = std::chrono::system_clock::now();
 
  const auto current_stage = get_current_forward_stage();
 
@@ -1391,6 +1413,17 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  state_to_store.resize( solution.size() );
  state_to_store << solution;
+
+ /********************/
+ /* FINAL LOG OUTPUT */
+ /********************/
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+  const auto end_time = std::chrono::system_clock::now();
+  const std::chrono::duration< double > duration = end_time - start_time;
+  const auto time = duration.count();
+  *( sddp_solver->f_log ) << "  Time (s):       " << time << std::endl;
+ }
 
  /*************************/
  /* RETURN SOLUTION VALUE */
