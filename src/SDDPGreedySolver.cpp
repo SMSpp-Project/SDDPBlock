@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 01 - 2022
+ * \date 28 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -897,7 +897,11 @@ void SDDPGreedySolver::output_simulation_data
 
  const auto separator = ",";
 
+ // Set the precision of the output
+
  file << std::setprecision( f_simulation_data_output_precision );
+
+ // Output the time horizon and the number of initial states
 
  file << get_time_horizon() << separator
       << f_simulation_data.initial_states.size() << std::endl;
@@ -938,21 +942,31 @@ void SDDPGreedySolver::output_simulation_data
 
  // Finally, we output the scenarios
 
- const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
- const auto & scenario_set = sddp_block->get_scenario_set();
+ if( f_output_scenario < 0 ) {
+  // Only output the ID of the scenario
+  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+   auto scenario_id = get_scenario_id( stage );
+   file << stage << separator << scenario_id << std::endl;
+  }
+ }
+ else if( f_output_scenario > 0 ) {
+  // Output the full scenario
+  const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+  const auto & scenario_set = sddp_block->get_scenario_set();
 
- for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
-  auto scenario_id = get_scenario_id( stage );
-  auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
-  auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
+   auto scenario_id = get_scenario_id( stage );
+   auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
+   auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
 
-  file << stage;
+   file << stage;
 
-  for( auto scenario_it = scenario_begin ; scenario_it != scenario_end ;
-       ++scenario_it )
-   file << separator << *scenario_it;
-  file << std::endl;
+   for( auto scenario_it = scenario_begin ; scenario_it != scenario_end ;
+        ++scenario_it )
+    file << separator << *scenario_it;
+   file << std::endl;
+  }
  }
 
  file.close();

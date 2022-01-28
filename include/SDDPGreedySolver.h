@@ -10,7 +10,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 01 - 2022
+ * \date 28 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -315,6 +315,17 @@ public:
    * passed to the std::setprecision() function when the simulation data is
    * output. The default value for this parameter is 20. */
 
+  intOutputScenario ,
+  ///< It indicates how (and if) scenarios must be output
+  /**< This parameter determines how (and if) the scenario considered during
+   * the simulation must be output if the parameter #strSimulationData is
+   * provided. If #intOutputScenario is negative, then only the IDs of the
+   * scenarios considered at each stage are output. If it is positive, then
+   * the scenarios themselves are output. If it is zero, then no scenario
+   * (neither the ID nor the scenario itself) is output. By default, the value
+   * of this parameter is -1, which means that the IDs of the scenarios are
+   * output (if #strSimulationData is provided). */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -423,14 +434,23 @@ public:
    * function, future cost function). That is, the objective value of the
    * subroblem is f = c + F, where F is the value of the cost-to-go function.
    *
-   * Finally, the scenario considered during compute() (which can be set by
-   * the #intScenarioId parameter or by the function set_scenario_id()) is
-   * output in the last T lines. Each of these lines has the form:
+   * Finally, depending on the value of the parameter #intOutputScenario, the
+   * scenario considered during compute() (which can be set by the
+   * #intScenarioId parameter or by the function set_scenario_id()) is output
+   * in the last T lines. If #intOutputScenario is positive, then each of
+   * these lines has the form
    *
    *     t, scenario_t
    *
    * where t is a stage in {0, ..., T-1} and scenario_t is a vector containing
-   * the scenario for the stage t.
+   * the scenario for the stage t. If #intOutputScenario is negative, then
+   * each of these lines has the form
+   *
+   *     t, scenario_t_id
+   *
+   * where t is a stage in {0, ..., T-1} and scenario_t_id is the ID of the
+   * scenario considered for the stage t. If #intOutputScenario is zero, then
+   * these lines are not output.
    *
    * By default, the path to this file is empty, which means that no data
    * obtained during the simulation will be output. */
@@ -555,6 +575,8 @@ public:
   *
   * - #intSimulationDataOutputPrecision [20]
   *
+  * - #intOutputScenario [-1]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -584,6 +606,7 @@ public:
    case( intSimulationDataOutputPrecision ):
     f_simulation_data_output_precision = value;
     return;
+   case( intOutputScenario ): f_output_scenario = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -837,6 +860,7 @@ public:
    case( intScenarioSeed ): return -1;
    case( intScenarioSampleFrequency ): return 1;
    case( intSimulationDataOutputPrecision ): return 20;
+   case( intOutputScenario ): return -1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -940,6 +964,7 @@ public:
    case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
    case( intSimulationDataOutputPrecision ):
     return f_simulation_data_output_precision;
+   case( intOutputScenario ): return f_output_scenario;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1030,6 +1055,7 @@ public:
   if( name == "intScenarioSampleFrequency" ) return intScenarioSampleFrequency;
   if( name == "intSimulationDataOutputPrecision" )
    return intSimulationDataOutputPrecision;
+  if( name == "intOutputScenario" ) return intOutputScenario;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1105,7 +1131,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
-     "intSimulationDataOutputPrecision" };
+     "intSimulationDataOutputPrecision" , "intOutputScenario" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1440,6 +1466,9 @@ protected:
 
  /// The id of the scenario that must be considered at the first stage
  int f_first_stage_scenario_id = -1;
+
+ /// It determines how (and if) the scenario should be output
+ int f_output_scenario = -1;
 
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();
