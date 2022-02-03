@@ -1038,22 +1038,30 @@ void SDDPGreedySolver::Logger::log( double objective_value ,
   return;
 
  if( objective_value == Inf< double >() )
-  *f_log << std::setw( width ) << "+Inf";
+  *f_log << std::setw( width + 1 ) << "+Inf";
  else if( objective_value == -Inf< double >() )
-  *f_log << std::setw( width ) << "-Inf";
- else
-  *f_log << std::setprecision( precision )
+  *f_log << std::setw( width + 1 ) << "-Inf";
+ else {
+  int offset = width + 1;
+  if( objective_value < 0 )
+   offset = width;
+  *f_log << std::setw( offset ) << std::setprecision( precision )
          << std::scientific << objective_value;
+ }
 
- *f_log << std::setw( 3 ) << "";
+ *f_log << std::setw( 2 ) << "";
 
  if( future_value == Inf< double >() )
-  *f_log << std::setw( width ) << "+Inf";
+  *f_log << std::setw( width + 1 ) << "+Inf";
  else if( future_value == -Inf< double >() )
-  *f_log << std::setw( width ) << "-Inf";
- else
-  *f_log << std::setprecision( precision )
+  *f_log << std::setw( width + 1 ) << "-Inf";
+ else {
+  int offset = width + 1;
+  if( future_value < 0 )
+   offset = width;
+  *f_log << std::setw( offset ) << std::setprecision( precision )
          << std::scientific << future_value;
+ }
 
  *f_log << std::setw( 3 ) << "";
 
@@ -1069,12 +1077,16 @@ void SDDPGreedySolver::Logger::log( double objective_value ) const {
   return;
 
  if( objective_value == Inf< double >() )
-  *f_log << std::setw( width ) << "+Inf";
+  *f_log << std::setw( width + 1 ) << "+Inf";
  else if( objective_value == -Inf< double >() )
-  *f_log << std::setw( width ) << "-Inf";
- else
-  *f_log << std::setprecision( precision ) <<
+  *f_log << std::setw( width + 1 ) << "-Inf";
+ else {
+  int offset = width + 1;
+  if( objective_value < 0 )
+   offset = width;
+  *f_log << std::setw( offset ) << std::setprecision( precision ) <<
    std::scientific << objective_value;
+ }
 
  *f_log << std::setw( width + 6 ) << "-   "
         << solver->get_subproblem_time() << "   "
@@ -1098,7 +1110,7 @@ void SDDPGreedySolver::Logger::log( Index stage , Index scenario ) const {
  if( ( ! f_log ) || ( ! log_verbosity ) )
   return;
  *f_log << std::setw( stage_width ) << stage << std::setw( 3 ) << "";
- *f_log << std::setw( scenario_width - 1 ) << scenario << std::setw( 3 ) << "";
+ *f_log << std::setw( scenario_width - 1 ) << scenario << std::setw( 2 ) << "";
  *f_log << std::flush;
 }
 
