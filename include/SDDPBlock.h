@@ -964,6 +964,9 @@ protected:
   * scenarios. A random cut is a cut associated with a particular scenario. */
  boost::multi_array< PolyhedralFunction , 2 > random_cuts;
 
+ /// It indicates whether the random cuts have been initialized
+ bool f_random_cuts_initialized = false;
+
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/

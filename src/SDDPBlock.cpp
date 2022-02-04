@@ -407,17 +407,16 @@ void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
  assert( stage < get_time_horizon() );
  assert( scenario_index < scenario_set.size() );
 
- if( random_cuts.size() == 0 ) {
+ if( ! f_random_cuts_initialized ) {
   // Create the PolyhedralFunctions that will store the random cuts.
-
-  // Ensure all threads reach this point.
-#pragma omp barrier
 
   // Ensure the random cuts are initialized by only one thread.
 #pragma omp critical (SDDPBlock_random_cut)
   {
-   if( random_cuts.size() == 0 )
+   if( ! f_random_cuts_initialized ) {
     initialize_random_cuts();
+    f_random_cuts_initialized = true;
+   }
   }
  }
 
@@ -433,6 +432,7 @@ void SDDPBlock::initialize_random_cuts() {
 
  const auto time_horizon = get_time_horizon();
  const auto number_scenarios = scenario_set.size();
+ random_cuts.resize( boost::extents[ 0 ][ 0 ] );
  random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
 
  for( Index t = 0 ; t < time_horizon ; ++t ) {
