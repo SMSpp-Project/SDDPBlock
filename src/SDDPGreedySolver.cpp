@@ -794,7 +794,7 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
   // Skip the first line containing the header.
   std::getline( cuts_file , line );
 
- const auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
+ auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
  const auto num_active_var = polyhedral_function->get_num_active_var();
 
  int line_number = 0;
@@ -861,23 +861,17 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
  cuts_file.close();
 
- // Now, add the cuts to all PolyhedralFunctions.
+ // Now, add the cuts to the PolyhedralFunction. Notice that, even if the
+ // SDDPBlock has multiple sub-Blocks per stage, we only add cuts to the first
+ // sub-Block of a given stage. This is so because only the first sub-Block
+ // associated with each stage is used during the simulation and it may also
+ // be the only sub-Block that has been configured.
 
- const auto num_sub_blocks_per_stage =
-  sddp_block->get_num_sub_blocks_per_stage();
-
- // We assume that there is only one PolyhedralFunction per sub-Block.
+ // We alsso assume that there is only one PolyhedralFunction per sub-Block.
 
  assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
 
- for( Index sub_block_index = 0 ; sub_block_index < num_sub_blocks_per_stage ;
-      ++sub_block_index ) {
-
-  auto polyhedral_function =
-   sddp_block->get_polyhedral_function( stage , 0 , sub_block_index );
-
-  polyhedral_function->add_rows( std::move( A ) , b );
- }
+ polyhedral_function->add_rows( std::move( A ) , b );
 }
 
 /*--------------------------------------------------------------------------*/
