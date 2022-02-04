@@ -410,12 +410,18 @@ void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
  if( random_cuts.size() == 0 ) {
   // Create the PolyhedralFunctions that will store the random cuts.
 
+  // Ensure all threads reach this point.
+#pragma omp barrier
+
+  // Ensure the random cuts are initialized by only one thread.
 #pragma omp critical (SDDPBlock_random_cut)
   {
    if( random_cuts.size() == 0 )
     initialize_random_cuts();
   }
  }
+
+ // Store the given random cut.
 
  random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
                                                  alpha );
