@@ -402,8 +402,8 @@ public:
   /**< This is the suffix that will be added to a non-empty filename (given by
    * #strOutputFile, #strStateFile, and #strRandomCutsFile) every other
    * iteration in which a file output is performed (see
-   * #intOutputFrequency). This is parameter can be useful, for instance, if
-   * this Solver is running on an unreliable system, which may crash while the
+   * #intOutputFrequency). This parameter can be useful, for instance, if this
+   * Solver is running on an unreliable system, which may crash while the
    * output is being performed. By using a suffix, at least some not so old
    * data will be available. For instance, suppose that #intOutputFrequency >
    * 0, #strStateFile = "state.nc4", and #strSuffix = ".0". Then, the first

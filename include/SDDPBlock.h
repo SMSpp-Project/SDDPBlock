@@ -29,6 +29,7 @@
 /*--------------------------------------------------------------------------*/
 
 #include "Block.h"
+#include "Objective.h"
 #include "PolyhedralFunction.h"
 #include "ScenarioSimulator.h"
 #include "ScenarioSet.h"
@@ -628,6 +629,23 @@ public:
             std::to_string( scenario_index ) + "." ) );
 
   return random_cuts[ stage ][ scenario_index ];
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the sense of the Objective of the SDDPBlock
+ /** This function returns the sense of the Objective of the SDDPBlock, which
+  * is defined to be the sense of the Objective of its first inner Block. If
+  * this SDDPBlock has no inner Block, this function returns Objective::eMin.
+  *
+  * @return the sense of the Objective of the first inner Block of this
+  *         SDDPBlock if there is one. Otherwise, it returns
+  *         Objective::eMin. */
+
+ int get_objective_sense() const override {
+  if( ! v_Block.empty() )
+   return v_Block.front()->get_objective_sense();
+  return Objective::eMin;
  }
 
 /**@} ----------------------------------------------------------------------*/
