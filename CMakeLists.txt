@@ -57,6 +57,8 @@ endif ()
 
 find_package(StOpt REQUIRED)
 find_package(OpenMP)
+find_package(Boost COMPONENTS mpi)
+find_package(MPI)
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
@@ -106,6 +108,11 @@ target_link_libraries(${modName} PUBLIC
 
 if (OPENMP_FOUND)
     target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)
+endif ()
+
+if (MPI_CXX_FOUND AND Boost_MPI_FOUND)
+    target_compile_definitions(${modName} PRIVATE USE_MPI)
+    target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
 endif ()
 
 # This alias is defined so that executables in this same project can use

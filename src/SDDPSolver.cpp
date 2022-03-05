@@ -468,6 +468,13 @@ int SDDPSolver::compute( bool changedvars ) {
  /* SOLVING THE PROBLEM */
  /***********************/
 
+#ifdef USE_MPI
+ // MPI communicator. This communicator could become a member of SDDPSolver
+ // and a function to set it could be implemented. For now, it is just the
+ // default communicator.
+ boost::mpi::communicator mpi_communicator;
+#endif
+
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
@@ -475,6 +482,9 @@ int SDDPSolver::compute( bool changedvars ) {
     final_cut , dates , mesh_discretization_array , regressors_filename ,
     cuts_filename , visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
+#ifdef USE_MPI
+    mpi_communicator ,
+#endif
     print_cpu_time );
 
  // Possibly output the future cost functions and/or save the State
