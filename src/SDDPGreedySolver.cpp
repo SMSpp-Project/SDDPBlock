@@ -82,9 +82,21 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
   return;
  }
 
- if( ! scfg->f_extra_Configuration )
-  // No extra Configuration has been provided. There is nothing else to do.
+ if( ! scfg->f_extra_Configuration ) {
+  // No extra Configuration has been provided.
+
+  if( f_early_config && f_Block &&
+      ( ! ( f_inner_block_config_filename.empty() &&
+            f_inner_block_solver_config_filename.empty() ) ) ) {
+   // If required, configure the SDDPBlock right away.
+   const auto time_horizon = get_time_horizon();
+   for( Index stage = 0 ; stage < time_horizon ; ++stage )
+    configure_inner_block( stage );
+  }
+
+  // There is nothing else to do.
   return;
+ }
 
  BlockConfig * block_config = nullptr;
  BlockSolverConfig * block_solver_config = nullptr;
@@ -155,16 +167,58 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( block_config ) {
   // A BlockConfig has been provided. Delete the old BlockConfig and clone the
   // given one.
+
+  if( f_inner_block_config &&
+      std::any_of( v_inner_block_configured.cbegin() ,
+                   v_inner_block_configured.cend() ,
+                   []( auto b ) { return b; } ) ) {
+
+   f_inner_block_config ->clear();
+
+   const auto time_horizon = get_time_horizon();
+   for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
+    auto benders_function = get_benders_function( stage );
+    auto inner_block = benders_function->get_inner_block();
+    f_inner_block_config->apply( inner_block );
+   }
+  }
+
   delete f_inner_block_config;
   f_inner_block_config = block_config->clone();
+  v_inner_block_configured.assign( get_time_horizon() , false );
  }
 
  if( block_solver_config ) {
   // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
   // and clone the given one.
+
+  if( f_inner_block_solver_config &&
+      std::any_of( v_inner_solver_configured.cbegin() ,
+                   v_inner_solver_configured.cend() ,
+                   []( auto b ) { return b; } ) ) {
+
+   f_inner_block_solver_config ->clear();
+
+   const auto time_horizon = get_time_horizon();
+   for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
+    auto benders_function = get_benders_function( stage );
+    auto inner_block = benders_function->get_inner_block();
+    f_inner_block_solver_config->apply( inner_block );
+   }
+  }
+
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = block_solver_config->clone();
+  v_inner_solver_configured.assign( get_time_horizon() , false );
  }
+
+ if( f_early_config && f_Block ) {
+  // If required, configure the SDDPBlock right away.
+  const auto time_horizon = get_time_horizon();
+  for( Index stage = 0 ; stage < time_horizon ; ++stage )
+   configure_inner_block( stage );
+ }
+
 }
 
 /*--------------------------------------------------------------------------*/
@@ -215,7 +269,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  process_outstanding_Modification();
 
  const auto time_horizon = get_time_horizon();
- status_compute = Solver::kLowPrecision;
+ status_compute = Solver::kOK;
  fault_stage = Inf<Index>();
  solution_value = 0.0;
  f_has_var_solution = false;
@@ -360,8 +414,10 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 /*---------------------- METHODS FOR READING THE DATA ----------------------*/
 /*--------------------------------------------------------------------------*/
 
-SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon( void ) const {
- return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon() const {
+ if( f_Block )
+  return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+ return 0;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -577,7 +633,7 @@ void SDDPGreedySolver::set_state( const std::vector<double> & state ,
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::process_outstanding_Modification( void ) {
+void SDDPGreedySolver::process_outstanding_Modification() {
  while( ! v_mod.empty() ) {
   auto mod = v_mod.front();  // pick (a reference to) the first Modification
   v_mod.pop_front();

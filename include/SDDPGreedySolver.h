@@ -326,6 +326,21 @@ public:
    * of this parameter is -1, which means that the IDs of the scenarios are
    * output (if #strSimulationData is provided). */
 
+  intEarlyConfig ,
+  ///< It indicates whether the inner Blocks should be configured in advance
+  /**< By default, if a BlockConfig or a BlockSolverConfig has been provided
+   * (by means of the parameters #strInnerBC and #strInnerBSC, respectively,
+   * or by the "extra" Configuration in the ComputeConfig of this
+   * SDDPGreedySolver, see set_ComputeConfig()), the inner Block of each
+   * BendersBFunction is configured right before it is solved, within
+   * SDDPGreedySolver::compute(). However, in some situations it may be
+   * necessary to configure every inner Block in advance, at the time this
+   * SDDPGreedySolver is configured. This parameter determines when the inner
+   * Blocks are configured. If #intEarlyConfig is nonzero, then the inner
+   * Blocks are configured sooner, at the time the SDDPGreedySolver is
+   * configured. By default, #intEarlyConfig is zero, which means that each
+   * inner Block is configured right before it is solved. */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -577,6 +592,8 @@ public:
   *
   * - #intOutputScenario [-1]
   *
+  * - #intEarlyConfig [0]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -607,6 +624,7 @@ public:
     f_simulation_data_output_precision = value;
     return;
    case( intOutputScenario ): f_output_scenario = value; return;
+   case( intEarlyConfig ): f_early_config = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -621,24 +639,18 @@ public:
   * - #strInnerBC [""]: the filename of the "default" BlockConfig of the inner
   *   Block of the BendersBFunction(s). If non-empty(), this parameter is used
   *   to create a BlockConfig that is apply()-ed to the inner Block of all
-  *   BendersBFunction unless specific BlockConfig are provided for that
-  *   specific component [see vintWBCfg and vstrBCfg]. If left empty(), no
-  *   BlockConfig is apply()-ed unless for those BendersBFunction for which
-  *   specific ones are provided.
+  *   BendersBFunction. If left empty(), no BlockConfig is apply()-ed.
   *
   * - #strInnerBSC [""]: the filename of the "default" BlockSolverConfig of
   *   the inner Block of the BendersBFunction(s). If non-empty(), this
   *   parameter is used to create a BlockSolverConfig that is apply()-ed to
-  *   the inner Block of all BendersBFunction unless specific
-  *   BlockSolverConfig are provided for that specific component [see
-  *   vintWBSCfg and vstrBSCfg]. If left empty(), no BlockSolverConfig is
-  *   apply()-ed unless for those BendersBFunction for which specific ones are
-  *   provided. Note that each BendersBFunction does require a working Solver
-  *   attached to its inner Block (unless the inner Solver can avoid it for
-  *   some specially structured inner Block), so this will have to be provided
-  *   in some way (but there are plenty of: besides this parameter and
-  *   vstrBSCfg, it can come from the "extra" Configuration in the
-  *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
+  *   the inner Block of all BendersBFunction. If left empty(), no
+  *   BlockSolverConfig is apply()-ed. Note that each BendersBFunction does
+  *   require a working Solver attached to its inner Block (unless the inner
+  *   Solver can avoid it for some specially structured inner Block), so this
+  *   will have to be provided in some way (for instance, it can come from the
+  *   "extra" Configuration in the ComputeConfig of SDDPGreedySolver, see
+  *   set_ComputeConfig()).
   *
   * - #strLoadCuts [""]: the filename of (path to) the file out of which cuts
   *   will be loaded. By default, the path to this file is empty, which means
@@ -861,6 +873,7 @@ public:
    case( intScenarioSampleFrequency ): return 1;
    case( intSimulationDataOutputPrecision ): return 20;
    case( intOutputScenario ): return -1;
+   case( intEarlyConfig ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -965,6 +978,7 @@ public:
    case( intSimulationDataOutputPrecision ):
     return f_simulation_data_output_precision;
    case( intOutputScenario ): return f_output_scenario;
+   case( intEarlyConfig ): return f_early_config;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1056,6 +1070,7 @@ public:
   if( name == "intSimulationDataOutputPrecision" )
    return intSimulationDataOutputPrecision;
   if( name == "intOutputScenario" ) return intOutputScenario;
+  if( name == "intEarlyConfig" ) return intEarlyConfig;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1131,7 +1146,8 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
-     "intSimulationDataOutputPrecision" , "intOutputScenario" };
+     "intSimulationDataOutputPrecision" , "intOutputScenario" ,
+     "intEarlyConfig" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1472,6 +1488,9 @@ protected:
 
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();
+
+ /// It indicates whether the inner Blocks should be configured in advance
+ int f_early_config = 0;
 
  /// Indicates whether the Solver of the inner Block must be unregister
  bool f_unregister_solver = false;
