@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 03 - 06 - 2021
+ * \date 29 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -289,24 +289,24 @@ public:
    * considered during the forward pass. By default, this number is 1. */
 
   intOutputFrequency ,
-  ///< The frequency in which file outputs are performed
-  /**< This parameter determines the frequency in which file outputs are
+  ///< The frequency at which file outputs are performed
+  /**< This parameter determines the frequency at which file outputs are
    * performed (saving the approximations to the future cost functions or
    * serializing an SDDPSolverState). If it is positive, these file outputs
    * are performed every #intOutputFrequency iterations and once at the end of
-   * compute() to the files specified by the #strOutputFile and #strStateFile
-   * parameters. The default value for this parameter is 0 (i.e., no file
-   * output is performed). */
+   * compute() to the files specified by the #strOutputFile, #strStateFile,
+   * and #strRandomCutsFile parameters. The default value for this parameter
+   * is 0 (i.e., no file output is performed). */
 
-  intFirstStageScenarioIndex ,
-  ///< The index of the scenario to be considered at the first stage
-  /**< This parameter specifies the index of the scenario that must be
-   * considered while solving the subproblem at the first stage. If it is
-   * negative, it means that no scenario must be set while solving the
-   * sub-problem at the first stage (i.e., the data for that subproblem has
-   * already been set, except possibly the initial state). If it is
-   * nonnegative, it must be a number between 0 and the total number of
-   * scenarios minus 1. By default, its value is 0. */
+  intFirstStageScenarioId ,
+  ///< The id of the scenario to be considered at the first stage
+  /**< This parameter specifies the id of the scenario that must be considered
+   * while solving the subproblem at the first stage. If it is negative, it
+   * means that no scenario must be set while solving the sub-problem at the
+   * first stage (i.e., the data for that subproblem has already been set,
+   * except possibly the initial state). If it is nonnegative, it must be a
+   * number between 0 and the total number of scenarios minus 1. By default,
+   * its value is 0. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -378,27 +378,50 @@ public:
   ///< name of the file to which the future cost functions will be output
   /**< Name of the file to which the approximations to the future cost
    * functions are output. See #intOutputFrequency for controlling if and when
-   * these approximations are output. By default, this is empty. */
+   * these approximations are output. By default, the name of this file is
+   * empty, which means that the future cost functions will not be output. */
 
   strStateFile ,
   ///< name of the file in which the SDDPSolverState will be serialized
   /**< Name of the file in which the SDDPSolverState will be serialized. See
    * #intOutputFrequency for controlling if and when these approximations are
-   * output. By default, this is empty. */
+   * output. By default, the name of this file is empty, which means that no
+   * state will be serialized. */
+
+  strRandomCutsFile ,
+  ///< name of the file to which the random cuts will be output
+  /**< A random cut is a cut associated with a particular scenario. This
+   * parameter indicates the name of the file to which the random cuts will be
+   * output. See #intOutputFrequency for controlling if and when the random
+   * cuts are output. See serialize_random_cuts() for a description of the
+   * format of the output file. By default, the name of this file is empty,
+   * which means that the random cuts are not output (and not stored). */
 
   strFilenameSuffix ,
   ///< suffix to be added to a filename every other iteration
   /**< This is the suffix that will be added to a non-empty filename (given by
-   * #strOutputFile and #strStateFile) every other iteration in which a file
-   * output is performed (see #intOutputFrequency). This is parameter can be
-   * useful, for instance, if this Solver is running on an unreliable system,
-   * which may crash while the output is being performed. By using a suffix,
-   * at least some not so old data will be available. For instance, suppose
-   * that #intOutputFrequency > 0, #strStateFile = "state.nc4", and #strSuffix
-   * = ".0". Then, the first time the State is serialized, it will be
-   * serialized in the file called "state.nc4". The second time, it will be
-   * serialized into "state.nc4.0". The third time it will be serialized again
-   * into "state.nc4" and so on. By default, this is empty. */
+   * #strOutputFile, #strStateFile, and #strRandomCutsFile) every other
+   * iteration in which a file output is performed (see
+   * #intOutputFrequency). This parameter can be useful, for instance, if this
+   * Solver is running on an unreliable system, which may crash while the
+   * output is being performed. By using a suffix, at least some not so old
+   * data will be available. For instance, suppose that #intOutputFrequency >
+   * 0, #strStateFile = "state.nc4", and #strSuffix = ".0". Then, the first
+   * time the State is serialized, it will be serialized in the file called
+   * "state.nc4". The second time, it will be serialized into
+   * "state.nc4.0". The third time it will be serialized again into
+   * "state.nc4" and so on. By default, this is empty. */
+
+  strSubSolverLogFilePrefix ,
+  ///< prefix of the names of the files for the logs of the sub-Solvers
+  /**< Prefix of the names of the files in which the logs of the sub-Solvers
+   * will be output. For instance, suppose this prefix is "logfile-". Then, if
+   * the SDDPBlock has a single sub-Block at each stage, the log of the
+   * sub-Solver associated with time instant t will be output into a file
+   * called "logfile-t". If the SDDPBlock has n > 1 sub-Blocks at each stage,
+   * then the log of the sub-Solver associated with time instant t and i-th
+   * sub-Block at stage t will be output into a file called "logfile-t-i". By
+   * default, this is empty. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -532,7 +555,7 @@ public:
   *
   * - #intNbSimulForward
   *
-  * - #intFirstStageScenarioIndex
+  * - #intFirstStageScenarioId
   *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -555,7 +578,7 @@ public:
     sddp_optimizer->set_number_simulations_forward( value ); return;
    case( intLogVerb ): log_verbosity = value; return;
    case( intOutputFrequency ): output_frequency = value; return;
-   case( intFirstStageScenarioIndex ):
+   case( intFirstStageScenarioId ):
     first_stage_scenario_index = value; return;
   }
   Solver::set_par( par , value );
@@ -605,7 +628,11 @@ public:
   *
   * - #strStateFile
   *
+  * - #strRandomCutsFile
+  *
   * - #strFilenameSuffix
+  *
+  * - #strSubSolverLogFilePrefix
   *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -624,7 +651,12 @@ public:
    case( strInnerBSC ): f_inner_block_solver_config_filename = value; return;
    case( strOutputFile ): f_output_filename = value; return;
    case( strStateFile ): f_state_filename = value; return;
+   case( strRandomCutsFile ): f_random_cuts_filename = value; return;
    case( strFilenameSuffix ): f_filename_suffix = value; return;
+   case( strSubSolverLogFilePrefix ): {
+    f_sub_solver_filename_prefix = value;
+    return;
+   }
   }
   Solver::set_par( par , value );
  }
@@ -718,11 +750,16 @@ public:
   * Here, we are assuming that the same Configuration can be applied to the
   * inner Block of the BendersBFunction at all stages. However, in principle,
   * the inner Block of the BendersBFunction at different stages could require
-  * different Configuration. If this case ever happen, the implementation of
+  * different Configuration. If this case ever happens, the implementation of
   * this method should be adapted to take it into consideration.
   *
   * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
-  * Configuration of this SDDPSolver is reset to its default.
+  * Configuration of this SDDPSolver is reset to its default one.
+  *
+  * It is important to notice that every Configuration provided by \p scfg is
+  * cloned (see Configuration::clone()) and, therefore, the caller is
+  * responsible for destroying all these Configuration and the Configuration
+  * pointed by \p scfg.
   *
   * @param scfg a pointer to a ComputeConfig.
   */
@@ -811,7 +848,7 @@ public:
   *
   * - #intOutputFrequency: 0
   *
-  * - #intFirstStageScenarioIndex: 0
+  * - #intFirstStageScenarioId: 0
   *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
@@ -830,7 +867,7 @@ public:
    case( intNbSimulForward ): return 1;
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
-   case( intFirstStageScenarioIndex ): return 0;
+   case( intFirstStageScenarioId ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -868,7 +905,7 @@ public:
 
   static const std::vector<std::string> default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
-     "" , "" , "" , "" , "" };
+     "", "" , "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -955,7 +992,7 @@ public:
     return sddp_optimizer->get_number_simulations_forward();
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
-   case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
+   case( intFirstStageScenarioId ): return first_stage_scenario_index;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -997,7 +1034,9 @@ public:
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
    case( strOutputFile ): return f_output_filename;
    case( strStateFile ): return f_state_filename;
+   case( strRandomCutsFile ): return f_random_cuts_filename;
    case( strFilenameSuffix ): return f_filename_suffix;
+   case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
   }
   return Solver::get_str_par( par );
  }
@@ -1060,7 +1099,7 @@ public:
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
-  if( name == "intFirstStageScenarioIndex" ) return intFirstStageScenarioIndex;
+  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1099,7 +1138,9 @@ public:
   if( name == "strInnerBSC" ) return strInnerBSC;
   if( name == "strOutputFile" ) return strOutputFile;
   if( name == "strStateFile" ) return strStateFile;
+  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   if( name == "strFilenameSuffix" ) return strFilenameSuffix;
+  if( name == "strSubSolverLogFilePrefix" ) return strSubSolverLogFilePrefix;
   return Solver::str_par_str2idx( name );
  }
 
@@ -1152,7 +1193,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioIndex" };
+     "intFirstStageScenarioId" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1193,7 +1234,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
-     "strFilenameSuffix" };
+     "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1334,10 +1375,10 @@ public:
 
  /// output the cuts and the SDDPSolverState to files
  /** This function outputs the approximations to the future cost functions (if
-  * #strOutputFile is non-empty) and serializes the SDDPSolverState (if
-  * #strStateFile is non-empty). If #strFilenameSuffix is non-empty, then it
-  * is added to the filename every other iteration that this function is
-  * called. */
+  * #strOutputFile is non-empty) and the random cuts (if #strRandomCutsFile is
+  * non-empty), and serializes the SDDPSolverState (if #strStateFile is
+  * non-empty). If #strFilenameSuffix is non-empty, then it is added to the
+  * filename every other iteration that this function is called. */
 
  void file_output() const;
 
@@ -1354,8 +1395,8 @@ public:
   * during the last call to compute().
   *
   * @return The number of iterations performed by the solver during the last
-  *         call to compute().
-  */
+  *         call to compute(). */
+
  int get_number_iterations_performed() const {
   return number_iterations_performed;
  }
@@ -1366,8 +1407,8 @@ public:
  /** This function returns the time horizon of the problem associated with the
   * SDDPBlock with which this SDDPSolver is attached.
   *
-  * @return The time horizon of the problem associated with the SDDPBlock.
-  */
+  * @return The time horizon of the problem associated with the SDDPBlock. */
+
  SDDPBlock::Index get_time_horizon() const;
 
 /*--------------------------------------------------------------------------*/
@@ -1379,8 +1420,7 @@ public:
  * @param stage The stage whose solution is required.
  *
  * @return The array containing the solution of the subproblem at the given
- *         stage.
- */
+ *         stage. */
 
  template< class T = Eigen::ArrayXd >
  T get_solution( SDDPBlock::Index stage ,
@@ -1394,12 +1434,26 @@ public:
   * index of the scenario that must be considered in the first stage.
   *
   * @return The index of the scenario to be considered in the first stage (if
-  *         any).
-  */
+  *         any). */
+
  Index get_first_stage_scenario_index() const {
   if( first_stage_scenario_index < 0 )
    return Inf< Index >();
   return first_stage_scenario_index;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// indicates whether random cuts must be stored
+ /** A random cut is a cut associated with a particular scenario. This
+  * function indicates whether the random cuts that are produced must be
+  * stored in the SDDPBlock.
+  *
+  * @return true if and only if random cuts must be stored in the
+  *         SDDPBlock. */
+
+ bool store_random_cuts() const {
+  return ! f_random_cuts_filename.empty();
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -1790,8 +1844,7 @@ protected:
 /*--------------------------------------------------------------------------*/
 
   /// checks if the linearization is correct
-  void check_linearization( Index current_stage , const Eigen::ArrayXd & state ,
-                            double objective_value , double alpha ,
+  void check_linearization( double objective_value , double alpha , double gy ,
                             const Eigen::ArrayXd & linearization ,
                             Index sub_block_index ) const;
 
@@ -1860,6 +1913,9 @@ protected:
  /// Prefix for the name of the file in which the State is saved
  std::string f_state_filename;
 
+ /// Prefix for the name of the file to which the random cuts are output
+ std::string f_random_cuts_filename;
+
  /// The suffix to be added to an output filename every other iteration
  std::string f_filename_suffix = "";
 
@@ -1872,6 +1928,9 @@ protected:
   * variable is true, then #f_filename_suffix will be added to the name of the
   * file every other iteration in which the output is performed. */
  mutable bool f_add_suffix = false;
+
+ /// Prefix of the names of the files for the logs of the sub-Solvers
+ std::string f_sub_solver_filename_prefix = "";
 
  /// Name of the default BlockConfig file for the inner Blocks
  std::string f_inner_block_config_filename;
@@ -1992,7 +2051,7 @@ private:
   number_simulations_for_convergence =
    get_dflt_int_par( intNbSimulCheckForConv );
   output_frequency = get_dflt_int_par( intOutputFrequency );
-  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioIndex );
+  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioId );
 
   // double
 
@@ -2007,7 +2066,9 @@ private:
   f_inner_block_solver_config_filename = get_dflt_str_par( strInnerBSC );
   f_output_filename = get_dflt_str_par( strOutputFile );
   f_state_filename = get_dflt_str_par( strStateFile );
+  f_random_cuts_filename = get_dflt_str_par( strRandomCutsFile );
   f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
+  f_sub_solver_filename_prefix = get_dflt_str_par( strSubSolverLogFilePrefix );
 
   // vector of int
 

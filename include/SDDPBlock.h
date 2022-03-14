@@ -23,6 +23,7 @@
 /*--------------------------------------------------------------------------*/
 
 #include "Block.h"
+#include "Objective.h"
 #include "PolyhedralFunction.h"
 #include "ScenarioSimulator.h"
 #include "ScenarioSet.h"
@@ -47,34 +48,34 @@ namespace SMSpp_di_unipi_it
  * multistage stochastic programming problem of the form
  *
  * \f[
- *   \min_{x_0 \in \mathcal{X}^{n_0}} f_0(x_0) +
+ *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_1 \in \mathcal{X}^{n_1}} f_1(x_1) +
+ *   \min_{x_1 \in \mathcal{X}_1} f_1(x_1) +
  *   \mathbb{E} \left \lbrack \dots +
  *   \mathbb{E} \left \lbrack
- *   \min_{x_{T-1} \in \mathcal{X}^{n_{T-1}}} f_{T-1}(x_{T-1})
+ *   \min_{x_{T-1} \in \mathcal{X}_{T-1}} f_{T-1}(x_{T-1})
  *   \right\rbrack \right\rbrack\right\rbrack,
  * \f]
  *
- * where T is called the time horizon, \f$\mathcal{X}^{n_t} \equiv
- * \mathcal{X}^{n_t}(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
+ * where T is called the time horizon, \f$\mathcal{X}_t \equiv
+ * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
  * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
  * T-1\}} \f$ is a stochastic process. Notice that \f$ x_{-1} \f$ and \f$
  * \xi_0 \f$ are deterministic. For each \f$ t \in \{0, \dots, T-1\}\f$, we
  * call
  *
  * \f[
- *   \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
- *   \mathcal{V}_{t+1}(x_t, \xi_t)
+ *   \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
+ *   \mathcal{V}_{t+1}(x_t)
  * \f]
  *
  * the problem associated with stage \f$ t \f$, where
  *
  * \f[
- *   \mathcal{V}_{t+1}(x_t, \xi_t) =
+ *   \mathcal{V}_{t+1}(x_t) =
  *    \mathbb{E}
  *      \left\lbrack
- *        V_{t+1}(x_t, \xi_{t+1}) \mid \xi_t
+ *        V_{t+1}(x_t, \xi_{t+1})
  *      \right\rbrack
  * \f]
  *
@@ -85,8 +86,8 @@ namespace SMSpp_di_unipi_it
  * \f[
  *
  *    V_{t}(x_{t-1}, \xi_{t}) =
- *    \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
- *    \mathcal{V}_{t+1}(x_t, \xi_t)
+ *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
+ *    \mathcal{V}_{t+1}(x_t)
  * \f]
  *
  * with given \f$ x_{-1} \f$ and (deterministic) \f$ \xi_0\f$. We consider an
@@ -94,7 +95,7 @@ namespace SMSpp_di_unipi_it
  * T-1\} \f$ as the problem
  *
  * \f[
- *    \min_{x_t \in \mathcal{X}^{n_t}} f_t(x_t) +
+ *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
  *    \mathcal{P}_{t+1}(x_t)
  *    \qquad (1)
  * \f]
@@ -369,6 +370,28 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// deserialize the random cuts
+ /** This function deserializes the random cuts out of the file whose path is
+  * given by \p filename. If the path to the file is empty, then no operation
+  * is performed. The file must have the following netCDF format:
+  *
+  * - The netCDF dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The netCDF dimension "NumberScenarios" containing the number of
+  *   scenarios.
+  *
+  * - The netCDF group "PolyhedralFunction_t_s", for each t in {0, ...,
+  *   TimeHorizon - 1} and s in {0, ..., NumberScenarios - 1}, containing the
+  *   serialization of the PolyhedralFunction representing the random cuts
+  *   associated with stage t and scenario s.
+  *
+  * @param filename The path to the file containing the netCDF description of
+  *        the random cuts. */
+
+ void deserialize_random_cuts( const std::string & filename );
+
+/*--------------------------------------------------------------------------*/
+
  /// sets the number of sub-Blocks for each stage
  /** This function sets the number of sub-Blocks that must be constructed at
   * each stage. If this function is invoked after the sub-Blocks of this
@@ -398,6 +421,30 @@ public:
   * @param group The NcGroup in which this SDDPBlock will be serialized. */
 
  void serialize( netCDF::NcGroup & group ) const override;
+
+/*--------------------------------------------------------------------------*/
+
+ /// serialize the random cuts
+ /** This function serializes the random cuts in the file with the given name
+  * (path). If \p filename is empty, then no operation is performed. The file
+  * will have the following netCDF format:
+  *
+  * - The dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The dimension "NumberScenarios" containing the number of scenarios.
+  *
+  * - The group "PolyhedralFunction_t_s", for each t in {0, ..., TimeHorizon -
+  *   1} and s in {0, ..., NumberScenarios - 1}, containing the serialization
+  *   of the PolyhedralFunction representing the random cuts associated with
+  *   stage t and scenario s. Each individual group is optional. If the group
+  *   "PolyhedralFunction_t_s" is not provided, then the PolyhedralFunction
+  *   associated with stage t and scenario s will not be loaded (which means
+  *   it will have no cuts).
+  *
+  * @param filename The name of the file in which the random cuts will be
+  *        serialized. */
+
+ void serialize_random_cuts( const std::string & filename ) const;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
@@ -557,6 +604,45 @@ public:
   return initial_state;
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// returns a random cut
+ /** This function returns the PolyhedralFunction representing the random cut
+  * associated with the given \p stage and the scenario whose index is \p
+  * scenario_index. The \p stage argument must be between 0 and
+  * get_time_horizon() - 1 while \p scenario_index must be between 0 and
+  * get_scenario_set().size() - 1. */
+
+ PolyhedralFunction & get_random_cut( Index stage , Index scenario_index ) {
+  if( stage >= random_cuts.size() )
+   throw( std::invalid_argument( "SDDPBlock::get_random_cut: no random cut "
+                                 "for stage " + std::to_string( stage ) ) );
+
+  if( scenario_index >= random_cuts[ stage ].size() )
+   throw( std::invalid_argument
+          ( "SDDPBlock::get_random_cut: no random cut for scenario index " +
+            std::to_string( scenario_index ) + "." ) );
+
+  return random_cuts[ stage ][ scenario_index ];
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the sense of the Objective of the SDDPBlock
+ /** This function returns the sense of the Objective of the SDDPBlock, which
+  * is defined to be the sense of the Objective of its first inner Block. If
+  * this SDDPBlock has no inner Block, this function returns Objective::eMin.
+  *
+  * @return the sense of the Objective of the first inner Block of this
+  *         SDDPBlock if there is one. Otherwise, it returns
+  *         Objective::eMin. */
+
+ int get_objective_sense() const override {
+  if( ! v_Block.empty() )
+   return v_Block.front()->get_objective_sense();
+  return Objective::eMin;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -642,6 +728,26 @@ public:
              number_cuts_to_keep );
   }
  }
+
+/*--------------------------------------------------------------------------*/
+ /// store the given random cut
+ /** This function store the random cut given by \p coefficients and \p alpha,
+  * which must be associated with the given \p stage and with the scenario
+  * whose index is \p scenario_index.
+  *
+  * @param coefficients The coefficients of the cut.
+  *
+  * @param alpha The constant of the cut.
+  *
+  * @param stage The stage (a number between 0 and get_time_horizon() - 1)
+  *        associated with the given cut.
+  *
+  * @param scenario_index The index (a number between 0 and
+  *        get_scenario_set().size() - 1) of the scenario associated with the
+  *        given cut. */
+
+ void store_random_cut( std::vector< double > && coefficients , double alpha ,
+                        Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
  /// returns the number of cuts currently present at the given \p stage
@@ -854,6 +960,14 @@ protected:
  /// An initial state for the first stage problem
  std::vector< double > initial_state;
 
+ /// Random cuts for each stage and each scenario
+ /** This boost::multi_array stores the random cuts for all stages and all
+  * scenarios. A random cut is a cut associated with a particular scenario. */
+ boost::multi_array< PolyhedralFunction , 2 > random_cuts;
+
+ /// It indicates whether the random cuts have been initialized
+ bool f_random_cuts_initialized = false;
+
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -882,6 +996,11 @@ private:
   * @return A pointer to the Block that was deserialized.
   */
  Block * deserialize_sub_Block( const netCDF::NcGroup & group , Index i );
+
+ /*--------------------------------------------------------------------------*/
+
+ /// initializes the structure that stores the random cuts
+ void initialize_random_cuts();
 
 /*--------------------------------------------------------------------------*/
 

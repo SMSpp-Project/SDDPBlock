@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 03 - 06 - 2021
+ * \date 25 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -28,6 +28,7 @@
 #include "SDDPSolver.h"
 #include "StochasticBlock.h"
 
+#include <chrono>
 #include <Eigen/Core>
 
 #include "boost/iostreams/stream.hpp"
@@ -59,6 +60,10 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 /*-------------------------- METHODS of SDDPSolver -------------------------*/
 /*--------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
 void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
 
  ThinComputeInterface::set_ComputeConfig( scfg );
@@ -66,6 +71,13 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( ! scfg ) { // factory reset
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = nullptr;
+
+  delete f_inner_block_config;
+  f_inner_block_config = nullptr;
+
+  delete f_get_var_solution_config;
+  f_get_var_solution_config = nullptr;
+
   return;
  }
 
@@ -83,13 +95,13 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( auto config = dynamic_cast< SimpleConfiguration<
      std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
 
-  // The extra Configuration is a vector. So, the first element of this
-  // vector, if present and not nullptr, must be a BlockConfig for the inner
-  // Blocks of the BendersBFunctions. The second element, if present and not
-  // nullptr, must be a BlockSolverConfig for the inner Blocks of the
-  // BendersBFunctions. The third element, if present and not nullptr, must be
-  // a Configuration to be passed to get_var_solution() when retrieving the
-  // Solutions to the inner Blocks of the BendersBFunctions.
+  // The extra Configuration is a vector. The first element of this vector, if
+  // present and not nullptr, must be a BlockConfig for the inner Blocks of
+  // the BendersBFunctions. The second element, if present and not nullptr,
+  // must be a BlockSolverConfig for the inner Blocks of the
+  // BendersBFunctions. Finally, the third element, if present and not
+  // nullptr, must be a Configuration to be passed to get_var_solution() when
+  // retrieving the Solutions to the inner Blocks of the BendersBFunctions.
 
   if( ( ! config->f_value.empty() ) && config->f_value.front() ) {
    // A BlockConfig must have been provided.
@@ -225,6 +237,8 @@ void SDDPSolver::set_Block( Block * block ) {
 }
 
 /*--------------------------------------------------------------------------*/
+/*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
+/*--------------------------------------------------------------------------*/
 
 int SDDPSolver::compute( bool changedvars ) {
 
@@ -239,6 +253,8 @@ int SDDPSolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
 
+ const auto time_horizon = get_time_horizon();
+
  // ostream for StOpt output
  boost::iostreams::stream< boost::iostreams::null_sink >
   null_sink( ( boost::iostreams::null_sink() ) );
@@ -246,7 +262,33 @@ int SDDPSolver::compute( bool changedvars ) {
  if( f_log && log_verbosity >= 2 )
   output_stream = f_log;
 
- const auto time_horizon = get_time_horizon();
+ // log of the sub-Solvers
+
+ std::vector< std::ofstream > sub_solvers_logfiles;
+
+ if( ! f_sub_solver_filename_prefix.empty() ) {
+
+  const auto num_sub_blocks_per_stage =
+   static_cast< SDDPBlock * >( f_Block )->get_num_sub_blocks_per_stage();
+
+  sub_solvers_logfiles.reserve( time_horizon * num_sub_blocks_per_stage );
+
+  for( Index t = 0 ; t < time_horizon ; ++t ) {
+   for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i ) {
+    auto suffix = std::to_string( t );
+    if( num_sub_blocks_per_stage > 1 )
+     suffix += "-" + std::to_string( i );
+    const auto filename = f_sub_solver_filename_prefix + suffix;
+
+    sub_solvers_logfiles.emplace_back
+     ( std::ofstream{ filename , std::ofstream::out | std::ofstream::app } );
+
+    auto benders_function = get_benders_function( t , i );
+    auto solver = benders_function->get_solver();
+    solver->set_log( & sub_solvers_logfiles.back() );
+   }
+  }
+ }
 
  /* "dates" must be an array with size T + 1, where T is the time_horizon,
   * such that dates[ t ] contains the t-th time step (in our case it is simply
@@ -426,6 +468,13 @@ int SDDPSolver::compute( bool changedvars ) {
  /* SOLVING THE PROBLEM */
  /***********************/
 
+#ifdef USE_MPI
+ // MPI communicator. This communicator could become a member of SDDPSolver
+ // and a function to set it could be implemented. For now, it is just the
+ // default communicator.
+ boost::mpi::communicator mpi_communicator;
+#endif
+
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
@@ -433,6 +482,9 @@ int SDDPSolver::compute( bool changedvars ) {
     final_cut , dates , mesh_discretization_array , regressors_filename ,
     cuts_filename , visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
+#ifdef USE_MPI
+    mpi_communicator ,
+#endif
     print_cpu_time );
 
  // Possibly output the future cost functions and/or save the State
@@ -459,6 +511,11 @@ int SDDPSolver::compute( bool changedvars ) {
   *f_log << "Forward value:  " << std::setprecision( 20 )
          << forward_value << std::endl;
  }
+
+ // Close the log files of the sub-Solvers
+
+ for( auto & logfile : sub_solvers_logfiles )
+  logfile.close();
 
  // Compute the accuracy achieved
 
@@ -880,6 +937,15 @@ void SDDPSolver::file_output() const {
   serialize_State( state_filename );
  }
 
+ if( ! f_random_cuts_filename.empty() ) {
+  // Output the random cuts
+  std::string random_cuts_filename = f_random_cuts_filename;
+  if( f_add_suffix )
+   random_cuts_filename += f_filename_suffix;
+  auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+  sddp_block->serialize_random_cuts( random_cuts_filename );
+ }
+
  f_add_suffix = ! f_add_suffix;
 }
 
@@ -982,6 +1048,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   const Index scenario_index , const bool scenario_must_be_set ,
   const Index sub_block_index ) const {
 
+ const auto start_time = std::chrono::system_clock::now();
+
  const auto current_stage = get_current_backward_stage();
 
  /* In the first stage, the scenario will not be set if the given scenario
@@ -1072,44 +1140,119 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* CONSTRUCTING THE LINEARIZATION */
  /**********************************/
 
- /* The oneStepBackard function returns a one-dimensional array whose size is
-  * the number of state variables plus one and that contains a linearization
-  * of the BendersBFunction. The first component contains the value of the
-  * BendersBFunction and the remaining components contain the coefficients of
-  * the linearization of the BendersBFunction. For i in {1, ...,
-  * number_state_variables}, linearization( i ) contains the coefficient of
-  * the linearization of the BendersBFunction associated with the i-th state
-  * variable. */
+ /* The oneStepBackard function returns a one-dimensional array (called
+  * "linearization" and declared below) whose size is the number of state
+  * variables plus one and that contains a linearization of the
+  * BendersBFunction. The first component contains a value that will be used
+  * by StOpt to compute the linearization constant and the remaining
+  * components contain the coefficients of the linearization of the
+  * BendersBFunction. For i in {1, ..., number_state_variables},
+  * linearization( i ) contains the coefficient of the linearization of the
+  * BendersBFunction associated with the i-th state variable.
+  *
+  * StOpt will compute the linearization constant based on the value that is
+  * returned at the first position of the "linearization" array. By letting z
+  * the value that we return in linearization(0), StOpt will compute the
+  * linearization constant as z - g'y, where g is the vector with the
+  * linearization coefficients and y is the vector with the values of the
+  * state variables. Therefore, we return in linearization(0) the value alpha
+  * + g'y, where alpha is the linearization constant provided by the
+  * BendersBFunction, i.e., we return a lower bound (upper bound if the
+  * subproblem is a maximization) on the value of the solution. */
 
  const auto number_state_variables = std::get<0>( state )->size();
  Eigen::ArrayXd linearization( number_state_variables + 1 );
 
- auto benders_function = sddp_solver->get_benders_function( current_stage ,
-                                                            sub_block_index );
+ auto benders_function =
+  sddp_solver->get_benders_function( current_stage , sub_block_index );
 
  if( benders_function->has_linearization( true ) ) {
-  linearization( 0 ) = objective_value;
+
+  // Retrieve the linearization coefficients
   benders_function->get_linearization_coefficients( linearization.data() + 1 );
+
+  // Compute g'y
+  double gy = 0;
+
+  if( current_stage == 0 ) {
+   /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
+    * does not contain the state for the first stage problem. */
+   const auto state_var = static_cast< SDDPBlock * >
+    ( sddp_solver->f_Block )->get_state( current_stage , sub_block_index );
+   for( decltype( state_var.size() ) j = 0 ; j < state_var.size() ; ++j )
+    gy += linearization( j + 1 ) * state_var[ j ];
+  }
+  else {
+   // Use the state variables given as argument
+   const auto state_var = std::get<0>( state ).get();
+   for( Index j = 0 ; j < state_var->size() ; ++j )
+    gy += linearization( j + 1 ) * ( *state_var )( j );
+  }
+
+  // Retrieve the linearization constant
+  const auto alpha = benders_function->get_linearization_constant();
+
+  linearization( 0 ) = alpha + gy;
+
+  // Store the random cut if required
+  if( sddp_solver->store_random_cuts() ) {
+   auto sddp_block = static_cast< SDDPBlock * >( sddp_solver->f_Block );
+   std::vector< double > coefficients
+    ( linearization.data() + 1 , linearization.data() + linearization.size() );
+
+   auto actual_scenario_index = scenario_index;
+   if( actual_scenario_index == Inf< Index >() ) {
+    // The scenario index is infinity. Thus, this must be the first stage.
+    assert( current_stage == 0 );
+
+    // Since there is no scenario associated with the first stage, we store
+    // the cut as if it were associated with the first scenario.
+    actual_scenario_index = 0;
+   }
+
+   sddp_block->store_random_cut( std::move( coefficients ) , alpha ,
+                                 current_stage , actual_scenario_index );
+  }
+
+ /*************/
+ /* DEBUGGING */
+ /*************/
 
   // Debugging the BendersBFunction
 
 #ifdef BENDERSBFUNCTION_DEBUG
-  const auto alpha = benders_function->get_linearization_constant();
-  check_linearization( current_stage , * std::get<0>( state ).get() ,
-                       objective_value , alpha , linearization ,
+  check_linearization( objective_value , alpha , gy, linearization ,
                        sub_block_index );
 #endif
 
  }
- else if( benders_function->has_linearization( false ) ) {
-  const auto alpha = benders_function->get_linearization_constant();
-  linearization( 0 ) = alpha;
-  benders_function->get_linearization_coefficients( linearization.data() + 1 );
- }
  else {
-  // No linearization is available
+  // No diagonal linearization is available
   throw( std::logic_error( "SDDPOptimizer::oneStepBackward: no "
                            "linearization is available." ) );
+ }
+
+ /********************/
+ /* FINAL LOG OUTPUT */
+ /********************/
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+
+  const auto end_time = std::chrono::system_clock::now();
+  const std::chrono::duration< double > duration = end_time - start_time;
+  const auto time = duration.count();
+  const auto log = sddp_solver->f_log;
+  *log << "  Time (s):       " << time << std::endl;
+
+  if( sddp_solver->log_verbosity >= 10 ) {
+   auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
+   *log << "  Solution:       (";
+   for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
+    if( i > 0 ) *( sddp_solver->f_log ) << ", ";
+    *log << solution( i );
+   }
+   *log << ")" << std::endl;
+  }
  }
 
  return linearization;
@@ -1155,6 +1298,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
   const int & simulation_id , const Index scenario_index ,
   const bool scenario_must_be_set , const Index sub_block_index ) const {
+
+ const auto start_time = std::chrono::system_clock::now();
 
  const auto current_stage = get_current_forward_stage();
 
@@ -1257,7 +1402,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
-  *( sddp_solver->f_log ) << "  Objective:      " << objective_value << std::endl;
+  *( sddp_solver->f_log ) << "  Objective:      " << objective_value
+                          << std::endl;
   if( sddp_solver->log_verbosity >= 10 ) {
    *( sddp_solver->f_log ) << "  Solution:       (";
    for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
@@ -1277,6 +1423,17 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  state_to_store.resize( solution.size() );
  state_to_store << solution;
+
+ /********************/
+ /* FINAL LOG OUTPUT */
+ /********************/
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+  const auto end_time = std::chrono::system_clock::now();
+  const std::chrono::duration< double > duration = end_time - start_time;
+  const auto time = duration.count();
+  *( sddp_solver->f_log ) << "  Time (s):       " << time << std::endl;
+ }
 
  /*************************/
  /* RETURN SOLUTION VALUE */
@@ -1330,9 +1487,8 @@ int SDDPSolver::SDDPOptimizer::getStateSize() const {
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::SDDPOptimizer::check_linearization
-( Index current_stage , const Eigen::ArrayXd & state , double objective_value ,
-  double alpha , const Eigen::ArrayXd & linearization , Index sub_block_index )
- const {
+( double objective_value , double alpha , double gy ,
+  const Eigen::ArrayXd & linearization , Index sub_block_index ) const {
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 20 ) {
   *( sddp_solver->f_log ) << "  Linearization: " << std::endl;
@@ -1341,26 +1497,12 @@ void SDDPSolver::SDDPOptimizer::check_linearization
    *( sddp_solver->f_log ) << "    coefficients: (";
    for( decltype( linearization.size() ) i = 1 ;
         i < linearization.size() ; ++i ) {
-    if( i > 1 ) *( sddp_solver->f_log ) << ", ";
+    if( i > 1 )
+     *( sddp_solver->f_log ) << ", ";
     *( sddp_solver->f_log ) << linearization( i );
    }
    *( sddp_solver->f_log ) << ")" << std::endl;
   }
- }
-
- double gy = 0;
-
- if( current_stage == 0 ) {
-  /* Retrieve the initial state from the SDDPBlock, as the "state" parameter
-   * does not contain the state for the first stage problem. */
-  const auto state = static_cast< SDDPBlock * >
-   ( sddp_solver->f_Block )->get_state( current_stage , sub_block_index );
-  for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
-   gy += linearization( j + 1 ) * state[ j ];
- }
- else {
-  for( decltype( state.size() ) j = 0 ; j < state.size() ; ++j )
-   gy += linearization( j + 1 ) * state( j );
  }
 
  const double epsilon = 1.0e-4;
@@ -1368,32 +1510,21 @@ void SDDPSolver::SDDPOptimizer::check_linearization
   std::max( 1.0 , std::min( abs( objective_value ) , abs( alpha + gy ) ) );
  const auto diff = std::abs( objective_value - ( alpha + gy ) );
  if( diff > epsilon * scale ) {
-  if( auto log = sddp_solver->f_log ) {
-   *log << "SDDPOptimizer::oneStepBackward: linearization precision "
-        << "was not achieved:" << std::endl;
-   *log << "  precision required: " << std::setprecision( 20 )
-        << epsilon << std::endl;
-   *log << "  precision achieved: " << std::setprecision( 20 )
-        << ( diff / scale ) << std::endl;
-   *log << "  objective: " << std::setprecision( 20 )
-        << objective_value << std::endl;
-   *log << "  alpha:     " << std::setprecision( 20 )
-        << alpha << std::endl;
-   *log << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-  }
-  else {
-   std::cerr << "SDDPOptimizer::oneStepBackward: linearization precision "
-             << "was not achieved:" << std::endl;
-   std::cerr << "  precision required: " << std::setprecision( 20 )
-             << epsilon << std::endl;
-   std::cerr << "  precision achieved: " << std::setprecision( 20 )
-             << ( diff / scale ) << std::endl;
-   std::cerr << "  objective: " << std::setprecision( 20 )
-             << objective_value << std::endl;
-   std::cerr << "  alpha:     " << std::setprecision( 20 )
-             << alpha << std::endl;
-   std::cerr << "  g'y:       " << std::setprecision( 20 ) << gy << std::endl;
-  }
+  auto log = sddp_solver->f_log;
+  if( ! log )
+   log = &std::cerr;
+
+  *log << "  SDDPOptimizer::oneStepBackward: linearization precision "
+       << "was not achieved:" << std::endl;
+  *log << "    precision required: " << std::setprecision( 20 )
+       << epsilon << std::endl;
+  *log << "    precision achieved: " << std::setprecision( 20 )
+       << ( diff / scale ) << std::endl;
+  *log << "    objective: " << std::setprecision( 20 )
+       << objective_value << std::endl;
+  *log << "    alpha:     " << std::setprecision( 20 )
+       << alpha << std::endl;
+  *log << "    g'y:       " << std::setprecision( 20 ) << gy << std::endl;
  }
 }
 

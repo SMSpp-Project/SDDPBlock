@@ -19,9 +19,10 @@
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.12)
+cmake_policy(VERSION 3.12)
 project(SDDPBlock
-        VERSION 0.4.0
+        VERSION 0.5.0
         DESCRIPTION "SMS++ SDDPBlock module"
         HOMEPAGE_URL https://gitlab.com/smspp/sddpblock
         LANGUAGES C CXX)
@@ -29,11 +30,13 @@ project(SDDPBlock
 # These variables make the code harder to read but easier to change.
 set(modName ${PROJECT_NAME})
 set(modNamespace "SMS++")
-set(modHeader "${modName}Config.h")
-set(modTargets "${modName}Targets")
 
 # Find out if it's being called by the umbrella.
 get_directory_property(hasParent PARENT_DIRECTORY)
+
+# This adds the cmake directory to the module search paths,
+# allowing us to use our modules.
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # ----- Settings ------------------------------------------------------------ #
 # This creates an ENABLE_TESTING option (default: ON) and enables the testing
@@ -41,33 +44,25 @@ get_directory_property(hasParent PARENT_DIRECTORY)
 # See: https://cmake.org/cmake/help/latest/manual/ctest.1.html
 #include(CTest)
 
-# ----- Options ------------------------------------------------------------- #
-
-option(USE_MPI "Use MPI" OFF)
+# Sets the default build type (if none was specified).
+# See: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
+include(BuildType)
 
 # ----- Requirements -------------------------------------------------------- #
 # If it's not being called by the umbrella, we need to
 # look for the system-installed libraries.
 if (NOT hasParent)
     find_package(StochasticBlock REQUIRED)
-endif()
+endif ()
 
+find_package(StOpt REQUIRED)
 find_package(OpenMP)
 find_package(Boost COMPONENTS mpi)
 find_package(MPI)
 
-# This adds the cmake directory to the find module search paths,
-# allowing us to use our find modules.
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-find_package(StOpt REQUIRED)
-
-# This removes from the search paths the cmake directory we added above.
-list(REMOVE_AT CMAKE_MODULE_PATH -1)
-
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
-configure_file(cmake/${modHeader}.in ${modHeader})
+configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
@@ -111,17 +106,13 @@ target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
 
-if (MPI_CXX_FOUND AND Boost_MPI_FOUND AND USE_MPI)
-    add_compile_definitions(USE_MPI)
-    target_include_directories(${modName} PRIVATE
-                               ${MPI_CXX_INCLUDE_PATH})
-    target_link_libraries(${modName} PRIVATE
-                          Boost::mpi)
+if (OPENMP_FOUND)
+    target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)
 endif ()
 
-if (OPENMP_FOUND)
-    target_link_libraries(${modName} PRIVATE
-                          OpenMP::OpenMP_CXX )
+if (MPI_CXX_FOUND AND Boost_MPI_FOUND)
+    target_compile_definitions(${modName} PRIVATE USE_MPI)
+    target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
 endif ()
 
 # This alias is defined so that executables in this same project can use
@@ -142,7 +133,7 @@ include(GNUInstallDirs)
 
 # Install the library
 install(TARGETS ${modName}
-        EXPORT ${modTargets}
+        EXPORT ${modName}Targets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
@@ -156,7 +147,7 @@ install(FILES ${PROJECT_BINARY_DIR}/${modName}Config.h
 
 # (Generate and) install the target import file, that allows other
 # CMake projects to import the target.
-install(EXPORT ${modTargets}
+install(EXPORT ${modName}Targets
         NAMESPACE ${modNamespace}::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${modName})
 
@@ -193,32 +184,6 @@ install(FILES
         ${CMAKE_CURRENT_LIST_DIR}/LICENSE
         DESTINATION ${CMAKE_INSTALL_DATADIR}/${modName})
 
-# ----- Export from the build tree ------------------------------------------ #
-# The following commands are needed so other projects can find the library
-# in a local build directory. They use CMake's User Package Registry
-# (located in ~/.cmake/registry) to do so.
-# See: https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html
-# They don't affect the installation.
-
-# CMAKE_EXPORT_PACKAGE_REGISTRY is OFF by default.
-# It may be ON if the project is included by the SMS++ umbrella project.
-if (CMAKE_EXPORT_PACKAGE_REGISTRY)
-
-    # Generate the target import file, that allows other
-    # CMake projects to import the target.
-    export(EXPORT ${modTargets}
-           FILE ${CMAKE_CURRENT_BINARY_DIR}/${modTargets}.cmake
-           NAMESPACE ${modNamespace}::)
-
-    # Export the find modules for the local configuration file to use them.
-    foreach (findMod ${findMods})
-        configure_file(${findMod} ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
-    endforeach ()
-
-    # Export the package in user's package registry
-    export(PACKAGE ${modName})
-endif()
-
 # ----- Add the build tree to RPATH------------------------------------------ #
 # Add the binary directory to RPATH, so executables that use
 # dynamic loading will look into it.
@@ -245,5 +210,9 @@ if (NOT hasParent)
         \\\\.gitattributes$)
     include(CPack)
 endif ()
+
+# --------------------------------------------------------------------------- #
+# Remove from the search paths the cmake directory we added at the beginning.
+list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
 # --------------------------------------------------------------------------- #
