@@ -646,17 +646,5 @@ void SDDPBlock::serialize_random_cuts( const std::string & filename ) const {
 }
 
 /*--------------------------------------------------------------------------*/
-
-void SDDPBlock::print( std::ostream & output , char vlvl ) const
-{
- output << std::endl << "SDDPBlock with ";
-
- if( v_Block.empty() )
-  output << "no inner Block";
- else
-  output << v_Block.size() << " sub-Blocks" << std::endl;
- }
-
-/*--------------------------------------------------------------------------*/
 /*----------------------- End File SDDPBlock.cpp ---------------------------*/
 /*--------------------------------------------------------------------------*/
