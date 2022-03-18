@@ -4,12 +4,7 @@
 /** @file
  * Implementation of the SDDPGreedySolver class.
  *
- * \version 0.10
- *
- * \date 28 - 01 - 2022
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
@@ -329,7 +324,9 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
   configure_inner_block( stage );
 
-  load_cuts( stage );
+  if( ( ! f_load_cuts_once ) ||
+      ( stage >= v_cuts_loaded.size() ) || ( ! v_cuts_loaded[ stage ] ) )
+   load_cuts( stage );
 
   auto sub_status = solve( stage , true );
 
@@ -928,6 +925,12 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
  assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
 
  polyhedral_function->add_rows( std::move( A ) , b );
+
+ // Mark that cuts have been loaded to this stage.
+
+ if( stage >= v_cuts_loaded.size() )
+  v_cuts_loaded.resize( get_time_horizon() , false );
+ v_cuts_loaded[ stage ] = true;
 }
 
 /*--------------------------------------------------------------------------*/

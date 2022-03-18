@@ -8,12 +8,7 @@
  * solve a deterministic (single-scenario) multistage problem encoded by an
  * SDDPBlock as defined below.
  *
- * \version 0.1
- *
- * \date 28 - 01 - 2022
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
@@ -341,6 +336,29 @@ public:
    * configured. By default, #intEarlyConfig is zero, which means that each
    * inner Block is configured right before it is solved. */
 
+  intLoadCutsOnce ,
+  ///< It indicates whether cuts should be loaded only once for each stage
+  /**< This parameter specifies how many times the cuts provided by
+   * #intLoadCuts are loaded. Cuts associated with a particular stage, if
+   * provided, are loaded within compute() right before the subproblem
+   * associated with that stage is solved. If this parameter is nonzero, the
+   * cuts are loaded only once. That is, if cuts associated with a particular
+   * stage are loaded within a call to compute(), then no cuts are loaded for
+   * that stage in any subsequent calls to compute(). If this parameter is
+   * zero, then cuts are loaded at each call to compute().
+   *
+   * Notice that cuts are not necessarily loaded during the first call to
+   * compute(). In a normal situation, when all subproblems are solved within
+   * a call to compute(), then all cuts are loaded in that call. However, not
+   * all subproblems may be solved within a call to compute(), which may
+   * happen, for instance, when the subproblem associated with a certain stage
+   * S is infeasible. In this case, no cuts are loaded for any stage T greater
+   * than S and any cuts associated with T may only be loaded in a possible
+   * next call to compute().
+   *
+   * By default, #intLoadCutsOnce is 1, which means that cuts are loaded only
+   * once. */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -383,7 +401,10 @@ public:
    * the stage with which the cut is associated, a_0, ..., a_{k-1} are the
    * coefficients of the cut (a_i being the coefficient associated with the
    * i-th state variable), and b is the constant (independent) term of the
-   * cut. */
+   * cut. Cuts associated with a a particular stage are loaded within
+   * compute() right before the subproblem associated with that stage is
+   * solved. See the parameter #intLoadCutsOnce to control when cuts are
+   * loaded. */
 
   strRandomCutsFile ,
   ///< name of the file out of which the random cuts will be retrieved
@@ -594,6 +615,8 @@ public:
   *
   * - #intEarlyConfig [0]
   *
+  * - #intLoadCutsOnce [1]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -625,6 +648,7 @@ public:
     return;
    case( intOutputScenario ): f_output_scenario = value; return;
    case( intEarlyConfig ): f_early_config = value; return;
+   case( intLoadCutsOnce ): f_load_cuts_once = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -874,6 +898,7 @@ public:
    case( intSimulationDataOutputPrecision ): return 20;
    case( intOutputScenario ): return -1;
    case( intEarlyConfig ): return 0;
+   case( intLoadCutsOnce ): return 1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -979,6 +1004,7 @@ public:
     return f_simulation_data_output_precision;
    case( intOutputScenario ): return f_output_scenario;
    case( intEarlyConfig ): return f_early_config;
+   case( intLoadCutsOnce ): return f_load_cuts_once;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1071,6 +1097,7 @@ public:
    return intSimulationDataOutputPrecision;
   if( name == "intOutputScenario" ) return intOutputScenario;
   if( name == "intEarlyConfig" ) return intEarlyConfig;
+  if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1147,7 +1174,7 @@ public:
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
      "intSimulationDataOutputPrecision" , "intOutputScenario" ,
-     "intEarlyConfig" };
+     "intEarlyConfig" , "intLoadCutsOnce" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1492,6 +1519,9 @@ protected:
  /// It indicates whether the inner Blocks should be configured in advance
  int f_early_config = 0;
 
+ /// It indicates whether cuts should be loaded only once (see #intLoadCutsOnce)
+ int f_load_cuts_once = 1;
+
  /// Indicates whether the Solver of the inner Block must be unregister
  bool f_unregister_solver = false;
 
@@ -1532,8 +1562,11 @@ protected:
  std::vector< bool > v_inner_block_configured;
 
  /// Indicates whether the Solver of the inner Block of each BendersBFunction
- /// was configured
+ /// has been configured
  std::vector< bool > v_inner_solver_configured;
+
+ /// It indicates whether cuts for each stage have been loaded
+ std::vector< bool > v_cuts_loaded;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
