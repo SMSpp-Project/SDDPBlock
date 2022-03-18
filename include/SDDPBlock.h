@@ -5,12 +5,7 @@
  * Header file of SDDPBlock, a class for representing a multistage stochastic
  * programming problem specifically designed to be solved by an SDDP solver.
  *
- * \version 0.1
- *
- * \date 20 - 11 - 2021
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
@@ -21,8 +16,7 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __SDDPBlock
-#define __SDDPBlock
-                      /* self-identification: #endif at the end of the file */
+ #define __SDDPBlock  /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ INCLUDES ----------------------------------*/
@@ -42,14 +36,7 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
-
  class StochasticBlock;      // forward declaration of StochasticBlock
-
-/*--------------------------------------------------------------------------*/
-/*------------------------------- CLASSES ----------------------------------*/
-/*--------------------------------------------------------------------------*/
-/** @defgroup SDDPBlock_CLASSES Classes in SDDPBlock.h
- *  @{ */
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS SDDPBlock -------------------------------*/
@@ -269,6 +256,13 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// loads SDDPBlock out of an istream - not implemented yet
+
+ void load( std::istream & input , char frmt = 0 ) override {
+  throw( std::logic_error( "SDDPBlock::load: method not implemented yet." ) );
+  }
+
+/*--------------------------------------------------------------------------*/
  /// de-serialize an SDDPBlock out of netCDF::NcGroup
  /** The method takes a netCDF::NcGroup supposedly containing all the
   * information required to de-serialize the SDDPBlock. Besides the mandatory
@@ -417,13 +411,14 @@ public:
 /** @name Saving the data of the SDDPBlock
  *  @{ */
 
+ void print( std::ostream & output , char vlvl = 0 ) const override;
+
 /*--------------------------------------------------------------------------*/
  /// serialize an SDDPBlock into a netCDF::NcGroup
  /** Serialize an SDDPBlock into a netCDF::NcGroup with the format
   * explained in the comments of the deserialize() function.
   *
-  * @param group The NcGroup in which this SDDPBlock will be serialized.
-  */
+  * @param group The NcGroup in which this SDDPBlock will be serialized. */
 
  void serialize( netCDF::NcGroup & group ) const override;
 
@@ -699,7 +694,6 @@ public:
                 Index number_cuts_to_keep = Inf< Index >() );
 
 /*--------------------------------------------------------------------------*/
-
  /// add cuts to all sub-Blocks at the given stage
  /** This function adds cuts to all subs-Blocks at the given \p stage. The
   * parameters must satisfy the following requirements:
@@ -736,7 +730,6 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
-
  /// store the given random cut
  /** This function store the random cut given by \p coefficients and \p alpha,
   * which must be associated with the given \p stage and with the scenario
@@ -757,7 +750,6 @@ public:
                         Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the number of cuts currently present at the given \p stage
  /** This function returns the number of cuts currently present in the i-th
   * PolyhedralFunction of the sub-Block with index \p sub_block_index at the
@@ -928,18 +920,9 @@ protected:
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- void print( std::ostream &output ) const override;
-
-/*--------------------------------------------------------------------------*/
-
- void load( std::istream &input ) override {
-  throw( std::logic_error( "SDDPBlock::load: method not implemented yet." ) );
- }
-
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
 /*--------------------------------------------------------------------------*/
-
  /// Pointers to the PolyhedralFunction of each sub-Block
  /** This vector stores the pointers to the PolyhedralFunction of each
   * sub-Block of this SDDPBlock. The pointer to the i-th PolyhedralFunction of
@@ -1023,11 +1006,11 @@ private:
 
 };   // end( class SDDPBlock )
 
-/** @} end( group( SDDPBlock_CLASSES ) ) */
-
-}  // end( namespace SMSpp_di_unipi_it )
-
 /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ }  // end( namespace SMSpp_di_unipi_it )
+
 /*--------------------------------------------------------------------------*/
 
 #endif  /* SDDPBlock.h included */

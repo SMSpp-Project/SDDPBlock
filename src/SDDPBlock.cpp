@@ -4,12 +4,7 @@
 /** @file
  * Implementation of the SDDPBlock class.
  *
- * \version 0.10
- *
- * \date 20 - 11 - 2021
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
@@ -532,11 +527,23 @@ void SDDPBlock::set_scenario( Index scenario_id , Index stage ,
 }
 
 /*--------------------------------------------------------------------------*/
-/*---------- METHODS FOR LOADING, PRINTING & SAVING THE SDDPBlock ----------*/
+/*-------------- METHODS FOR PRINTING & SAVING THE SDDPBlock ---------------*/
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
+void SDDPBlock::print( std::ostream & output , char vlvl ) const
+{
+ output << std::endl << "SDDPBlock with ";
 
+ if( v_Block.empty() )
+  output << "no inner Block";
+ else
+  output << v_Block.size() << " sub-Blocks" << std::endl;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::serialize( netCDF::NcGroup & group ) const
+{
  Block::serialize( group );
 
  // type
@@ -636,17 +643,6 @@ void SDDPBlock::serialize_random_cuts( const std::string & filename ) const {
    random_cuts[ t ][ s ].serialize( group );
   }
  }
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPBlock::print( std::ostream &output ) const {
- output << std::endl << "SDDPBlock with ";
-
- if( v_Block.empty() )
-  output << "no inner Block";
- else
-  output << v_Block.size() << " sub-Blocks" << std::endl;
 }
 
 /*--------------------------------------------------------------------------*/
