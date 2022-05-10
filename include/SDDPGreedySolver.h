@@ -1393,7 +1393,7 @@ public:
  OFValue get_lb( void ) override {
   if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
    return solution_value;
-  return( - std::numeric_limits<OFValue>::infinity() );
+  return( - Inf<OFValue>() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1401,7 +1401,7 @@ public:
  OFValue get_ub( void ) override {
   if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
    return solution_value;
-  return( std::numeric_limits<OFValue>::infinity() );
+  return( Inf<OFValue>() );
  }
 
 /*--------------------------------------------------------------------------*/
