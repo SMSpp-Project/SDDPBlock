@@ -437,18 +437,94 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
                            "at the last stage does not have a solution." ) );
  else {
   solver->get_var_solution( f_get_var_solution_config );
-
-  // TODO SDDPGreedySolver is not a CDASolver and, therefore, it does not
-  // implement the get_dual_solution() method. That is why we retrieve the
-  // dual solution here. Should we make SDDPGreedySolver a CDASolver?
-  for( Index t = 0 ; t < get_time_horizon() ; ++t ) {
-   auto solver = get_sub_solver( t );
-   if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) ) {
-    if( cda_solver->has_dual_solution() )
-     cda_solver->get_dual_solution( f_get_dual_solution_config );
-   }
-  }
  }
+}
+
+/*--------------------------------------------------------------------------*/
+
+bool SDDPGreedySolver::has_dual_solution() {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) ) {
+   if( ! solver->has_dual_solution() )
+    return false;
+  }
+  else
+   return false; // The sub-Solver is not a CDASolver
+ }
+ return true;
+}
+
+/*--------------------------------------------------------------------------*/
+
+bool SDDPGreedySolver::is_dual_feasible() {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) ) {
+   if( ! solver->is_dual_feasible() )
+    return false;
+  }
+  else
+   return false; // The sub-Solver is not a CDASolver
+ }
+ return true;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::get_dual_solution( Configuration * solc ) {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t )
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) )
+   solver->get_dual_solution( solc );
+}
+
+/*--------------------------------------------------------------------------*/
+
+bool SDDPGreedySolver::new_dual_solution() {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) )
+   if( solver->new_dual_solution() )
+    return true;
+ }
+ return false;
+}
+
+/*--------------------------------------------------------------------------*/
+
+bool SDDPGreedySolver::has_dual_direction() {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) ) {
+   if( ! solver->has_dual_direction() )
+    return false;
+  }
+  else
+   return false; // The sub-Solver is not a CDASolver
+ }
+ return true;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::get_dual_direction( Configuration * dirc ) {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t )
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) )
+   solver->get_dual_direction( dirc );
+}
+
+/*--------------------------------------------------------------------------*/
+
+bool SDDPGreedySolver::new_dual_direction() {
+ const auto time_horizon = get_time_horizon();
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) )
+   if( solver->new_dual_direction() )
+    return true;
+ }
+ return false;
 }
 
 /*--------------------------------------------------------------------------*/

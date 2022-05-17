@@ -135,7 +135,7 @@ namespace SMSpp_di_unipi_it
  *     problem (2) even if one exists.
  */
 
-class SDDPGreedySolver : public Solver {
+class SDDPGreedySolver : public CDASolver {
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -1381,6 +1381,34 @@ public:
 /*--------------------------------------------------------------------------*/
 
  void get_var_solution( Configuration *solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool has_dual_solution( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool is_dual_feasible( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void get_dual_solution( Configuration * solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool new_dual_solution( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool has_dual_direction( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void get_dual_direction( Configuration * dirc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool new_dual_direction( void ) override;
 
 /*--------------------------------------------------------------------------*/
 
