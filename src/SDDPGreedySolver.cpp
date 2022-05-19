@@ -268,6 +268,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  fault_stage = Inf<Index>();
  solution_value = 0.0;
  f_has_var_solution = false;
+ f_has_dual_solution = true;
 
  // Initial state for the first stage problem
  if( time_horizon > 0 ) {
@@ -443,16 +444,7 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
 /*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::has_dual_solution() {
- const auto time_horizon = get_time_horizon();
- for( Index t = 0 ; t < time_horizon ; ++t ) {
-  if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) ) {
-   if( ! solver->has_dual_solution() )
-    return false;
-  }
-  else
-   return false; // The sub-Solver is not a CDASolver
- }
- return true;
+ return f_has_dual_solution;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -622,13 +614,20 @@ int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
 
  auto solver = benders_function->get_solver();
 
+ auto solver_has_dual_solution = false;
+
  if( write_solution ) {
   if( solver->has_var_solution() )
    solver->get_var_solution( f_get_var_solution_config );
-  if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) )
-   if( cda_solver->has_dual_solution() )
+  if( auto cda_solver = dynamic_cast< CDASolver * >( solver ) ) {
+   if( cda_solver->has_dual_solution() ) {
     cda_solver->get_dual_solution( f_get_dual_solution_config );
+    solver_has_dual_solution = true;
+   }
+  }
  }
+
+ f_has_dual_solution = f_has_dual_solution && solver_has_dual_solution;
 
  return status;
 }

@@ -1938,8 +1938,11 @@ private:
  /// The status returned by compute()
  int status_compute = Solver::kUnEval;
 
- /// Indicates whether the initial state has already been set
+ /// It indicates whether a feasible solution has been found
  bool f_has_var_solution = false;
+
+ /// It indicates whether all of the sub-Solvers have dual solutions
+ bool f_has_dual_solution = false;
 
  /// The value of the solution (if any)
  double solution_value = 0.0;
