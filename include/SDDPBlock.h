@@ -631,17 +631,14 @@ public:
  /// returns the sense of the Objective of the SDDPBlock
  /** This function returns the sense of the Objective of the SDDPBlock, which
   * is defined to be the sense of the Objective of its first inner Block. If
-  * this SDDPBlock has no inner Block, this function returns Objective::eMin.
+  * this SDDPBlock has no inner Block, this function returns
+  * Objective::eUndef.
   *
   * @return the sense of the Objective of the first inner Block of this
   *         SDDPBlock if there is one. Otherwise, it returns
-  *         Objective::eMin. */
+  *         Objective::eUndef. */
 
- int get_objective_sense() const override {
-  if( ! v_Block.empty() )
-   return v_Block.front()->get_objective_sense();
-  return Objective::eMin;
- }
+ int get_objective_sense() const override;
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/

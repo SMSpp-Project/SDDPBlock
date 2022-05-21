@@ -356,6 +356,18 @@ void SDDPBlock::add_Modification( sp_Mod mod , Observer::ChnlName chnl ) {
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
 /*--------------------------------------------------------------------------*/
 
+int SDDPBlock::get_objective_sense() const {
+ try {
+  auto sub_Block = get_sub_Block( 0 );
+  if( sub_Block )
+   return sub_Block->get_objective_sense();
+ }
+ catch( ... ) {}
+ return Objective::eUndef;
+}
+
+/*--------------------------------------------------------------------------*/
+
 StochasticBlock * SDDPBlock::get_sub_Block
 ( Index stage , Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
