@@ -468,13 +468,6 @@ int SDDPSolver::compute( bool changedvars ) {
  /* SOLVING THE PROBLEM */
  /***********************/
 
-#ifdef USE_MPI
- // MPI communicator. This communicator could become a member of SDDPSolver
- // and a function to set it could be implemented. For now, it is just the
- // default communicator.
- boost::mpi::communicator mpi_communicator;
-#endif
-
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
   StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
@@ -921,6 +914,12 @@ T SDDPSolver::get_solution( SDDPBlock::Index stage ,
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::file_output() const {
+
+#ifdef USE_MPI
+ if( mpi_communicator.rank() )
+  return;
+#endif
+
  if( ! f_output_filename.empty() ) {
   // Output the future cost functions
   std::string cuts_filename = f_output_filename;

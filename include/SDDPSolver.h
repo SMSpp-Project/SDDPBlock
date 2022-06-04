@@ -1978,6 +1978,13 @@ protected:
  /// Pointer to the SDDPOptimizer
  std::shared_ptr< SDDPOptimizer > sddp_optimizer;
 
+#ifdef USE_MPI
+ /// MPI communicator
+ /** A function to set it could be implemented, but, for now, it is just the
+  * default communicator. */
+ boost::mpi::communicator mpi_communicator;
+#endif
+
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -2225,7 +2232,7 @@ protected:
  ///< the number of variables of each PolyhedralFunction
 
  std::vector< PolyhedralFunction::MultiVector > v_A;
- ///< the A matricx of each PolyhedralFunction
+ ///< the A matrix of each PolyhedralFunction
 
  std::vector< PolyhedralFunction::RealVector > v_b;
  ///< the b vector of each PolyhedralFunction
