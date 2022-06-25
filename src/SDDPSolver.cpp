@@ -399,10 +399,13 @@ int SDDPSolver::compute( bool changedvars ) {
   if( ( ! polyhedral_function->is_bound_set() ) &&
       ( polyhedral_function->get_nrows() == 0 ) ) {
    if( f_log )
-    *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has "
-           << "been provided and\nthe PolyhedralFunction at the last stage "
-           << "has no bound and no row (cut). By\ndefault, the all-zero cut"
-           << " will then be used for the last stage." << std::endl;
+#ifdef USE_MPI
+    if( ! mpi_communicator.rank() )
+#endif
+     *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has "
+            << "been provided and\nthe PolyhedralFunction at the last stage "
+            << "has no bound and no row (cut). By\ndefault, the all-zero cut"
+            << " will then be used for the last stage." << std::endl;
    b.resize( 1 , 0 );
    A.resize( 1 );
    A.front().resize( number_state_variables , 0 );
@@ -499,10 +502,16 @@ int SDDPSolver::compute( bool changedvars ) {
  // Log
 
  if( f_log && log_verbosity > 0 ) {
-  *f_log << "Backward value: " << std::setprecision( 20 )
-         << backward_value << std::endl;
-  *f_log << "Forward value:  " << std::setprecision( 20 )
-         << forward_value << std::endl;
+#ifdef USE_MPI
+  if( ! mpi_communicator.rank() ) {
+#endif
+   *f_log << "Backward value: " << std::setprecision( 20 )
+          << backward_value << std::endl;
+   *f_log << "Forward value:  " << std::setprecision( 20 )
+          << forward_value << std::endl;
+#ifdef USE_MPI
+  }
+#endif
  }
 
  // Close the log files of the sub-Solvers
