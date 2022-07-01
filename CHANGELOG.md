@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SDDPGreedySolver::set_ComputeConfig().
 - Load cuts from file.
 - Allow scenarios to be randomly chosen in SDDPGreedySolver.
+- Multiple parameters to SDDPGreedySolver.
+
+### Changed
+
+- Update interface with StOpt.
+- SDDPGreedySolver becomes a CDASolver.
+- Output of SDDPSolver and SDDPGreedySolver.
+- Define the sense of the "Objective" of the SDDPBlock.
 
 ## [0.5.0] - 2021-12-08
 
