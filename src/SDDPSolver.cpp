@@ -6,7 +6,7 @@
  *
  * \version 0.10
  *
- * \date 18 - 11 - 2021
+ * \date 25 - 01 - 2022
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -28,6 +28,7 @@
 #include "SDDPSolver.h"
 #include "StochasticBlock.h"
 
+#include <chrono>
 #include <Eigen/Core>
 
 #include "boost/iostreams/stream.hpp"
@@ -59,6 +60,10 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 /*-------------------------- METHODS of SDDPSolver -------------------------*/
 /*--------------------------------------------------------------------------*/
 
+/*--------------------------------------------------------------------------*/
+/*-------------------------- OTHER INITIALIZATIONS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
 void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
 
  ThinComputeInterface::set_ComputeConfig( scfg );
@@ -66,6 +71,13 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( ! scfg ) { // factory reset
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = nullptr;
+
+  delete f_inner_block_config;
+  f_inner_block_config = nullptr;
+
+  delete f_get_var_solution_config;
+  f_get_var_solution_config = nullptr;
+
   return;
  }
 
@@ -83,13 +95,13 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
  if( auto config = dynamic_cast< SimpleConfiguration<
      std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
 
-  // The extra Configuration is a vector. So, the first element of this
-  // vector, if present and not nullptr, must be a BlockConfig for the inner
-  // Blocks of the BendersBFunctions. The second element, if present and not
-  // nullptr, must be a BlockSolverConfig for the inner Blocks of the
-  // BendersBFunctions. The third element, if present and not nullptr, must be
-  // a Configuration to be passed to get_var_solution() when retrieving the
-  // Solutions to the inner Blocks of the BendersBFunctions.
+  // The extra Configuration is a vector. The first element of this vector, if
+  // present and not nullptr, must be a BlockConfig for the inner Blocks of
+  // the BendersBFunctions. The second element, if present and not nullptr,
+  // must be a BlockSolverConfig for the inner Blocks of the
+  // BendersBFunctions. Finally, the third element, if present and not
+  // nullptr, must be a Configuration to be passed to get_var_solution() when
+  // retrieving the Solutions to the inner Blocks of the BendersBFunctions.
 
   if( ( ! config->f_value.empty() ) && config->f_value.front() ) {
    // A BlockConfig must have been provided.
@@ -224,6 +236,8 @@ void SDDPSolver::set_Block( Block * block ) {
  }
 }
 
+/*--------------------------------------------------------------------------*/
+/*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 
 int SDDPSolver::compute( bool changedvars ) {
@@ -385,10 +399,13 @@ int SDDPSolver::compute( bool changedvars ) {
   if( ( ! polyhedral_function->is_bound_set() ) &&
       ( polyhedral_function->get_nrows() == 0 ) ) {
    if( f_log )
-    *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has "
-           << "been provided and\nthe PolyhedralFunction at the last stage "
-           << "has no bound and no row (cut). By\ndefault, the all-zero cut"
-           << " will then be used for the last stage." << std::endl;
+#ifdef USE_MPI
+    if( ! mpi_communicator.rank() )
+#endif
+     *f_log << "Warning: SDDPSolver::compute: No cut for the last stage has "
+            << "been provided and\nthe PolyhedralFunction at the last stage "
+            << "has no bound and no row (cut). By\ndefault, the all-zero cut"
+            << " will then be used for the last stage." << std::endl;
    b.resize( 1 , 0 );
    A.resize( 1 );
    A.front().resize( number_state_variables , 0 );
@@ -461,6 +478,9 @@ int SDDPSolver::compute( bool changedvars ) {
     final_cut , dates , mesh_discretization_array , regressors_filename ,
     cuts_filename , visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
+#ifdef USE_MPI
+    mpi_communicator ,
+#endif
     print_cpu_time );
 
  // Possibly output the future cost functions and/or save the State
@@ -482,10 +502,16 @@ int SDDPSolver::compute( bool changedvars ) {
  // Log
 
  if( f_log && log_verbosity > 0 ) {
-  *f_log << "Backward value: " << std::setprecision( 20 )
-         << backward_value << std::endl;
-  *f_log << "Forward value:  " << std::setprecision( 20 )
-         << forward_value << std::endl;
+#ifdef USE_MPI
+  if( ! mpi_communicator.rank() ) {
+#endif
+   *f_log << "Backward value: " << std::setprecision( 20 )
+          << backward_value << std::endl;
+   *f_log << "Forward value:  " << std::setprecision( 20 )
+          << forward_value << std::endl;
+#ifdef USE_MPI
+  }
+#endif
  }
 
  // Close the log files of the sub-Solvers
@@ -897,6 +923,12 @@ T SDDPSolver::get_solution( SDDPBlock::Index stage ,
 /*--------------------------------------------------------------------------*/
 
 void SDDPSolver::file_output() const {
+
+#ifdef USE_MPI
+ if( mpi_communicator.rank() )
+  return;
+#endif
+
  if( ! f_output_filename.empty() ) {
   // Output the future cost functions
   std::string cuts_filename = f_output_filename;
@@ -1023,6 +1055,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   const Eigen::ArrayXd & particle , const int & simulation_id ,
   const Index scenario_index , const bool scenario_must_be_set ,
   const Index sub_block_index ) const {
+
+ const auto start_time = std::chrono::system_clock::now();
 
  const auto current_stage = get_current_backward_stage();
 
@@ -1188,6 +1222,10 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                                  current_stage , actual_scenario_index );
   }
 
+ /*************/
+ /* DEBUGGING */
+ /*************/
+
   // Debugging the BendersBFunction
 
 #ifdef BENDERSBFUNCTION_DEBUG
@@ -1202,14 +1240,27 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
                            "linearization is available." ) );
  }
 
- if( sddp_solver->f_log && sddp_solver->log_verbosity >= 10 ) {
-  auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
-  *( sddp_solver->f_log ) << "  Solution:       (";
-  for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
-   if( i > 0 ) *( sddp_solver->f_log ) << ", ";
-   *( sddp_solver->f_log ) << solution( i );
+ /********************/
+ /* FINAL LOG OUTPUT */
+ /********************/
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+
+  const auto end_time = std::chrono::system_clock::now();
+  const std::chrono::duration< double > duration = end_time - start_time;
+  const auto time = duration.count();
+  const auto log = sddp_solver->f_log;
+  *log << "  Time (s):       " << time << std::endl;
+
+  if( sddp_solver->log_verbosity >= 10 ) {
+   auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
+   *log << "  Solution:       (";
+   for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
+    if( i > 0 ) *( sddp_solver->f_log ) << ", ";
+    *log << solution( i );
+   }
+   *log << ")" << std::endl;
   }
-  *( sddp_solver->f_log ) << ")" << std::endl;
  }
 
  return linearization;
@@ -1255,6 +1306,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
   const int & simulation_id , const Index scenario_index ,
   const bool scenario_must_be_set , const Index sub_block_index ) const {
+
+ const auto start_time = std::chrono::system_clock::now();
 
  const auto current_stage = get_current_forward_stage();
 
@@ -1378,6 +1431,17 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
 
  state_to_store.resize( solution.size() );
  state_to_store << solution;
+
+ /********************/
+ /* FINAL LOG OUTPUT */
+ /********************/
+
+ if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
+  const auto end_time = std::chrono::system_clock::now();
+  const std::chrono::duration< double > duration = end_time - start_time;
+  const auto time = duration.count();
+  *( sddp_solver->f_log ) << "  Time (s):       " << time << std::endl;
+ }
 
  /*************************/
  /* RETURN SOLUTION VALUE */

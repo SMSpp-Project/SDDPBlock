@@ -8,12 +8,7 @@
  * solve a deterministic (single-scenario) multistage problem encoded by an
  * SDDPBlock as defined below.
  *
- * \version 0.1
- *
- * \date 04 - 12 - 2021
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
@@ -33,6 +28,8 @@
 
 #include "SDDPBlock.h"
 #include "Solver.h"
+
+#include <random>
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -138,7 +135,7 @@ namespace SMSpp_di_unipi_it
  *     problem (2) even if one exists.
  */
 
-class SDDPGreedySolver : public Solver {
+class SDDPGreedySolver : public CDASolver {
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
@@ -242,7 +239,24 @@ public:
   ///< The id of the scenario that must be considered
   /**< This is the id of the scenario that must be considered when trying to
    * solve the deterministic (single-scenario) multistage problem. It must be
-   * a valid id for a scenario handled by the SDDPBlock. */
+   * a valid id for a scenario handled by the SDDPBlock. By default, its value
+   * is 0, which means that the scenario with id 0 will be considered when
+   * solving the subproblems at each stage (except possibly at the first
+   * stage; see #intFirstStageScenarioId). */
+
+  intFirstStageScenarioId ,
+  ///< The id of the scenario to be considered at the first stage
+  /**< This parameter specifies the id of the scenario that must be considered
+   * while solving the subproblem at the first stage. If it is -1, then the id
+   * of the scenario to be considered at the first stage is that specified by
+   * #intScenarioId. Otherwise, if it is negative (less than -1), it means
+   * that no scenario must be set while solving the sub-problem at the first
+   * stage (i.e., the data for that subproblem has already been set, except
+   * possibly the initial state). If it is nonnegative, then it is the id of
+   * the scenario to be considered at the first stage and thus it must be a
+   * number between 0 and the total number of scenarios minus 1. By default,
+   * its value is -1 (i.e., the id of the scenario for the first stage is that
+   * given by #intScenarioId). */
 
   intUnregisterSolver ,
   ///< Indicates whether Solver(s) of the inner Block must be unregistered
@@ -256,6 +270,94 @@ public:
    * that inner Block, then it is used to unregister the Solver(s) of that
    * inner Block. Otherwise, all Solver(s) of that inner Block are
    * unregistered by a call to Block::unregister_Solvers(). */
+
+  intScenarioSeed ,
+  ///< Seed for the random number engine that selects the scenarios
+  /**< This parameter determines whether the scenarios to be considered at
+   * each stage (from the second stage onwards) should be randomly selected.
+   * The id of the scenario for the first stage problem is always determined
+   * by #intFirstStageScenarioId. If #intScenarioSeed is negative, then the
+   * scenarios to be considered are determined by #intScenarioId (and
+   * #intFirstStageScenarioId). If #intScenarioSeed is nonnegative, then the
+   * scenarios for all stages except the first one are selected at random and
+   * #intScenarioSeed serves as the seed for the random number engine that
+   * selects the scenarios. The default value for this parameter is negative,
+   * which means that the scenarios are not selected at random and, thus, are
+   * determined by #intScenarioId (and #intFirstStageScenarioId). Notice that
+   * this parameter has a higher priority over the parameter
+   * #intScenarioId. This means that if #intScenarioSeed is nonnegative, then
+   * the scenarios for each stage from the second stage onwards are selected
+   * at random, no matter the value of #intScenarioId. */
+
+  intScenarioSampleFrequency ,
+  ///< Frequency at which scenarios should be sampled
+  /**< This parameter determines the frequency at which scenarios should be
+   * sampled when the scenarios are chosen at random (see the #intScenarioSeed
+   * parameter). If it is positive, scenarios are sampled every
+   * #intScenarioSampleFrequency stages. When a scenario is not sampled for
+   * some stage, the id of the scenario for that stage will be the same as the
+   * id of the scenario for the previous stage. If the value for this
+   * parameter is nonpositive, then scenarios are not sampled at all and,
+   * therefore, the id of the scenario for each stage will be the same as the
+   * id of the scenario for the first stage. The default value for this
+   * parameter is 1, which means that scenarios are sampled for every
+   * stage. */
+
+  intSimulationDataOutputPrecision ,
+  ///< Precision of the simulation data output
+  /**< This parameter determines the precision of the simulation data that is
+   * output (see #strSimulationData). The value of this parameter will be
+   * passed to the std::setprecision() function when the simulation data is
+   * output. The default value for this parameter is 20. */
+
+  intOutputScenario ,
+  ///< It indicates how (and if) scenarios must be output
+  /**< This parameter determines how (and if) the scenario considered during
+   * the simulation must be output if the parameter #strSimulationData is
+   * provided. If #intOutputScenario is negative, then only the IDs of the
+   * scenarios considered at each stage are output. If it is positive, then
+   * the scenarios themselves are output. If it is zero, then no scenario
+   * (neither the ID nor the scenario itself) is output. By default, the value
+   * of this parameter is -1, which means that the IDs of the scenarios are
+   * output (if #strSimulationData is provided). */
+
+  intEarlyConfig ,
+  ///< It indicates whether the inner Blocks should be configured in advance
+  /**< By default, if a BlockConfig or a BlockSolverConfig has been provided
+   * (by means of the parameters #strInnerBC and #strInnerBSC, respectively,
+   * or by the "extra" Configuration in the ComputeConfig of this
+   * SDDPGreedySolver, see set_ComputeConfig()), the inner Block of each
+   * BendersBFunction is configured right before it is solved, within
+   * SDDPGreedySolver::compute(). However, in some situations it may be
+   * necessary to configure every inner Block in advance, at the time this
+   * SDDPGreedySolver is configured. This parameter determines when the inner
+   * Blocks are configured. If #intEarlyConfig is nonzero, then the inner
+   * Blocks are configured sooner, at the time the SDDPGreedySolver is
+   * configured. By default, #intEarlyConfig is zero, which means that each
+   * inner Block is configured right before it is solved. */
+
+  intLoadCutsOnce ,
+  ///< It indicates whether cuts should be loaded only once for each stage
+  /**< This parameter specifies how many times the cuts provided by
+   * #intLoadCuts are loaded. Cuts associated with a particular stage, if
+   * provided, are loaded within compute() right before the subproblem
+   * associated with that stage is solved. If this parameter is nonzero, the
+   * cuts are loaded only once. That is, if cuts associated with a particular
+   * stage are loaded within a call to compute(), then no cuts are loaded for
+   * that stage in any subsequent calls to compute(). If this parameter is
+   * zero, then cuts are loaded at each call to compute().
+   *
+   * Notice that cuts are not necessarily loaded during the first call to
+   * compute(). In a normal situation, when all subproblems are solved within
+   * a call to compute(), then all cuts are loaded in that call. However, not
+   * all subproblems may be solved within a call to compute(), which may
+   * happen, for instance, when the subproblem associated with a certain stage
+   * S is infeasible. In this case, no cuts are loaded for any stage T greater
+   * than S and any cuts associated with T may only be loaded in a possible
+   * next call to compute().
+   *
+   * By default, #intLoadCutsOnce is 1, which means that cuts are loaded only
+   * once. */
 
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
@@ -284,6 +386,26 @@ public:
   /**< Name of the file containing the default BlockSolverConfig that will be
    * applied to the inner Block of each BendersBFunction. */
 
+  strLoadCuts ,
+  ///< name of the file out of which cuts will be loaded
+  /**< This parameter indicates the path to the file out of which cuts will be
+   * loaded. By default, the path to this file is empty, which means that no
+   * cut is loaded. If provided, the file must have the format the following
+   * format. The first line contains the header, which will be simply
+   * ignored. Each of the following lines must contain a cut described as
+   * follows:
+   *
+   *     s, a_0, a_1, ..., a_{k-1}, b
+   *
+   * where s is a stage between 0 and get_time_horizon() - 1, which indicates
+   * the stage with which the cut is associated, a_0, ..., a_{k-1} are the
+   * coefficients of the cut (a_i being the coefficient associated with the
+   * i-th state variable), and b is the constant (independent) term of the
+   * cut. Cuts associated with a a particular stage are loaded within
+   * compute() right before the subproblem associated with that stage is
+   * solved. See the parameter #intLoadCutsOnce to control when cuts are
+   * loaded. */
+
   strRandomCutsFile ,
   ///< name of the file out of which the random cuts will be retrieved
   /**< A random cut is a cut associated with a particular scenario. This
@@ -292,23 +414,25 @@ public:
    * means that no random cut is considered. If provided, the file must have
    * the format specified by SDDPBlock::deserialize_random_cuts(). */
 
-  strSubgradientsFile ,
-  ///< name of the file in which subgradients of the objective will be saved
-  /**< This is the name of the file in which subgradients of the objectives of
-   * the subproblems, as well as initial states and scenarios, will be
-   * saved. At each stage (except the first one), the subgradients of the
-   * objective function with respect to the initial state and with respect to
-   * the solution (final state) of the subproblem at that stage are
-   * computed. At the first stage, only the subgradient with respect to the
-   * solution of the first stage subproblem is computed. At the end of a call
-   * to compute(), these subgradients are output to the file whose name (path)
-   * is given by #strSubgradientsFile. This file will have the following
-   * format. The first line contains two integers: the time horizon T and the
-   * number of initial states that will be output (which is either T or T+1)
-   * separated by comma. This line is followed by T or T+1 lines (depending on
-   * whether an initial state for the first stage subproblem has been
-   * provided), each one containing the initial state of some stage. Each of
-   * these lines have the following format:
+  strSimulationData ,
+  ///< name of the file in which data from the simulation will be saved
+  /**< This is the name of the file in which some data obtained during the
+   * simulation (i.e., the most recent call to compuet()), which includes
+   * subgradients and values of the objectives of the subproblems, initial
+   * states, and scenarios, will be saved. At each stage (except the first
+   * one), the subgradients of the objective function with respect to the
+   * initial state and with respect to the solution (final state) of the
+   * subproblem at that stage are computed. At the first stage, only the
+   * subgradient with respect to the solution of the first stage subproblem is
+   * computed. At the end of a call to compute(), these subgradients are
+   * output to the file whose name (path) is given by #strSimulationData. This
+   * file will have the following format. The first line contains two
+   * integers: the time horizon T and the number of initial states that will
+   * be output (which is either T or T+1) separated by comma. This line is
+   * followed by T or T+1 lines (depending on whether an initial state for the
+   * first stage subproblem has been provided), each one containing the
+   * initial state of some stage. Each of these lines have the following
+   * format:
    *
    *     t, s_0, s_1, ..., s_{k-1}
    *
@@ -336,17 +460,36 @@ public:
    * is with respect to the initial or the final state, respectively, and a_0,
    * ..., a_{k-1} are the elements of the subgradient.
    *
-   * Finally, the scenario considered during compute() (which can be set by
-   * the #intScenarioId parameter or by the function set_scenario_id()) is
-   * output in the last T lines. Each of these lines has the form:
+   * Then, each of the next T lines contains two elements
+   *
+   *     t, c
+   *
+   * where t is a stage between 0 and T-1 and c is the value of the objective
+   * function of the subproblem associated with stage t, disregarding the
+   * value of the cost-to-go function (or value function, future value
+   * function, future cost function). That is, the objective value of the
+   * subroblem is f = c + F, where F is the value of the cost-to-go function.
+   *
+   * Finally, depending on the value of the parameter #intOutputScenario, the
+   * scenario considered during compute() (which can be set by the
+   * #intScenarioId parameter or by the function set_scenario_id()) is output
+   * in the last T lines. If #intOutputScenario is positive, then each of
+   * these lines has the form
    *
    *     t, scenario_t
    *
    * where t is a stage in {0, ..., T-1} and scenario_t is a vector containing
-   * the scenario for the stage t.
+   * the scenario for the stage t. If #intOutputScenario is negative, then
+   * each of these lines has the form
    *
-   * By default, the path to this file is empty, which means that the
-   * subgradients of the objective function will not be output. */
+   *     t, scenario_t_id
+   *
+   * where t is a stage in {0, ..., T-1} and scenario_t_id is the ID of the
+   * scenario considered for the stage t. If #intOutputScenario is zero, then
+   * these lines are not output.
+   *
+   * By default, the path to this file is empty, which means that no data
+   * obtained during the simulation will be output. */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -354,6 +497,51 @@ public:
    * to extend the set of string algorithmic parameters. */
 
  };  // end( str_par_type_SDDP_Greedy_S )
+
+/*--------------------------------------------------------------------------*/
+
+ /// public enum for the vector-of-int parameters
+ /** Public enum describing the different algorithmic parameters of
+  * vector-of-int type that SDDPGreedySolver has in addition to these of
+  * Solver. The value vintLastAlgPar is provided so that the list can be
+  * easily further extended by derived classes. */
+
+ enum vint_par_type_SDDP_Greedy_S {
+
+  vintStagesSample = vint_par_type_S::vintLastAlgPar ,
+  ///< Stages at which a new scenario must be sampled
+  /**< When scenarios are selected at random (see #intScenarioSeed), this
+   * parameter specifies the stages at which scenarios must be sampled. If, at
+   * a stage t > 0, a scenario is not sampled, then the id of the scenario to
+   * be considered at stage t is the same as the id of the scenario that was
+   * considered at stage t-1. Thus, if #vintStagesSample contains the stages S
+   * = {t_0, t_1, ..., t_k}, with t_i < t_{i+1} for all i in {0, ..., k-1},
+   * then scenarios are sampled at each stage t_i for i in {0, ..., k} and the
+   * id to be considered at a stage t > 0 that does not belong to S is the
+   * same as the id of the scenario that was (sampled and) considered at stage
+   *
+   *     t_j = min{ t_i in S | t >= t_i }
+   *
+   * Recall that the id of the scenario to be considered at the first stage
+   * (stage 0) is determined by #intScenarioId. However, if 0 belongs to
+   * #vintStagesSample, then the id of the scenario for the first stage is
+   * also sampled and #intScenarioId is ignored.
+   *
+   * The #vintStagesSample parameter is an alternative to the parameter
+   * #intScenarioSampleFrequency. The parameters #vintStagesSample and
+   * #intScenarioSampleFrequency can be used together so that a scenario is
+   * sampled at a stage t if t belongs to #vintStagesSample or t satisfies the
+   * condition specified by #intScenarioSampleFrequency.
+   *
+   * Each element of this vector must be between 0 and get_time_horizon() -
+   * 1. By default, this vector is empty. */
+
+  vintLastAlgPar
+  ///< first allowed new vector-of-int parameter for derived classes
+  /**< Convenience value for easily allow derived classes to extend the set of
+   * vector-of-int parameters. */
+
+ };  // end( vint_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
 
@@ -394,7 +582,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// destructor
- virtual ~SDDPGreedySolver() { }
+ virtual ~SDDPGreedySolver();
 
 /**@} ----------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
@@ -413,7 +601,21 @@ public:
   *
   * - #intScenarioId [0]
   *
+  * - #intFirstStageScenarioId [-1]
+  *
   * - #intUnregisterSolver [0]
+  *
+  * - #intScenarioSeed [-1]
+  *
+  * - #intScenarioSampleFrequency [1]
+  *
+  * - #intSimulationDataOutputPrecision [20]
+  *
+  * - #intOutputScenario [-1]
+  *
+  * - #intEarlyConfig [0]
+  *
+  * - #intLoadCutsOnce [1]
   *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
@@ -426,8 +628,27 @@ public:
  void set_par( const idx_type par , const int value ) override {
   switch( par ) {
    case( intScenarioId ): set_scenario_id( value ); return;
+   case( intFirstStageScenarioId ):
+    set_first_stage_scenario_id( value ); return;
    case( intUnregisterSolver ): f_unregister_solver = value; return;
    case( intLogVerb ): log_verbosity = value; return;
+   case( intScenarioSeed ): {
+    if( value >= 0 ) {
+     f_seed = value;
+     random_number_engine.seed( f_seed );
+    }
+    else
+     f_seed = Inf<Index>();
+   }
+   case( intScenarioSampleFrequency ):
+    f_scenario_sample_frequency = value;
+    return;
+   case( intSimulationDataOutputPrecision ):
+    f_simulation_data_output_precision = value;
+    return;
+   case( intOutputScenario ): f_output_scenario = value; return;
+   case( intEarlyConfig ): f_early_config = value; return;
+   case( intLoadCutsOnce ): f_load_cuts_once = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -442,34 +663,32 @@ public:
   * - #strInnerBC [""]: the filename of the "default" BlockConfig of the inner
   *   Block of the BendersBFunction(s). If non-empty(), this parameter is used
   *   to create a BlockConfig that is apply()-ed to the inner Block of all
-  *   BendersBFunction unless specific BlockConfig are provided for that
-  *   specific component [see vintWBCfg and vstrBCfg]. If left empty(), no
-  *   BlockConfig is apply()-ed unless for those BendersBFunction for which
-  *   specific ones are provided.
+  *   BendersBFunction. If left empty(), no BlockConfig is apply()-ed.
   *
   * - #strInnerBSC [""]: the filename of the "default" BlockSolverConfig of
   *   the inner Block of the BendersBFunction(s). If non-empty(), this
   *   parameter is used to create a BlockSolverConfig that is apply()-ed to
-  *   the inner Block of all BendersBFunction unless specific
-  *   BlockSolverConfig are provided for that specific component [see
-  *   vintWBSCfg and vstrBSCfg]. If left empty(), no BlockSolverConfig is
-  *   apply()-ed unless for those BendersBFunction for which specific ones are
-  *   provided. Note that each BendersBFunction does require a working Solver
-  *   attached to its inner Block (unless the inner Solver can avoid it for
-  *   some specially structured inner Block), so this will have to be provided
-  *   in some way (but there are plenty of: besides this parameter and
-  *   vstrBSCfg, it can come from the "extra" Configuration in the
-  *   ComputeConfig of SDDPGreedySolver, see set_ComputeConfig()).
+  *   the inner Block of all BendersBFunction. If left empty(), no
+  *   BlockSolverConfig is apply()-ed. Note that each BendersBFunction does
+  *   require a working Solver attached to its inner Block (unless the inner
+  *   Solver can avoid it for some specially structured inner Block), so this
+  *   will have to be provided in some way (for instance, it can come from the
+  *   "extra" Configuration in the ComputeConfig of SDDPGreedySolver, see
+  *   set_ComputeConfig()).
   *
-  * - #strRandomCutsFile [""]: the filename (path) to the file containing the
-  *   random cuts (cuts associated with a particular scenario). By default,
-  *   the path to this file is empty, which means that no random cut is
-  *   considered. If provided, the file must have the format specified by
+  * - #strLoadCuts [""]: the filename of (path to) the file out of which cuts
+  *   will be loaded. By default, the path to this file is empty, which means
+  *   that no cut is loaded.
+  *
+  * - #strRandomCutsFile [""]: the filename of (path to) the file containing
+  *   the random cuts (cuts associated with a particular scenario). By
+  *   default, the path to this file is empty, which means that no random cut
+  *   is considered. If provided, the file must have the format specified by
   *   SDDPBlock::deserialize_random_cuts().
   *
-  * - #strSubgradientsFile [""]: the filename (path) to the file to which the
-  *   subgradients (if any) will be output. By default, the path to this file
-  *   is empty, which means that no subgradient is output.
+  * - #strSimulationData [""]: the filename of (path to) the file to which the
+  *   data obtained during the simulation (if any) will be output. By default,
+  *   the path to this file is empty, which means that no data is output.
   *
   * Please refer to the #str_par_type_SDDP_Greedy_S enumeration for a detailed
   * description of each of them.
@@ -487,12 +706,39 @@ public:
    case( strInnerBSC ):
     f_inner_block_solver_config_filename = value;
     return;
+   case( strLoadCuts ):
+    f_load_cuts_filename = value;
+    return;
    case( strRandomCutsFile ):
     f_random_cuts_filename = value;
     return;
-   case( strSubgradientsFile ):
-    f_subgradients_filename = value;
+   case( strSimulationData ):
+    f_simulation_data_filename = value;
     return;
+  }
+  Solver::set_par( par , value );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set the vector-of-int paramaters of SDDPGreedySolver
+ /** Set a given vector-of-int paramater. Besides considering the
+  * vector-of-int parameters defined in #vint_par_type_S, this function
+  * also accepts the following parameters:
+  *
+  * - #vintStagesSample
+  *
+  * Please refer to the #vint_par_type_SDDP_Greedy_S enumeration for a
+  * detailed description of each of them.
+  *
+  * @param par A parameter to be set.
+  *
+  * @param value The value for the given parameter.
+  */
+
+ void set_par( idx_type par , std::vector< int > && value ) override {
+  switch( par ) {
+   case( vintStagesSample ): v_stages_to_sample = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -520,6 +766,66 @@ public:
   }
   Solver::set_par( par , value );
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// set the whole set of parameters of this SDDPGreedySolver in one blow
+ /** This method sets the whole set of parameters of this SDDPGreedySolver in
+  * one blow using a ComputeConfig object.
+  *
+  * Besides considering all the parameters of an SDDPGreedySolver, it can also
+  * be used to configure the inner Block of every BendersBFunction by means of
+  * the extra Configuration (ComputeConfig::f_extra_Configuration). If the
+  * pointer to the extra Configuration is not nullptr, it can be any of the
+  * following:
+  *
+  * - a pointer to a BlockConfig, which will be used to configure the inner
+  *   Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a BlockSolverConfig, which will be used to configure the
+  *   Solver of the inner Block of the BendersBFunction at every stage;
+  *
+  * - a pointer to a SimpleConfiguration< std::vector< Configuration * > >.
+  *
+  * In the last case, the first element of the vector, if present, must be
+  * either nullptr or a pointer to a BlockConfig. The second element, if
+  * present, must be either nullptr or a pointer to a BlockSolverConfig. These
+  * will be used to configure the inner Block of the BendersBFunction at every
+  * stage and their Solver. The third element, if present, must be either
+  * nullptr or a pointer to a Configuration. This Configuration will be used
+  * to retrieve the Solution from the inner Block of the BendersBFunction, at
+  * every stage, after it is solved. This Configuration will be passed to
+  * get_var_solution() of the inner Solver. The relevant part of the Solution
+  * of the inner Block is the values of the active Variables of the
+  * PolyhedralFunction. Thus, this Configuration can be used to specify that
+  * only that portion of the Solution should be retrieved. Finally, the fourth
+  * element, if present, must be either nullptr or a pointer to a
+  * Configuration. This Configuration will be used to retrieve the dual
+  * Solution from the inner Block of the BendersBFunction, at every stage,
+  * after it is solved. This Configuration will be passed to
+  * get_dual_solution() of the inner Solver.
+  *
+  * If the extra Configuration is not any of the specified above, an exception
+  * is thrown.
+  *
+  * Here, we are assuming that the same Configuration can be applied to the
+  * inner Block of the BendersBFunction at all stages. However, in principle,
+  * the inner Block of the BendersBFunction at different stages could require
+  * different Configuration. If this case ever happens, the implementation of
+  * this method should be adapted to take it into consideration.
+  *
+  * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
+  * Configuration of this SDDPGreedySolver is reset to its default one.
+  *
+  * It is important to notice that every Configuration provided by \p scfg is
+  * cloned (see Configuration::clone()) and, therefore, the caller is
+  * responsible for destroying all these Configuration and the Configuration
+  * pointed by \p scfg.
+  *
+  * @param scfg a pointer to a ComputeConfig.
+  */
+
+ void set_ComputeConfig( ComputeConfig *scfg = nullptr ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -549,6 +855,17 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// get the number of vector-of-int parameters
+ /** Get the number of vector-of-int  parameters.
+  *
+  * @return The number of vector-of-int parameters.
+  */
+
+ idx_type get_num_vint_par( void ) const override {
+  return( idx_type( vintLastAlgPar ) );
+ }
+
+/*--------------------------------------------------------------------------*/
  /// get the number of vector-of-double parameters
  /** Get the number of vector-of-double  parameters.
   *
@@ -573,8 +890,15 @@ public:
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
    case( intScenarioId ): return 0;
+   case( intFirstStageScenarioId ): return -1;
    case( intUnregisterSolver ): return 0;
    case( intLogVerb ): return 0;
+   case( intScenarioSeed ): return -1;
+   case( intScenarioSampleFrequency ): return 1;
+   case( intSimulationDataOutputPrecision ): return 20;
+   case( intOutputScenario ): return -1;
+   case( intEarlyConfig ): return 0;
+   case( intLoadCutsOnce ): return 1;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -593,12 +917,40 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values = { "" , "" , "" , "" };
+  static const std::vector<std::string> default_values =
+   { "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
 
   return Solver::get_dflt_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+ /// get the default value of a vector-of-int parameter
+ /** Get the default value of the vector-of-int parameter with given index.
+  * Please see the #vint_par_type_SDDP_Greedy_S and #vint_par_type_S
+  * enumerations for a detailed explanation of the possible parameters. This
+  * function returns the following values depending on the desired parameter:
+  *
+  * - #vintStagesSample: an empty vector
+  *
+  * For any other parameter, see Solver::get_dflt_vint_par().
+  *
+  * @param par The parameter whose default value is desired.
+  *
+  * @return The default value of the given parameter.
+  */
+
+ const std::vector< int > & get_dflt_vint_par( const idx_type par )
+  const override {
+  const static std::vector< int > empty;
+
+  if( par == vintStagesSample ) {
+   return empty;
+  }
+
+  return Solver::get_dflt_vint_par( par );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -642,9 +994,17 @@ public:
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
-   case( intScenarioId ): return scenario_id;
+   case( intScenarioId ): return f_scenario_id;
+   case( intFirstStageScenarioId ): return f_first_stage_scenario_id;
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
+   case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
+   case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
+   case( intSimulationDataOutputPrecision ):
+    return f_simulation_data_output_precision;
+   case( intOutputScenario ): return f_output_scenario;
+   case( intEarlyConfig ): return f_early_config;
+   case( intLoadCutsOnce ): return f_load_cuts_once;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -665,10 +1025,31 @@ public:
   switch( par ) {
    case( strInnerBC ): return f_inner_block_config_filename;
    case( strInnerBSC ): return f_inner_block_solver_config_filename;
+   case( strLoadCuts ): return f_load_cuts_filename;
    case( strRandomCutsFile ): return f_random_cuts_filename;
-   case( strSubgradientsFile ): return f_subgradients_filename;
+   case( strSimulationData ): return f_simulation_data_filename;
   }
   return Solver::get_str_par( par );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// get a specific vector-of-int parameter
+ /** Get a specific vector-of-int parameter. Please see the
+  * #vint_par_type_SDDP_Greedy_S and #vint_par_type_S enumerations for a
+  * detailed explanation of the possible parameters.
+  *
+  * @param par The parameter whose value is desired.
+  *
+  * @return The value of the given parameter.
+  */
+
+ const std::vector< int > & get_vint_par( const idx_type par )
+  const override {
+  switch( par ) {
+   case( vintStagesSample ): return v_stages_to_sample;
+  }
+  return Solver::get_vint_par( par );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -708,7 +1089,15 @@ public:
 
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
+  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intUnregisterSolver" ) return intUnregisterSolver;
+  if( name == "intScenarioSeed" ) return intScenarioSeed;
+  if( name == "intScenarioSampleFrequency" ) return intScenarioSampleFrequency;
+  if( name == "intSimulationDataOutputPrecision" )
+   return intSimulationDataOutputPrecision;
+  if( name == "intOutputScenario" ) return intOutputScenario;
+  if( name == "intEarlyConfig" ) return intEarlyConfig;
+  if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
   return Solver::int_par_str2idx( name );
  }
 
@@ -727,9 +1116,27 @@ public:
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
   if( name == "strInnerBSC" ) return strInnerBSC;
+  if( name == "strLoadCuts" ) return strLoadCuts;
   if( name == "strRandomCutsFile" ) return strRandomCutsFile;
-  if( name == "strSubgradientsFile" ) return strSubgradientsFile;
+  if( name == "strSimulationData" ) return strSimulationData;
   return Solver::str_par_str2idx( name );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the index of the vector-of-int parameter with given string name
+ /** This method takes a string, which is assumed to be the name of a
+  * vector-of-int parameter, and returns its index, i.e., the int value that
+  * can be used in [set/get]_par() to set/get it.
+  *
+  * @param name The name of the parameter.
+  *
+  * @return The index of the parameter with the given \p name.
+  */
+
+ idx_type vint_par_str2idx( const std::string & name ) const override {
+  if( name == "vintStagesSample" ) return vintStagesSample;
+  return Solver::vint_par_str2idx( name );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -764,7 +1171,10 @@ public:
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "intScenarioId" , "intUnregisterSolver" };
+   { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
+     "intScenarioSeed" , "intScenarioSampleFrequency" ,
+     "intSimulationDataOutputPrecision" , "intOutputScenario" ,
+     "intEarlyConfig" , "intLoadCutsOnce" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -787,13 +1197,33 @@ public:
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
   static const std::vector<std::string> parameter_names =
-   { "strInnerBC" , "strInnerBSC" , "strRandomCutsFile" ,
-     "strSubgradientsFile" };
+   { "strInnerBC" , "strInnerBSC" , "strLoadCuts" , "strRandomCutsFile" ,
+     "strSimulationData" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
 
   return Solver::str_par_idx2str( idx );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the string name of the vector-of-double parameter with given index
+ /** This method takes a vector-of-double parameter index, i.e., the double
+  * value that can be used in [set/get]_par() [see above] to set/get it, and
+  * returns its "string name".
+  *
+  * @param idx The index of the parameter.
+  *
+  * @return The name of the parameter with the given index \p idx.
+  */
+
+ const std::string & vint_par_idx2str( const idx_type idx ) const override {
+  static const std::vector<std::string> parameter_names =
+   { "vintStagesSample" };
+  if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
+   return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
+  return Solver::vint_par_idx2str( idx );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -866,13 +1296,76 @@ public:
   * solve the deterministic single-scenario problem. The \p scenario_id
   * parameter must be the id of a scenario handled by the SDDPBlock.
   *
-  * @param scenario_id The id of the scenario
-  */
+  * @param scenario_id The id of the scenario. */
+
  void set_scenario_id( Index scenario_id ) {
-  if( this->scenario_id == scenario_id )
+  if( f_scenario_id == scenario_id )
    return;
-  this->scenario_id = scenario_id;
+  f_scenario_id = scenario_id;
   status_compute = Solver::kUnEval;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario that should be considered at the first stage
+ /** This method defines which scenario should be considered at the first
+  * stage when trying to solve the deterministic single-scenario problem. The
+  * \p scenario_id parameter must be one of the following:
+  *
+  * - the id of a scenario handled by the SDDPBlock, which will then be the
+  *   scenario considered at the first stage;
+  *
+  * - -1, which means that the id of the scenario considered at the first
+  *   stage is that given by get_scenario_id();
+  *
+  * - any other negative number, which means that no scenario must be set
+  *   while solving the sub-problem at the first stage (i.e., the data for the
+  *   first stage subproblem has already been set).
+  *
+  * @param scenario_id The id of a scenario or a negative number. */
+
+ void set_first_stage_scenario_id( int scenario_id ) {
+  if( f_first_stage_scenario_id == scenario_id )
+   return;
+  f_first_stage_scenario_id = scenario_id;
+  status_compute = Solver::kUnEval;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the scenario to be considered
+ /** This method updates the sub-Block of the SDDPBlock associated with the
+  *  given \p stage with the data provided by the scenario whose id is
+  *  \p scenario_id.
+  *
+  * @param scenario_id The id of a scenario handled by the SDDPBlock.
+  *
+  * @param stage An integer between 0 and get_time_horizon() - 1.
+  */
+ void set_scenario( Index scenario_id , Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the callback function
+ /** It sets the callback function that is called right before the sub-problem
+  * at each stage is solved. The parameter of the callback function is the
+  * stage associated with the sub-problem that will be solved.
+  */
+ void set_callback( std::function< void( Index ) > function ) {
+  callback = function;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the random number engine used to select the scenarios
+ /** This function sets the random number engine that is used to select the
+  * scenario at each stage when random scenarios must be considered (see the
+  * #intScenarioSeed parameter).
+  *
+  * @param A random number engine.
+  */
+ void set_random_number_engine( std::mt19937 random_number_engine ) {
+  this->random_number_engine = random_number_engine;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -891,10 +1384,44 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ bool has_dual_solution( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool is_dual_feasible( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void get_dual_solution( Configuration * solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool new_dual_solution( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool has_dual_direction( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void get_dual_direction( Configuration * dirc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ bool new_dual_direction( void ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ OFValue get_var_value( void ) override {
+  return solution_value;
+ }
+
+/*--------------------------------------------------------------------------*/
+
  OFValue get_lb( void ) override {
   if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
    return solution_value;
-  return( - std::numeric_limits<OFValue>::infinity() );
+  return( - Inf<OFValue>() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -902,7 +1429,7 @@ public:
  OFValue get_ub( void ) override {
   if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
    return solution_value;
-  return( std::numeric_limits<OFValue>::infinity() );
+  return( Inf<OFValue>() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -939,10 +1466,34 @@ public:
   * when trying to solve the deterministic (single-scenario) multistage
   * problem.
   *
-  * @return The id of the scenario to be considered
+  * @return The id of the scenario to be considered.
   */
  Index get_scenario_id( void ) const {
-  return scenario_id;
+  return f_scenario_id;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the id of the scenario considered at the first stage
+ /** This method returns the id of the scenario considered at the first stage
+  * when trying to solve the deterministic (single-scenario) multistage
+  * problem or a negative number as follows:
+  *
+  * - If the value returned is nonnegative, then it is the id of a scenario
+  *   handled by the SDDPBlock, which is the scenario considered at the first
+  *   stage.
+  *
+  * - If the value returned is -1, then scenario considered at the first stage
+  *   is that given by get_scenario_id().
+  *
+  * - If the value returned is any other negative number then this means that
+  *   no scenario must be set while solving the sub-problem at the first
+  *   stage.
+  *
+  * @return The id of the scenario to be considered or a negative number.
+  */
+ Index get_first_stage_scenario_id( void ) const {
+  return f_first_stage_scenario_id;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -958,24 +1509,15 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// sets the scenario to be considered
- /** This method updates the sub-Block of the SDDPBlock associated with the
-  *  given \p stage with the data provided by the scenario whose id is
-  *  given by the method get_scenario_id().
+ /// returns a copy of the random number engine used to select the scenarios
+ /** This function returns a copy of the random number engine that is used to
+  * select the scenario at each stage when random scenarios must be considered
+  * (see the #intScenarioSeed parameter).
   *
-  * @param stage An integer between 0 and get_time_horizon() - 1.
+  * @return A copy of the random number engine used to select the scenarios.
   */
- void set_scenario( Index stage );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the callback function
- /** It sets the callback function that is called right before the sub-problem
-  * at each stage is solved. The parameter of the callback function is the
-  * stage associated with the sub-problem that will be solved.
-  */
- void set_callback( std::function< void( Index ) > function ) {
-  callback = function;
+ std::mt19937 get_random_number_engine() const {
+  return random_number_engine;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -989,10 +1531,24 @@ protected:
 /*--------------------------------------------------------------------------*/
 
  /// The id of the scenario that should be considered
- Index scenario_id = 0;
+ /**< This is the id of the scenario that must be considered at all stages
+  * (except possibly the first stage). */
+ Index f_scenario_id = 0;
+
+ /// The id of the scenario that must be considered at the first stage
+ int f_first_stage_scenario_id = -1;
+
+ /// It determines how (and if) the scenario should be output
+ int f_output_scenario = -1;
 
  /// The stage at which some special event has happened
  Index fault_stage = Inf<Index>();
+
+ /// It indicates whether the inner Blocks should be configured in advance
+ int f_early_config = 0;
+
+ /// It indicates whether cuts should be loaded only once (see #intLoadCutsOnce)
+ int f_load_cuts_once = 1;
 
  /// Indicates whether the Solver of the inner Block must be unregister
  bool f_unregister_solver = false;
@@ -1012,6 +1568,12 @@ protected:
  /// Default BlockConfig for the inner Blocks
  BlockSolverConfig * f_inner_block_solver_config = nullptr;
 
+ /// Configuration to be passed to the get_var_solution() method
+ Configuration * f_get_var_solution_config = nullptr;
+
+ /// Configuration to be passed to the get_dual_solution() method
+ Configuration * f_get_dual_solution_config = nullptr;
+
  /// Names of the BlockConfig file for the inner Blocks
  std::vector< std::string > v_BC_filename;
 
@@ -1028,8 +1590,11 @@ protected:
  std::vector< bool > v_inner_block_configured;
 
  /// Indicates whether the Solver of the inner Block of each BendersBFunction
- /// was configured
+ /// has been configured
  std::vector< bool > v_inner_solver_configured;
+
+ /// It indicates whether cuts for each stage have been loaded
+ std::vector< bool > v_cuts_loaded;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -1041,7 +1606,7 @@ private:
 /*-------------------------- PRIVATE CLASSES -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
- class Subgradients {
+ class SimulationData {
 
   using matrix = std::vector< std::pair< Index , std::vector< double > > >;
 
@@ -1062,9 +1627,71 @@ private:
    subgradients_initial_state.emplace_back( stage , std::move( subgradient ) );
   }
 
+  void store_objective_value( double objective_value , Index stage ) {
+   objective_values.emplace_back( stage , objective_value );
+  }
+
+  void clear() {
+   subgradients_initial_state.clear();
+   subgradients_final_state.clear();
+   initial_states.clear();
+   objective_values.clear();
+  }
+
+  // Subgradients of the objective of the subproblems with respect to the
+  // initial state
   matrix subgradients_initial_state;
+
+  // Subgradients of the objective of the subproblems with respect to the
+  // final state
   matrix subgradients_final_state;
+
+  // Initial states
   matrix initial_states;
+
+  // Values of the objectives of the subproblems disregarding the future value
+  // function
+  std::vector< std::pair< Index , double > > objective_values;
+ };
+
+/*--------------------------------------------------------------------------*/
+
+ class Logger {
+
+ public:
+
+  Logger( SDDPGreedySolver * solver ,
+          std::ostream * log_stream , int log_verbosity ) {
+   this->solver = solver;
+   this->log_verbosity = log_verbosity;
+   this->f_log = log_stream;
+
+   if( solver ) {
+    this->stage_width =
+     std::max( 6ul , std::to_string( solver->get_time_horizon() ).size() );
+    const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
+    this->scenario_width =
+     std::max( 9ul ,
+               std::to_string( sddp_block->get_scenario_set().size() ).size() );
+   }
+  }
+
+  void log( double objective_value , double future_value ) const;
+  void log( double objective_value ) const;
+  void log() const;
+  void log( Index stage , Index scenario ) const;
+  void log_header() const;
+  void show_status() const;
+
+ private:
+
+  const int precision = 7;
+  const int width = precision + 6;
+  unsigned long stage_width;
+  unsigned long scenario_width;
+  int log_verbosity = 0;
+  std::ostream * f_log = nullptr;
+  SDDPGreedySolver * solver = nullptr;
  };
 
 /*--------------------------------------------------------------------------*/
@@ -1155,9 +1782,14 @@ private:
    solution_value = sub_solver->get_ub();
   else
    solution_value = sub_solver->get_lb();
-  const auto future_cost = static_cast< SDDPBlock * >( f_Block )->
-   get_future_cost( stage , 0 );
-  return solution_value - future_cost;
+  return solution_value - get_future_value( stage );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_future_value( Index stage ) const {
+  assert( stage < get_time_horizon() );
+  return static_cast< SDDPBlock * >( f_Block )->get_future_cost( stage , 0 );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1170,7 +1802,7 @@ private:
   return inner_block->get_objective_sense();
  }
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  void configure_inner_block( Index stage );
 
@@ -1180,20 +1812,82 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
- /// output the subgradients (if any)
- /** This function outputs the subgradients with respect to the initial and
-  * final states, as well as the initial states, into the file with the given
-  * \p filename. The format of the file will follow that specified in the
-  * description of #strSubgradientsFile.
+ /// output the simulation data (if any)
+ /** This function outputs the data obtained during the simulation (i.e., the
+  * most recent call to compuet()), which includes subgradients with respect
+  * to the initial and final states, objective values, initial states, and
+  * scenarios, into the file with the given \p filename. The format of the
+  * file will follow that specified in the description of #strSimulationData.
   *
-  * @param filename The name of the file in which the subgradients and initial
-  * states should be stored. */
+  * @param filename The name of the file in which the data obtained during the
+  *        simulation should be stored. */
 
- void output_subgradients( const std::string & filename ) const;
+ void output_simulation_data( const std::string & filename ) const;
 
 /*--------------------------------------------------------------------------*/
 
- void store_subgradients( Index stage , Index scenario_index );
+ /// load cuts for the given \p stage
+ /** This function loads cuts for the given \p stage from a file that can be
+  * specified by the #strLoadCuts parameter. If no file has been specified,
+  * this function does nothing. If a file has been specified, cuts for the
+  * given \p stage will be retrieved from that file and loaded in the
+  * corresponding PolyhedralFunction(s). If the SDDPBlock has multiple
+  * sub-Blocks per stage then the cuts are loaded in every sub-Block. However,
+  * this function assumes that there is only one PolyhedralFunction per
+  * sub-Block. See the #strLoadCuts parameter for a description of the format
+  * that the file must have.
+  *
+  * It is important to notice that the cuts are added to the
+  * PolyhedralFunction and any other cuts that were possibly already there in
+  * the PolyhedralFunction are kept there. Moreover, cuts for stage t are
+  * loaded within compute(), right before the subproblem associated with stage
+  * t is solved. If cuts are not to be loaded on subsequent calls to
+  * compute(), the value of parameter #strLoadCuts must be updated to the
+  * empty string.
+  *
+  * @param stage The stage (between 0 and get_time_horizon() - 1) for which
+  *        cuts should be loaded. */
+
+ void load_cuts( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the id of the scenario that must be considered at the given stage
+ /** This function returns the id of the scenario that must be considered at
+  * the given \p stage.
+  *
+  * @param stage A stage (between 0 and get_time_horizon() - 1).
+  *
+  * @return The id of the scenario that must be considered at the given
+  *         \p stage. */
+
+ Index get_scenario_id( Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// checks whether a scenario should be sampled for the given \p stage
+ /** This function returns true if and only if a scenario should be sampled
+  * for the given \p stage.
+  *
+  * @param stage A stage between 0 and get_time_horizon() - 1.
+  *
+  * @return true if and only if a scenario should be sampled for the given \p
+  *         stage.
+  */
+ bool should_sample( Index stage ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// sample a new scenario for the given \p stage
+ /** This function selects, at random, a new scenario for the given \p stage.
+  *
+  * @param stage A stage (between 0 and get_time_horizon() - 1). */
+
+ void sample_scenario( Index stage );
+
+/*--------------------------------------------------------------------------*/
+
+ void store_simulation_data( Index stage , Index scenario_index );
 
 /*--------------------------------------------------------------------------*/
 
@@ -1207,6 +1901,34 @@ private:
 
 /*--------------------------------------------------------------------------*/
 
+ void reset_compute_time() {
+  f_compute_start_time = std::chrono::system_clock::now();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_compute_time() const {
+  const auto now = std::chrono::system_clock::now();
+  std::chrono::duration< double > time = now - f_compute_start_time;
+  return time.count();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ void reset_subproblem_time() {
+  f_subproblem_start_time = std::chrono::system_clock::now();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ double get_subproblem_time() const {
+  const auto now = std::chrono::system_clock::now();
+  std::chrono::duration< double > time = now - f_subproblem_start_time;
+  return time.count();
+ }
+
+/*--------------------------------------------------------------------------*/
+
  SMSpp_insert_in_factory_h;
 
 /*--------------------------------------------------------------------------*/
@@ -1216,8 +1938,11 @@ private:
  /// The status returned by compute()
  int status_compute = Solver::kUnEval;
 
- /// Indicates whether the initial state has already been set
+ /// It indicates whether a feasible solution has been found
  bool f_has_var_solution = false;
+
+ /// It indicates whether all of the sub-Solvers have dual solutions
+ bool f_has_dual_solution = false;
 
  /// The value of the solution (if any)
  double solution_value = 0.0;
@@ -1225,17 +1950,47 @@ private:
  /// It indicates the level of verbosity of the log
  int log_verbosity = 0;
 
+ /// Precision of the simulation data that is output
+ int f_simulation_data_output_precision = 20;
+
+ /// The name of the file out of which cuts are loaded
+ std::string f_load_cuts_filename;
+
  /// The name of the file containing the random cuts
  std::string f_random_cuts_filename;
 
- /// The name of the file in which the subgradients will be saved
- std::string f_subgradients_filename;
+ /// The name of the file in which the simulation data will be saved
+ std::string f_simulation_data_filename;
 
  /// Initial state for the first stage problem
  std::vector< double > v_initial_state;
 
- /// Subgradients of the objective of the subproblems
- Subgradients f_subgradients;
+ /// Data obtained during the simulation
+ SimulationData f_simulation_data;
+
+ /// Frequency at which scenarios should be sampled
+ int f_scenario_sample_frequency = 1;
+
+ /// IDs of the scenarios to be considered at each stage
+ std::vector< Index > v_random_scenario_id;
+
+ /// Stages at which scenarios must be sampled
+ std::vector< int > v_stages_to_sample;
+
+ /// Distribution for selecting the scenarios at each stage
+ std::uniform_int_distribution< Index > scenario_distribution;
+
+ /// Random number engine to select the scenarios
+ std::mt19937 random_number_engine;
+
+ /// Seed for the random number engine that selects the scenarios
+ Index f_seed = Inf<Index>();
+
+ /// Point in time at which the most recent call to compute() has started
+ std::chrono::time_point< std::chrono::system_clock > f_compute_start_time;
+
+ /// Point in time at which the solution of the most recent subproblem started
+ std::chrono::time_point< std::chrono::system_clock > f_subproblem_start_time;
 
 };   // end( class SDDPGreedySolver )
 

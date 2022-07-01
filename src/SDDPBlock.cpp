@@ -4,12 +4,7 @@
 /** @file
  * Implementation of the SDDPBlock class.
  *
- * \version 0.10
- *
- * \date 20 - 11 - 2021
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
@@ -361,6 +356,18 @@ void SDDPBlock::add_Modification( sp_Mod mod , Observer::ChnlName chnl ) {
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
 /*--------------------------------------------------------------------------*/
 
+int SDDPBlock::get_objective_sense() const {
+ try {
+  auto sub_Block = get_sub_Block( 0 );
+  if( sub_Block )
+   return sub_Block->get_objective_sense();
+ }
+ catch( ... ) {}
+ return Objective::eUndef;
+}
+
+/*--------------------------------------------------------------------------*/
+
 StochasticBlock * SDDPBlock::get_sub_Block
 ( Index stage , Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
@@ -407,15 +414,20 @@ void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
  assert( stage < get_time_horizon() );
  assert( scenario_index < scenario_set.size() );
 
- if( random_cuts.size() == 0 ) {
+ if( ! f_random_cuts_initialized ) {
   // Create the PolyhedralFunctions that will store the random cuts.
 
+  // Ensure the random cuts are initialized by only one thread.
 #pragma omp critical (SDDPBlock_random_cut)
   {
-   if( random_cuts.size() == 0 )
+   if( ! f_random_cuts_initialized ) {
     initialize_random_cuts();
+    f_random_cuts_initialized = true;
+   }
   }
  }
+
+ // Store the given random cut.
 
  random_cuts[ stage ][ scenario_index ].add_row( std::move( coefficients ) ,
                                                  alpha );
@@ -427,6 +439,7 @@ void SDDPBlock::initialize_random_cuts() {
 
  const auto time_horizon = get_time_horizon();
  const auto number_scenarios = scenario_set.size();
+ random_cuts.resize( boost::extents[ 0 ][ 0 ] );
  random_cuts.resize( boost::extents[ time_horizon ][ number_scenarios ] );
 
  for( Index t = 0 ; t < time_horizon ; ++t ) {
@@ -526,11 +539,23 @@ void SDDPBlock::set_scenario( Index scenario_id , Index stage ,
 }
 
 /*--------------------------------------------------------------------------*/
-/*---------- METHODS FOR LOADING, PRINTING & SAVING THE SDDPBlock ----------*/
+/*-------------- METHODS FOR PRINTING & SAVING THE SDDPBlock ---------------*/
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::serialize( netCDF::NcGroup & group ) const {
+void SDDPBlock::print( std::ostream & output , char vlvl ) const
+{
+ output << std::endl << "SDDPBlock with ";
 
+ if( v_Block.empty() )
+  output << "no inner Block";
+ else
+  output << v_Block.size() << " sub-Blocks" << std::endl;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::serialize( netCDF::NcGroup & group ) const
+{
  Block::serialize( group );
 
  // type
@@ -630,17 +655,6 @@ void SDDPBlock::serialize_random_cuts( const std::string & filename ) const {
    random_cuts[ t ][ s ].serialize( group );
   }
  }
-}
-
-/*--------------------------------------------------------------------------*/
-
-void SDDPBlock::print( std::ostream &output ) const {
- output << std::endl << "SDDPBlock with ";
-
- if( v_Block.empty() )
-  output << "no inner Block";
- else
-  output << v_Block.size() << " sub-Blocks" << std::endl;
 }
 
 /*--------------------------------------------------------------------------*/

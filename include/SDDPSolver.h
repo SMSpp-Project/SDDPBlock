@@ -11,7 +11,7 @@
  *
  * \version 0.1
  *
- * \date 18 - 11 - 2021
+ * \date 29 - 12 - 2021
  *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
@@ -289,8 +289,8 @@ public:
    * considered during the forward pass. By default, this number is 1. */
 
   intOutputFrequency ,
-  ///< The frequency in which file outputs are performed
-  /**< This parameter determines the frequency in which file outputs are
+  ///< The frequency at which file outputs are performed
+  /**< This parameter determines the frequency at which file outputs are
    * performed (saving the approximations to the future cost functions or
    * serializing an SDDPSolverState). If it is positive, these file outputs
    * are performed every #intOutputFrequency iterations and once at the end of
@@ -298,15 +298,15 @@ public:
    * and #strRandomCutsFile parameters. The default value for this parameter
    * is 0 (i.e., no file output is performed). */
 
-  intFirstStageScenarioIndex ,
-  ///< The index of the scenario to be considered at the first stage
-  /**< This parameter specifies the index of the scenario that must be
-   * considered while solving the subproblem at the first stage. If it is
-   * negative, it means that no scenario must be set while solving the
-   * sub-problem at the first stage (i.e., the data for that subproblem has
-   * already been set, except possibly the initial state). If it is
-   * nonnegative, it must be a number between 0 and the total number of
-   * scenarios minus 1. By default, its value is 0. */
+  intFirstStageScenarioId ,
+  ///< The id of the scenario to be considered at the first stage
+  /**< This parameter specifies the id of the scenario that must be considered
+   * while solving the subproblem at the first stage. If it is negative, it
+   * means that no scenario must be set while solving the sub-problem at the
+   * first stage (i.e., the data for that subproblem has already been set,
+   * except possibly the initial state). If it is nonnegative, it must be a
+   * number between 0 and the total number of scenarios minus 1. By default,
+   * its value is 0. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -402,8 +402,8 @@ public:
   /**< This is the suffix that will be added to a non-empty filename (given by
    * #strOutputFile, #strStateFile, and #strRandomCutsFile) every other
    * iteration in which a file output is performed (see
-   * #intOutputFrequency). This is parameter can be useful, for instance, if
-   * this Solver is running on an unreliable system, which may crash while the
+   * #intOutputFrequency). This parameter can be useful, for instance, if this
+   * Solver is running on an unreliable system, which may crash while the
    * output is being performed. By using a suffix, at least some not so old
    * data will be available. For instance, suppose that #intOutputFrequency >
    * 0, #strStateFile = "state.nc4", and #strSuffix = ".0". Then, the first
@@ -555,7 +555,7 @@ public:
   *
   * - #intNbSimulForward
   *
-  * - #intFirstStageScenarioIndex
+  * - #intFirstStageScenarioId
   *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
@@ -578,7 +578,7 @@ public:
     sddp_optimizer->set_number_simulations_forward( value ); return;
    case( intLogVerb ): log_verbosity = value; return;
    case( intOutputFrequency ): output_frequency = value; return;
-   case( intFirstStageScenarioIndex ):
+   case( intFirstStageScenarioId ):
     first_stage_scenario_index = value; return;
   }
   Solver::set_par( par , value );
@@ -750,11 +750,16 @@ public:
   * Here, we are assuming that the same Configuration can be applied to the
   * inner Block of the BendersBFunction at all stages. However, in principle,
   * the inner Block of the BendersBFunction at different stages could require
-  * different Configuration. If this case ever happen, the implementation of
+  * different Configuration. If this case ever happens, the implementation of
   * this method should be adapted to take it into consideration.
   *
   * If the given pointer to the ComputeConfig \p scfg is nullptr, then the
-  * Configuration of this SDDPSolver is reset to its default.
+  * Configuration of this SDDPSolver is reset to its default one.
+  *
+  * It is important to notice that every Configuration provided by \p scfg is
+  * cloned (see Configuration::clone()) and, therefore, the caller is
+  * responsible for destroying all these Configuration and the Configuration
+  * pointed by \p scfg.
   *
   * @param scfg a pointer to a ComputeConfig.
   */
@@ -843,7 +848,7 @@ public:
   *
   * - #intOutputFrequency: 0
   *
-  * - #intFirstStageScenarioIndex: 0
+  * - #intFirstStageScenarioId: 0
   *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
@@ -862,7 +867,7 @@ public:
    case( intNbSimulForward ): return 1;
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
-   case( intFirstStageScenarioIndex ): return 0;
+   case( intFirstStageScenarioId ): return 0;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -987,7 +992,7 @@ public:
     return sddp_optimizer->get_number_simulations_forward();
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
-   case( intFirstStageScenarioIndex ): return first_stage_scenario_index;
+   case( intFirstStageScenarioId ): return first_stage_scenario_index;
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1094,7 +1099,7 @@ public:
   if( name == "intNbSimulBackward" ) return intNbSimulBackward;
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
-  if( name == "intFirstStageScenarioIndex" ) return intFirstStageScenarioIndex;
+  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1188,7 +1193,7 @@ public:
   static const std::vector<std::string> parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioIndex" };
+     "intFirstStageScenarioId" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1973,6 +1978,13 @@ protected:
  /// Pointer to the SDDPOptimizer
  std::shared_ptr< SDDPOptimizer > sddp_optimizer;
 
+#ifdef USE_MPI
+ /// MPI communicator
+ /** A function to set it could be implemented, but, for now, it is just the
+  * default communicator. */
+ boost::mpi::communicator mpi_communicator;
+#endif
+
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -2046,7 +2058,7 @@ private:
   number_simulations_for_convergence =
    get_dflt_int_par( intNbSimulCheckForConv );
   output_frequency = get_dflt_int_par( intOutputFrequency );
-  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioIndex );
+  first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioId );
 
   // double
 
@@ -2220,7 +2232,7 @@ protected:
  ///< the number of variables of each PolyhedralFunction
 
  std::vector< PolyhedralFunction::MultiVector > v_A;
- ///< the A matricx of each PolyhedralFunction
+ ///< the A matrix of each PolyhedralFunction
 
  std::vector< PolyhedralFunction::RealVector > v_b;
  ///< the b vector of each PolyhedralFunction
