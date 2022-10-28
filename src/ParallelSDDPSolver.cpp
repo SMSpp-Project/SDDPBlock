@@ -4,10 +4,6 @@
 /** @file
  * Implementation of the ParallelSDDPSolver class.
  *
- * \version 0.10
- *
- * \date 30 - 04 - 2021
- *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
  *         Dipartimento di Informatica \n

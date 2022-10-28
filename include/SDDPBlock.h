@@ -727,6 +727,18 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+  /// removes all cuts from each PolyhedralFunction
+  /** This function removes all cuts from each PolyhedralFunction. */
+
+ void remove_cuts() {
+  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
+   for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i )
+    for( Index sub_block_index = 0 ;
+         sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index )
+     get_polyhedral_function( stage , i , sub_block_index )->delete_rows();
+ }
+
+/*--------------------------------------------------------------------------*/
  /// store the given random cut
  /** This function store the random cut given by \p coefficients and \p alpha,
   * which must be associated with the given \p stage and with the scenario

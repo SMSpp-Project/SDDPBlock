@@ -4,10 +4,6 @@
 /** @file
  * Implementation of the SDDPSolver class.
  *
- * \version 0.10
- *
- * \date 25 - 01 - 2022
- *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
  *         Dipartimento di Informatica \n

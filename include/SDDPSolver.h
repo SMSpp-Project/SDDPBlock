@@ -9,10 +9,6 @@
  *
  * https://gitlab.com/stochastic-control/StOpt
  *
- * \version 0.1
- *
- * \date 29 - 12 - 2021
- *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
  *         Dipartimento di Informatica \n
@@ -32,7 +28,6 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include <boost/bimap.hpp>
 #include <Eigen/Dense>
 #include "BlockSolverConfig.h"
 #include "ScenarioSimulator.h"

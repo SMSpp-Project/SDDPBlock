@@ -6,10 +6,6 @@
  * StOpt::SimulatorSDDPBase and serves as a simple simulator for a set of
  * scenarios.
  *
- * \version 0.1
- *
- * \date 18 - 02 - 2021
- *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
  *         Dipartimento di Informatica \n

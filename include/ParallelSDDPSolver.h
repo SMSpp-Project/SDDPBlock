@@ -5,10 +5,6 @@
  * Header file for the ParallelSDDPSolver class, which derives from SDDPSolver
  * and implements a parallel version of SDDPSolver.
  *
- * \version 0.1
- *
- * \date 24 - 03 - 2021
- *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
  *         Dipartimento di Informatica \n

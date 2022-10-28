@@ -4,10 +4,6 @@
 /** @file
  * Header file of ScenarioSet, a class to represent a set of scenarios.
  *
- * \version 0.1
- *
- * \date 19 - 09 - 2020
- *
  * \author Rafael Durbano Lobato \n
  *         Operations Research Group \n
  *         Dipartimento di Informatica \n
