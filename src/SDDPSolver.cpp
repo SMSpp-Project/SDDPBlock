@@ -592,6 +592,40 @@ void SDDPSolver::process_outstanding_Modification() {
 }
 
 /*--------------------------------------------------------------------------*/
+/*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::reset_event_handler( int type , EventID id ) {
+ if( type != eEverykIteration )
+  throw( std::invalid_argument( "SDDPSolver::reset_event_handler: unsupported"
+                                " event type " + std::to_string( type ) ) );
+
+ if( id >= v_events[ type ].size() )
+  throw( std::invalid_argument( "SDDPSolver::reset_event_handler: incorrect "
+                                "event id " + std::to_string( id ) +
+                                " for type " + std::to_string( type ) ) );
+
+ static auto do_nothing = []() -> int {
+  return( ThinComputeInterface::eContinue ); };
+
+ if( id == v_events[ type ].size() - 1 ) {
+  // if the event is the last of its type, shorten the vector; moreover, if
+  // any of the previous events is a do_nothing, keep shortening
+  do
+   v_events[ type ].pop_back();
+  while( ( ! v_events[ type ].empty() ) &&
+         ( *( v_events[ type ].back().target < int( * )() > ( ) ) ==
+           do_nothing ) );
+ }
+ else
+  // the event is not the last of its type: replace it with a do_nothing to
+  // avoid messing up with the id-s, which are positions in the vector
+  v_events[ type ][ id ] = do_nothing;
+}
+
+/*--------------------------------------------------------------------------*/
+/*------------ METHODS FOR HANDLING THE State OF THE SDDPSolver ------------*/
+/*--------------------------------------------------------------------------*/
 
 State * SDDPSolver::get_State( void ) const {
  return new SDDPSolverState( this );
@@ -1276,6 +1310,12 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
       ( current_iteration % sddp_solver->output_frequency == 0 ) ) {
    sddp_solver->file_output();
   }
+
+  if( sddp_solver->f_handle_events_every_k_iter &&
+      ( current_iteration % sddp_solver->f_handle_events_every_k_iter == 0 ) )
+   for( auto & event : sddp_solver->v_events[ eEverykIteration ] )
+    event();
+
   current_iteration++;
  }
 

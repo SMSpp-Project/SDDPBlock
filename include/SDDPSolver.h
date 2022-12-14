@@ -505,6 +505,8 @@ public:
  /// constructor
  SDDPSolver( void ) {
 
+  v_events.resize( max_event_number() );
+
   // Set the parameters to their default values
 
   set_default_parameters();
@@ -1276,6 +1278,61 @@ public:
  }
 
 /**@} ----------------------------------------------------------------------*/
+/*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Set event handlers
+ *
+ *  SDDPSolver manages the following events:
+ *
+ * - eEverykIteration, called just after a new forward pass begins.
+ *
+ * Events have to be set with set_event_handler() for them to be called.
+ * @{ */
+
+ /// register a new event handler, returning its id
+ /** The new event handler is added at the back of v_events[ type ]. As the &&
+  * tells, the event handler becomes property of the SDDPSolver, which is
+  * completely OK if, as one expects, it is defined via a lambda function. The
+  * method returns a unique id for the handler, which can (and must) be later
+  * used to remove the handler before it becomes invalid. Note that the
+  * handler is type-specific, i.e., two event handlers of different types can
+  * have the same id; in other words, the "real" id is the pair ( type , id
+  * ). An exception is thrown if the SDDPSolver is not capable of handling
+  * this type or event for whatever reason, among which that it has exhausted
+  * the available maximum number of event handlers slots for the given
+  * type. */
+
+ EventID set_event_handler( int type , EventHandler && event ) override {
+  if( type != eEverykIteration )
+   throw( std::invalid_argument( "SDDPSolver:set_event_handler: unsupported "
+                                 "event type " + std::to_string( type ) ) );
+
+  if( v_events[ type ].size() > std::numeric_limits< EventID >::max() )
+   throw( std::invalid_argument( "SDDPSolver:set_event_handler: too many event "
+                                 "handlers for type" + std::to_string( type ) ) );
+
+  EventID id = v_events[ type ].size();
+  v_events[ type ].push_back( std::move( event ) );
+
+  return id ;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// unregister an existing event handler
+ /** Removes the event handler with the given id from the list of those
+  * registered for the given type. If there is no event handler with the given
+  * id for the given type, exception will be thrown. */
+ void reset_event_handler( int type , EventID id ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the maximum number of event types supported by the SDDPSolver
+ [[nodiscard]] virtual EventID max_event_number() const {
+  return e_last_event_type;
+ }
+
+/**@} ----------------------------------------------------------------------*/
 /*------------ METHODS FOR HANDLING THE State OF THE SDDPSolver ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Handling the State of the SDDPSolver
@@ -1963,6 +2020,9 @@ protected:
  /// The frequency in which the future cost functions are output
  int output_frequency;
 
+ /// Periodicity of eEverykIteration events
+ int f_handle_events_every_k_iter;
+
  /** Relative accuracy for declaring a solution optimal. See the
   * comments about the dblAccuracy parameter for more details. */
  double accuracy;
@@ -2071,6 +2131,7 @@ private:
   f_random_cuts_filename = get_dflt_str_par( strRandomCutsFile );
   f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
   f_sub_solver_filename_prefix = get_dflt_str_par( strSubSolverLogFilePrefix );
+  f_handle_events_every_k_iter = Solver::get_dflt_int_par( intEverykIt );
 
   // vector of int
 
