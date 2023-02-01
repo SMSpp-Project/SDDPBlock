@@ -36,6 +36,10 @@
 #include "StOpt/sddp/OptimizerSDDPBase.h"
 #include "StOpt/sddp/SDDPFinalCut.h"
 
+#ifdef USE_MPI
+#include <boost/mpi/communicator.hpp>
+#endif
+
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
 /*--------------------------------------------------------------------------*/
