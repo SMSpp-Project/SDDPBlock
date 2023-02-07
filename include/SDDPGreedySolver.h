@@ -1668,10 +1668,11 @@ private:
 
    if( solver ) {
     this->stage_width =
-     std::max( 6ul , std::to_string( solver->get_time_horizon() ).size() );
+     std::max( std::string::size_type( 6 ) ,
+               std::to_string( solver->get_time_horizon() ).size() );
     const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
     this->scenario_width =
-     std::max( 9ul ,
+     std::max( std::string::size_type( 9 ) ,
                std::to_string( sddp_block->get_scenario_set().size() ).size() );
    }
   }
