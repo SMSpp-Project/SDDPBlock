@@ -412,12 +412,6 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 /*---------------------- METHODS FOR READING THE DATA ----------------------*/
 /*--------------------------------------------------------------------------*/
 
-SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon() const {
- if( f_Block )
-  return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
- return 0;
-}
-
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/

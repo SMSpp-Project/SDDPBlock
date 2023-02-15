@@ -1457,7 +1457,11 @@ public:
   * @return The time horizon of the problem represented by the SDDPBlock
   *         attached to this SDDPGreedySolver.
   */
- Index get_time_horizon( void ) const;
+ Index get_time_horizon( void ) const {
+  if( f_Block )
+   return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+  return 0;
+ }
 
 /*--------------------------------------------------------------------------*/
 
