@@ -641,25 +641,6 @@ Solver * SDDPGreedySolver::get_sub_solver( Index stage ) const {
 
 /*--------------------------------------------------------------------------*/
 
-BendersBFunction * SDDPGreedySolver::get_benders_function( Index stage ) const {
-
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPGreedySolver::get_benders_function: "
-                                "invalid stage index: " +
-                                std::to_string( stage ) ) );
-
- auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< SDDPBlock * >( f_Block )->
-    get_sub_Block( stage )->get_inner_block() );
-
- auto objective = static_cast< FRealObjective * >
-  ( benders_block->get_objective() );
-
- return static_cast< BendersBFunction * >( objective->get_function() );
-}
-
-/*--------------------------------------------------------------------------*/
-
 std::vector<double> SDDPGreedySolver::get_solution
 ( SDDPBlock::Index stage ) const {
 

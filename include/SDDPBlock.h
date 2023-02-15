@@ -27,6 +27,7 @@
 #include "PolyhedralFunction.h"
 #include "ScenarioSimulator.h"
 #include "ScenarioSet.h"
+#include "StochasticBlock.h"
 #include "StOpt/sddp/SimulatorSDDPBase.h"
 
 /*--------------------------------------------------------------------------*/
@@ -36,7 +37,6 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
- class StochasticBlock;      // forward declaration of StochasticBlock
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- CLASS SDDPBlock -------------------------------*/
@@ -366,7 +366,141 @@ public:
   * @param group A netCDF::NcGroup holding the data describing this SDDPBlock.
   */
 
- void deserialize( const netCDF::NcGroup & group ) override;
+ void deserialize( const netCDF::NcGroup & group ) override {
+  // TimeHorizon
+
+  Index time_horizon;
+  ::SMSpp_di_unipi_it::deserialize_dim( group , "TimeHorizon" ,
+                                        time_horizon , false );
+
+  // NumSubBlocksPerStage
+
+  Index NumSubBlocksPerStage;
+  if( ::SMSpp_di_unipi_it::deserialize_dim
+      ( group , "NumSubBlocksPerStage" , NumSubBlocksPerStage ) ) {
+   num_sub_blocks_per_stage = NumSubBlocksPerStage;
+  }
+
+  // StochasticBlock
+
+  v_Block.reserve( time_horizon * num_sub_blocks_per_stage );
+
+  for( Index i = 0 ; i < time_horizon ; ++i )
+   for( Index j = 0 ; j < num_sub_blocks_per_stage ; ++j )
+    v_Block.push_back( deserialize_sub_Block( group , i ) );
+
+  // PolyhedralFunctions
+
+  auto path_group = group.getGroup( "AbstractPath" );
+
+  auto paths = AbstractPath::vector_deserialize( path_group );
+
+  if( ! ::SMSpp_di_unipi_it::deserialize_dim
+      ( group , "NumPolyhedralFunctionsPerSubBlock" ,
+        num_polyhedral_per_sub_block ) ) {
+   num_polyhedral_per_sub_block = 1;
+  }
+
+  if( paths.size() != num_polyhedral_per_sub_block * time_horizon &&
+      ! ( paths.size() == num_polyhedral_per_sub_block && time_horizon > 1 ) ) {
+   if( num_polyhedral_per_sub_block == 1 )
+    throw ( std::invalid_argument
+            ( "SDDPBlock::deserialize: The number of AbstractPath to "
+              "PolyhedralFunction must be either equal to 1 or equal to "
+              "the time horizon." ) );
+   else
+    throw ( std::invalid_argument
+            ( "SDDPBlock::deserialize: The number of AbstractPath to "
+              "PolyhedralFunction must be either equal to K or equal to K "
+              "times the time horizon, where K is the number of "
+              "PolyhedralFunction per sub-Block." ) );
+  }
+
+  v_polyhedral_functions.clear();
+  v_polyhedral_functions.reserve
+   ( num_sub_blocks_per_stage * num_polyhedral_per_sub_block * time_horizon );
+
+  for( Index t = 0 ; t < time_horizon ; ++t ) {
+   for( Index j = 0 ; j < num_sub_blocks_per_stage ; ++j ) {
+    auto reference_block = get_sub_Block( t , j )->get_nested_Block( 0 );
+    assert( reference_block );
+    for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+     Index path_index = num_polyhedral_per_sub_block * t + i;
+     if( paths.size() == num_polyhedral_per_sub_block )
+      path_index = i;
+     auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
+      ( paths[ path_index ].get_element< Function >( reference_block ) );
+     if( ! polyhedral_function )
+      throw ( std::invalid_argument
+              ( "SDDPBlock::deserialize: PolyhedralFunction for stage "
+                + std::to_string( t ) + " was not found." ) );
+     v_polyhedral_functions.push_back( polyhedral_function );
+    }
+   }
+  }
+
+  // Scenarios
+
+  scenario_set.deserialize( group );
+
+  // Initial state
+
+  ::SMSpp_di_unipi_it::deserialize( group , "InitialState" ,
+                                    initial_state , false );
+
+  // StateSize
+
+  std::vector< Index > state_size;
+
+  ::SMSpp_di_unipi_it::deserialize( group , "StateSize" , { time_horizon } ,
+                                    state_size , false , true );
+
+  bool state_size_is_scalar = ( state_size.size() == 1 );
+  if( state_size.size() == 1 )
+   state_size.resize( time_horizon , state_size[ 0 ] );
+  else if( state_size.size() != time_horizon )
+   throw ( std::logic_error( "SDDPBlock::deserialize: 'StateSize' must be "
+                             "either a scalar or an array with size "
+                             "'TimeHorizon'." ) );
+
+  // AdmissibleState
+
+  ::SMSpp_di_unipi_it::deserialize( group , "AdmissibleState" ,
+                                    admissible_states , false );
+
+  if( state_size_is_scalar ) {
+   if( admissible_states.size() != state_size[ 0 ] &&
+       admissible_states.size() != time_horizon * state_size[ 0 ] )
+    throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
+                              "array has an invalid size." ) );
+
+   if( admissible_states.size() != time_horizon * state_size[ 0 ] ) {
+    std::vector<double> state = admissible_states;
+    admissible_states.reserve( time_horizon * state_size[ 0 ] );
+    for( Index t = 1 ; t < time_horizon ; ++t )
+     admissible_states.insert( admissible_states.cend() ,
+                               state.cbegin() , state.cend() );
+   }
+  }
+  else if( admissible_states.size() !=
+           std::accumulate( state_size.begin() , state_size.end() ,
+                            decltype( state_size )::value_type( 0 ) ) ) {
+   throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
+                             "array has an invalid size." ) );
+  }
+
+  // Construct the vector admissible_state_begin
+
+  admissible_state_begin.resize( time_horizon );
+  if( time_horizon > 0 )
+   admissible_state_begin.front() = 0;
+  for( Index t = 1 ; t < time_horizon ; ++t )
+   admissible_state_begin[ t ] =
+    admissible_state_begin[ t - 1 ] + state_size[ t - 1 ];
+
+  Block::deserialize( group );
+
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -917,7 +1051,20 @@ public:
   *        get_num_sub_blocks_per_stage() - 1. */
 
  void set_scenario( Index scenario_id , Index stage ,
-                    Index sub_block_index = 0 );
+                    Index sub_block_index = 0 ) {
+  auto sub_scenario_begin = scenario_set.
+   sub_scenario_begin( scenario_id , stage );
+
+  try {
+   get_sub_Block( stage , sub_block_index )->set_data( sub_scenario_begin );
+  }
+  catch( const std::exception & e ) {
+   std::cout << "SDDPBlock::set_scenario: exception while setting scenario "
+             << scenario_id << " of stage " << stage << ".\n"
+             << e.what() << std::endl;
+   std::exit( EXIT_FAILURE );
+  }
+ }
 
 /**@} ----------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
