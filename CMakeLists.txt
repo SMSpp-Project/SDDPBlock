@@ -64,6 +64,12 @@ find_package(MPI)
 # This will generate a *Config.h header in the build directory.
 configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 
+#The subsequent fix permits the static SDDP library to be correctly built, it is corrupted otherwise for some reason
+if ( MINGW )
+	message("With MINGW - for the time being, SDDPBlock library has to be static, for some reason building the dynamic library causes the static one to be corrupted")
+	set(BUILD_SHARED_LIBS OFF)
+endif()
+
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
 # be STATIC or SHARED, so no reason to do it now.
