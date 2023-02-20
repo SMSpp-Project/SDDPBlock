@@ -1332,7 +1332,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// returns the maximum number of event types supported by the SDDPSolver
- [[nodiscard]] virtual EventID max_event_number() const {
+ [[nodiscard]] virtual EventID max_event_number() const override {
   return e_last_event_type;
  }
 
