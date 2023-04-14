@@ -5,7 +5,6 @@
  * Header file of ScenarioSet, a class to represent a set of scenarios.
  *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *

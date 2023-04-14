@@ -21,11 +21,7 @@
 #           $(SDDPBkH)     = the .h files to include                         #
 #           $(SDDPBkINC)   = the -I$( source directory )                     #
 #                                                                            #
-#                                VERSION 1.00                                #
-#                               11 - 07 - 2021                               #
-#                                                                            #
 #                              Antonio Frangioni                             #
-#                          Operations Research Group                         #
 #                         Dipartimento di Informatica                        #
 #                             Universita' di Pisa                            #
 #                                                                            #
