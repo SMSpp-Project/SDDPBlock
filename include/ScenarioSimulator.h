@@ -237,7 +237,7 @@ public:
   current_date_index = date_index;
 
   if( backward_simulator ) {
-   if( ( current_date_index == get_number_dates() - 1 ) ||
+   if( ( current_date_index == int( get_number_dates() ) - 1 ) ||
        intermediate_sampling )
     sample();
   }
@@ -272,7 +272,8 @@ public:
 
  Eigen::MatrixXd getParticles() const override {
 
-  assert( number_simulations == indices_selected_particles.size() );
+  assert( decltype( indices_selected_particles )::size_type( number_simulations )
+          == indices_selected_particles.size() );
 
   Eigen::MatrixXd particles( all_particles[ current_date_index ].rows() ,
                              number_simulations );
@@ -381,9 +382,11 @@ protected:
   else {
    const auto number_scenarios = get_number_scenarios();
 
-   assert( number_simulations <= number_scenarios );
+   assert( decltype( number_scenarios )( number_simulations ) <=
+           number_scenarios );
 
-   if( number_simulations == number_scenarios ) {
+   if( decltype( number_scenarios )( number_simulations ) ==
+       number_scenarios ) {
     std::iota( indices_selected_particles.begin() ,
                indices_selected_particles.end() , 0 );
    }
