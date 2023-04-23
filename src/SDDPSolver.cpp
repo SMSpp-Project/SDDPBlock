@@ -540,7 +540,7 @@ int SDDPSolver::compute( bool changedvars ) {
 
 double SDDPSolver::get_lb( void ) {
  if( ! f_Block )
-  return - Inf< double >();
+  return -Inf< double >();
 
  const auto minimization =
   ( f_Block->get_objective_sense() == Objective::eMin );
@@ -554,10 +554,10 @@ double SDDPSolver::get_lb( void ) {
  if( status == kInfeasible ) {
   if( minimization )
    return Inf< double >();
-  return - Inf< double >();
+  return -Inf< double >();
  }
 
- return - Inf< double >();
+ return -Inf< double >();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -578,7 +578,7 @@ double SDDPSolver::get_ub( void ) {
  if( status == kInfeasible ) {
   if( minimization )
    return Inf< double >();
-  return - Inf< double >();
+  return -Inf< double >();
  }
 
  return Inf< double >();
@@ -1717,7 +1717,7 @@ void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
   auto nclb = group.getVar( "PolyFunction_lb_" + std::to_string( t ) );
   if( nclb.isNull() ) {
    if( v_is_convex[ t ] )
-    v_bound[ t ] = - Inf<PolyhedralFunction::FunctionValue>();
+    v_bound[ t ] = -Inf<PolyhedralFunction::FunctionValue>();
    else
     v_bound[ t ] = Inf<PolyhedralFunction::FunctionValue>();
   }

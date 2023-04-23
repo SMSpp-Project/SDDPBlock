@@ -265,7 +265,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  const auto time_horizon = get_time_horizon();
  status_compute = Solver::kOK;
- fault_stage = Inf<Index>();
+ fault_stage = Inf< Index >();
  solution_value = 0.0;
  f_has_var_solution = false;
  f_has_dual_solution = true;
@@ -307,7 +307,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   reset_subproblem_time();
 
   // If required, sample a scenario for this stage.
-  if( f_seed < Inf<Index>() )
+  if( f_seed < Inf< Index >() )
    sample_scenario( stage );
 
   logger.log( stage , get_scenario_id( stage ) );
@@ -363,7 +363,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   else if( sub_status == Solver::kStopTime || sub_status == Solver::kStopIter ) {
    const auto sub_solution_value = get_sub_solution_value( stage );
    solution_value += sub_solution_value;
-   if( fault_stage == Inf<Index>() ) {
+   if( fault_stage == Inf< Index >() ) {
     fault_stage = stage;
     status_compute = sub_status;
    }
@@ -1083,7 +1083,7 @@ Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
    return f_first_stage_scenario_id;
   return f_scenario_id;
  }
- else if( f_seed < Inf<Index>() ) { // Random scenarios are being considered
+ else if( f_seed < Inf< Index >() ) { // Random scenarios are being considered
   assert( stage < v_random_scenario_id.size() );
   return v_random_scenario_id[ stage ];
  }
@@ -1093,7 +1093,7 @@ Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
 /*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::should_sample( Index stage ) const {
- if( f_seed == Inf<Index>() )
+ if( f_seed == Inf< Index >() )
   return false;
 
  if( ( f_scenario_sample_frequency > 0 ) &&
