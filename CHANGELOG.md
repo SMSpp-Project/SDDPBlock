@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Handle eEverykIteration events in SDDPSolver.
+
+### Fixed
+
+- Windows compilation issues.
+
 ## [0.5.1] - 2022-07-01
 
 ### Added

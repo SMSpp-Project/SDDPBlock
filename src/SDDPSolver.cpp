@@ -320,7 +320,8 @@ int SDDPSolver::compute( bool changedvars ) {
   /* If an initial state for the first stage is provided, then the initial
    * state for the first stage is updated to the given one. */
 
-  if( initial_state.size() != number_state_variables ) {
+  if( initial_state.size() !=
+      decltype( initial_state )::size_type( number_state_variables ) ) {
    throw( std::logic_error
           ( "SDDPSolver::compute: the size of the given initial state (" +
             std::to_string( initial_state.size() ) + ") is different from the "
