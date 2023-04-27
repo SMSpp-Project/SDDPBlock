@@ -195,7 +195,7 @@ protected:
   /** This function returns the index of a sub-Block of SDDPBlock at the given
    * \p stage whose data is set to the scenario whose index is \p
    * scenario_index. If no sub-Block at the given \p stage is set to the
-   * scenario specified, Inf<Index>() is returned.
+   * scenario specified, Inf< Index >() is returned.
    *
    * @param stage A stage between 0 and time_horizon - 1.
    *
@@ -203,7 +203,7 @@ protected:
    *
    * @return The index of a sub-Block of SDDPBlock at the given \p stage whose
    *         data is set to the scenario whose index is \p scenario_index. If
-   *         no such a sub-Block exists, Inf<Index>() is returned. */
+   *         no such a sub-Block exists, Inf< Index >() is returned. */
 
   Index get_sub_block_with_scenario( Index stage ,
                                      Index scenario_index ) const;

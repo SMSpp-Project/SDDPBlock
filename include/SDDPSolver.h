@@ -1535,9 +1535,10 @@ protected:
 
  /// returns true if a valid mesh discretization has been provided
  bool mesh_provided() const {
-  return ( ! mesh_discretization.empty() ) &&
-   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
-                []( auto i ){ return i > 0; } );
+  return( ( ! mesh_discretization.empty() ) &&
+          std::all_of( mesh_discretization.begin() ,
+                       mesh_discretization.end() ,
+                       []( auto i ) { return( i > 0 ); } ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -2257,7 +2258,7 @@ public:
   *   PolyhedralFunction over all the space. This variable is optional: if it
   *   is not provided, it means that no finite lower (upper) bound exist,
   *   i.e., the lower (upper) bound is -(+)
-  *   Inf<PolyhedralFunction::FunctionValue>(). */
+  *   Inf< PolyhedralFunction::FunctionValue >(). */
 
  void serialize( netCDF::NcGroup & group ) const override;
 

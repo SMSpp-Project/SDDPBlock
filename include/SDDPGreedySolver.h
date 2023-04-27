@@ -638,7 +638,7 @@ public:
      random_number_engine.seed( f_seed );
     }
     else
-     f_seed = Inf<Index>();
+     f_seed = Inf< Index >();
    }
    case( intScenarioSampleFrequency ):
     f_scenario_sample_frequency = value;
@@ -998,7 +998,7 @@ public:
    case( intFirstStageScenarioId ): return f_first_stage_scenario_id;
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
-   case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
+   case( intScenarioSeed ): return( f_seed == Inf< Index >() ) ? -1 : f_seed;
    case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
    case( intSimulationDataOutputPrecision ):
     return f_simulation_data_output_precision;
@@ -1421,7 +1421,7 @@ public:
  OFValue get_lb( void ) override {
   if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
    return solution_value;
-  return( - Inf<OFValue>() );
+  return( - Inf< OFValue >() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1429,14 +1429,14 @@ public:
  OFValue get_ub( void ) override {
   if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
    return solution_value;
-  return( Inf<OFValue>() );
+  return( Inf< OFValue >() );
  }
 
 /*--------------------------------------------------------------------------*/
 
  /** If a call to compute() returns kError, kStopTime, or kStopIter, this
   * method returns the stage at which the associated event has
-  * occurred. Otherwise, this method returns Inf<Index>().
+  * occurred. Otherwise, this method returns Inf< Index >().
   *
   * @return the stage at which a fault has occurred.
   */
@@ -1546,7 +1546,7 @@ protected:
  int f_output_scenario = -1;
 
  /// The stage at which some special event has happened
- Index fault_stage = Inf<Index>();
+ Index fault_stage = Inf< Index >();
 
  /// It indicates whether the inner Blocks should be configured in advance
  int f_early_config = 0;
@@ -2003,7 +2003,7 @@ private:
  std::mt19937 random_number_engine;
 
  /// Seed for the random number engine that selects the scenarios
- Index f_seed = Inf<Index>();
+ Index f_seed = Inf< Index >();
 
  /// Point in time at which the most recent call to compute() has started
  std::chrono::time_point< std::chrono::system_clock > f_compute_start_time;

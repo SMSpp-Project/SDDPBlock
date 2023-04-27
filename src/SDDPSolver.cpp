@@ -1718,9 +1718,9 @@ void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
   auto nclb = group.getVar( "PolyFunction_lb_" + std::to_string( t ) );
   if( nclb.isNull() ) {
    if( v_is_convex[ t ] )
-    v_bound[ t ] = -Inf<PolyhedralFunction::FunctionValue>();
+    v_bound[ t ] = -Inf< PolyhedralFunction::FunctionValue >();
    else
-    v_bound[ t ] = Inf<PolyhedralFunction::FunctionValue>();
+    v_bound[ t ] = Inf< PolyhedralFunction::FunctionValue >();
   }
   else
    nclb.getVar( & v_bound[ t ] );

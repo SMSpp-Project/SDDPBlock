@@ -404,16 +404,16 @@ public:
   if( paths.size() != num_polyhedral_per_sub_block * time_horizon &&
       ! ( paths.size() == num_polyhedral_per_sub_block && time_horizon > 1 ) ) {
    if( num_polyhedral_per_sub_block == 1 )
-    throw ( std::invalid_argument
-            ( "SDDPBlock::deserialize: The number of AbstractPath to "
-              "PolyhedralFunction must be either equal to 1 or equal to "
-              "the time horizon." ) );
+    throw( std::invalid_argument(
+     "SDDPBlock::deserialize: The number of AbstractPath to "
+     "PolyhedralFunction must be either equal to 1 or equal to "
+     "the time horizon." ) );
    else
-    throw ( std::invalid_argument
-            ( "SDDPBlock::deserialize: The number of AbstractPath to "
-              "PolyhedralFunction must be either equal to K or equal to K "
-              "times the time horizon, where K is the number of "
-              "PolyhedralFunction per sub-Block." ) );
+    throw( std::invalid_argument(
+     "SDDPBlock::deserialize: The number of AbstractPath to "
+     "PolyhedralFunction must be either equal to K or equal to K "
+     "times the time horizon, where K is the number of "
+     "PolyhedralFunction per sub-Block." ) );
   }
 
   v_polyhedral_functions.clear();
@@ -431,9 +431,9 @@ public:
      auto polyhedral_function = dynamic_cast< PolyhedralFunction * >
       ( paths[ path_index ].get_element< Function >( reference_block ) );
      if( ! polyhedral_function )
-      throw ( std::invalid_argument
-              ( "SDDPBlock::deserialize: PolyhedralFunction for stage "
-                + std::to_string( t ) + " was not found." ) );
+      throw( std::invalid_argument(
+       "SDDPBlock::deserialize: PolyhedralFunction for stage "
+       + std::to_string( t ) + " was not found." ) );
      v_polyhedral_functions.push_back( polyhedral_function );
     }
    }
@@ -459,9 +459,9 @@ public:
   if( state_size.size() == 1 )
    state_size.resize( time_horizon , state_size[ 0 ] );
   else if( state_size.size() != time_horizon )
-   throw ( std::logic_error( "SDDPBlock::deserialize: 'StateSize' must be "
-                             "either a scalar or an array with size "
-                             "'TimeHorizon'." ) );
+   throw( std::logic_error( "SDDPBlock::deserialize: 'StateSize' must be "
+                            "either a scalar or an array with size "
+                            "'TimeHorizon'." ) );
 
   // AdmissibleState
 
@@ -471,8 +471,8 @@ public:
   if( state_size_is_scalar ) {
    if( admissible_states.size() != state_size[ 0 ] &&
        admissible_states.size() != time_horizon * state_size[ 0 ] )
-    throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
-                              "array has an invalid size." ) );
+    throw( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
+                             "array has an invalid size." ) );
 
    if( admissible_states.size() != time_horizon * state_size[ 0 ] ) {
     std::vector<double> state = admissible_states;
@@ -485,8 +485,8 @@ public:
   else if( admissible_states.size() !=
            std::accumulate( state_size.begin() , state_size.end() ,
                             decltype( state_size )::value_type( 0 ) ) ) {
-   throw ( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
-                             "array has an invalid size." ) );
+   throw( std::logic_error( "SDDPBlock::deserialize: 'AdmissibleState' "
+                            "array has an invalid size." ) );
   }
 
   // Construct the vector admissible_state_begin
