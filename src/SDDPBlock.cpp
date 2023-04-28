@@ -115,7 +115,7 @@ void SDDPBlock::deserialize_random_cuts( const std::string & filename ) {
 void SDDPBlock::add_Modification( sp_Mod mod , Observer::ChnlName chnl ) {
  // TODO
  if( anyone_there() )
-  Block::add_Modification( std::make_shared<NBModification>( this ) , chnl );
+  Block::add_Modification( std::make_shared< NBModification >( this ) , chnl );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -253,7 +253,7 @@ void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ,
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPBlock::set_state( const std::vector<double> & values , Index stage ,
+void SDDPBlock::set_state( const std::vector< double > & values , Index stage ,
                            Index sub_block_index ) {
  assert( stage < get_time_horizon() );
  assert( sub_block_index < get_num_sub_blocks_per_stage() );

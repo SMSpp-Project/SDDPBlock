@@ -550,7 +550,7 @@ private:
 
  void deserialize_scenarios( const netCDF::NcGroup & group ) {
 
-  scenarios.resize( num_scenarios , std::vector<double>( scenario_size ) );
+  scenarios.resize( num_scenarios , std::vector< double >( scenario_size ) );
 
   auto scenarios_var = group.getVar( "Scenarios" );
 

@@ -475,7 +475,7 @@ public:
                              "array has an invalid size." ) );
 
    if( admissible_states.size() != time_horizon * state_size[ 0 ] ) {
-    std::vector<double> state = admissible_states;
+    std::vector< double > state = admissible_states;
     admissible_states.reserve( time_horizon * state_size[ 0 ] );
     for( Index t = 1 ; t < time_horizon ; ++t )
      admissible_states.insert( admissible_states.cend() ,
@@ -698,7 +698,7 @@ public:
   * @return An iterator to the vector containing the admissible state for the
   *         given \p stage. */
 
- std::vector<double>::const_iterator get_admissible_state( Index stage ) const {
+ std::vector< double >::const_iterator get_admissible_state( Index stage ) const {
   assert( stage < get_time_horizon() );
   return std::next( admissible_states.cbegin() ,
                     admissible_state_begin[ stage ] );
@@ -1002,7 +1002,7 @@ public:
   *        stage. This must be an integer between 0 and
   *        get_num_sub_blocks_per_stage() - 1. */
 
- void set_state( const std::vector<double> & values , Index stage ,
+ void set_state( const std::vector< double > & values , Index stage ,
                  Index sub_block_index );
 
 /*--------------------------------------------------------------------------*/
@@ -1018,7 +1018,7 @@ public:
   *
   * @param stage The stage whose state Variable must be set. */
 
- void set_state( const std::vector<double> & values , Index stage ) {
+ void set_state( const std::vector< double > & values , Index stage ) {
   for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
    set_state( values , stage , i );
  }

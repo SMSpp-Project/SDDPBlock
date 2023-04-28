@@ -516,7 +516,7 @@ public:
 
   // SDDPOptimizer
 
-  sddp_optimizer = std::make_shared<SDDPOptimizer>( this );
+  sddp_optimizer = std::make_shared< SDDPOptimizer >( this );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -903,7 +903,7 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values =
+  static const std::vector< std::string > default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
      "", "" , "" , "" , "" , "" , "" };
 
@@ -1190,7 +1190,7 @@ public:
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
      "intFirstStageScenarioId" };
@@ -1231,7 +1231,7 @@ public:
 
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
      "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
@@ -1254,7 +1254,7 @@ public:
   */
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "vintMeshDiscretization" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
    return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
@@ -1273,7 +1273,7 @@ public:
   */
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "vdblLastStageCuts" , "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
    return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
@@ -1586,7 +1586,7 @@ protected:
 
   Eigen::ArrayXd oneStepBackward
   ( const StOpt::SDDPCutOptBase & p_linCut,
-    const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & p_aState,
+    const std::tuple< std::shared_ptr< Eigen::ArrayXd >, int, int > & p_aState,
     const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
 
 /*--------------------------------------------------------------------------*/

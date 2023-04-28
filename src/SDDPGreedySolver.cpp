@@ -635,7 +635,7 @@ Solver * SDDPGreedySolver::get_sub_solver( Index stage ) const {
 
 /*--------------------------------------------------------------------------*/
 
-std::vector<double> SDDPGreedySolver::get_solution
+std::vector< double > SDDPGreedySolver::get_solution
 ( SDDPBlock::Index stage ) const {
 
  if( stage >= get_time_horizon() )
@@ -651,7 +651,7 @@ std::vector<double> SDDPGreedySolver::get_solution
    sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
  }
 
- std::vector<double> solution;
+ std::vector< double > solution;
  solution.reserve( solution_size );
 
  for( Index i = 0 ;
@@ -669,7 +669,7 @@ std::vector<double> SDDPGreedySolver::get_solution
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::set_state( const std::vector<double> & state ,
+void SDDPGreedySolver::set_state( const std::vector< double > & state ,
                                   Index stage ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPGreedySolver::set_state: invalid "

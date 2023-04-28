@@ -155,7 +155,7 @@ protected:
 
   Eigen::ArrayXd oneStepBackward
   ( const StOpt::SDDPCutOptBase & p_linCut,
-    const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & p_aState,
+    const std::tuple< std::shared_ptr< Eigen::ArrayXd >, int, int > & p_aState,
     const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
 
 /*--------------------------------------------------------------------------*/

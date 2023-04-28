@@ -469,7 +469,7 @@ int SDDPSolver::compute( bool changedvars ) {
 
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
-  StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
+  StOpt::backwardForwardSDDP< StOpt::LocalLinearRegressionForSDDP >
   ( sddp_optimizer , number_simulations_for_convergence , initial_state_array ,
     final_cut , dates , mesh_discretization_array , regressors_filename ,
     cuts_filename , visited_states_filename , number_iterations_performed ,
@@ -929,7 +929,7 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
 
 /*--------------------------------------------------------------------------*/
 
-template<class T>
+template< class T >
 T SDDPSolver::get_solution( SDDPBlock::Index stage ,
                             SDDPBlock::Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
