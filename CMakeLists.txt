@@ -67,7 +67,7 @@ configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 if ( MINGW )
 	message("With MINGW - for the time being, SDDPBlock library has to be static, for some reason building the dynamic library causes the static one to be corrupted")
 	set(BUILD_SHARED_LIBS OFF)
-endif()
+endif ()
 
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
