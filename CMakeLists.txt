@@ -15,14 +15,13 @@
 #          keep it in mind when editing it.                                   #
 #                                                                             #
 #                              Niccolo' Iardella                              #
-#                          Operations Research Group                          #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
 cmake_minimum_required(VERSION 3.12)
 cmake_policy(VERSION 3.12)
 project(SDDPBlock
-        VERSION 0.5.1
+        VERSION 0.5.2
         DESCRIPTION "SMS++ SDDPBlock module"
         HOMEPAGE_URL https://gitlab.com/smspp/sddpblock
         LANGUAGES C CXX)
@@ -63,6 +62,12 @@ find_package(MPI)
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
 configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
+
+#The subsequent fix permits the static SDDP library to be correctly built, it is corrupted otherwise for some reason
+if ( MINGW )
+	message("With MINGW - for the time being, SDDPBlock library has to be static, for some reason building the dynamic library causes the static one to be corrupted")
+	set(BUILD_SHARED_LIBS OFF)
+endif ()
 
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
@@ -200,7 +205,7 @@ endif ()
 # Using this with the umbrella project is too messy.
 if (NOT hasParent)
     set(CPACK_PACKAGE_VENDOR "SMS++ Team")
-    set(CPACK_PACKAGE_CONTACT "Niccolò Iardella")
+    set(CPACK_PACKAGE_CONTACT "Niccolo' Iardella")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${PROJECT_DESCRIPTION})
     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/LICENSE")
     set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")

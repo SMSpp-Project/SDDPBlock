@@ -4,16 +4,11 @@
 /** @file
  * Implementation of the ParallelSDDPSolver class.
  *
- * \version 0.10
- *
- * \date 30 - 04 - 2021
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \copyright Copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -319,7 +314,7 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::find_available_sub_block
  // Search for an unlocked sub-Block among the non-reserved sub-Blocks
  Index non_reserved_index = Inf< Index >();
  for( Index i = 0 ; i < non_reserved_block.size() ; ++i )
-  if( non_reserved_block[ i ] && ! is_locked( i ) ) {
+  if( non_reserved_block[ i ] && ( ! is_locked( i ) ) ) {
    if( scenario_currently_set[ stage ][ i ] == Inf< Index >() )
     // Give preference to sub-Blocks without a scenario
     return i;

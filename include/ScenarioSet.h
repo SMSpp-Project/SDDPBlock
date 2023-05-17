@@ -4,16 +4,11 @@
 /** @file
  * Header file of ScenarioSet, a class to represent a set of scenarios.
  *
- * \version 0.1
- *
- * \date 19 - 09 - 2020
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \copyright Copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -555,7 +550,7 @@ private:
 
  void deserialize_scenarios( const netCDF::NcGroup & group ) {
 
-  scenarios.resize( num_scenarios , std::vector<double>( scenario_size ) );
+  scenarios.resize( num_scenarios , std::vector< double >( scenario_size ) );
 
   auto scenarios_var = group.getVar( "Scenarios" );
 

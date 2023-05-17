@@ -1,9 +1,9 @@
 ##############################################################################
 ################################ makefile-c ##################################
 ##############################################################################
-#									     #
+#                                                                            #
 #   complete makefile of SDDPBlock                                           #
-#									     #
+#                                                                            #
 #   The makefile defines internally all external libraries (comprised the    #
 #   SMS++ one) required by SDDPBlock. Accordingly, all necessary OBJ, H,     #
 #   -I directives, external libraries + -L<libdirs> are added to the         #
@@ -18,14 +18,10 @@
 #           $(SDDPBkH)   = the .h files to include for SDDPBlock             #
 #           $(SDDPBkINC) = the -I$( SDDPBlock directory )                    #
 #                                                                            #
-#                                VERSION 1.00                                #
-#                               11 - 07 - 2021                               #
-#                                                                            #
 #                              Antonio Frangioni                             #
-#                          Operations Research Group                         #
 #                         Dipartimento di Informatica                        #
 #                             Universita' di Pisa                            #
-#									     #
+#                                                                            #
 ##############################################################################
 
 # define & include the necessary modules- - - - - - - - - - - - - - - - - - -

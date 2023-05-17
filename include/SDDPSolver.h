@@ -9,16 +9,11 @@
  *
  * https://gitlab.com/stochastic-control/StOpt
  *
- * \version 0.1
- *
- * \date 29 - 12 - 2021
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \copyright Copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -32,7 +27,6 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include <boost/bimap.hpp>
 #include <Eigen/Dense>
 #include "BlockSolverConfig.h"
 #include "ScenarioSimulator.h"
@@ -40,6 +34,10 @@
 #include "Solver.h"
 #include "StOpt/sddp/OptimizerSDDPBase.h"
 #include "StOpt/sddp/SDDPFinalCut.h"
+
+#ifdef USE_MPI
+#include <boost/mpi/communicator.hpp>
+#endif
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -510,13 +508,15 @@ public:
  /// constructor
  SDDPSolver( void ) {
 
+  v_events.resize( max_event_number() );
+
   // Set the parameters to their default values
 
   set_default_parameters();
 
   // SDDPOptimizer
 
-  sddp_optimizer = std::make_shared<SDDPOptimizer>( this );
+  sddp_optimizer = std::make_shared< SDDPOptimizer >( this );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -903,7 +903,7 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values =
+  static const std::vector< std::string > default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
      "", "" , "" , "" , "" , "" , "" };
 
@@ -1190,7 +1190,7 @@ public:
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
      "intFirstStageScenarioId" };
@@ -1231,7 +1231,7 @@ public:
 
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
      "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
@@ -1254,7 +1254,7 @@ public:
   */
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "vintMeshDiscretization" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
    return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
@@ -1273,11 +1273,66 @@ public:
   */
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "vdblLastStageCuts" , "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
    return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
   return Solver::vdbl_par_idx2str( idx );
+ }
+
+/**@} ----------------------------------------------------------------------*/
+/*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Set event handlers
+ *
+ *  SDDPSolver manages the following events:
+ *
+ * - eEverykIteration, called just after a new forward pass begins.
+ *
+ * Events have to be set with set_event_handler() for them to be called.
+ * @{ */
+
+ /// register a new event handler, returning its id
+ /** The new event handler is added at the back of v_events[ type ]. As the &&
+  * tells, the event handler becomes property of the SDDPSolver, which is
+  * completely OK if, as one expects, it is defined via a lambda function. The
+  * method returns a unique id for the handler, which can (and must) be later
+  * used to remove the handler before it becomes invalid. Note that the
+  * handler is type-specific, i.e., two event handlers of different types can
+  * have the same id; in other words, the "real" id is the pair ( type , id
+  * ). An exception is thrown if the SDDPSolver is not capable of handling
+  * this type or event for whatever reason, among which that it has exhausted
+  * the available maximum number of event handlers slots for the given
+  * type. */
+
+ EventID set_event_handler( int type , EventHandler && event ) override {
+  if( type != eEverykIteration )
+   throw( std::invalid_argument( "SDDPSolver:set_event_handler: unsupported "
+                                 "event type " + std::to_string( type ) ) );
+
+  if( v_events[ type ].size() > std::numeric_limits< EventID >::max() )
+   throw( std::invalid_argument( "SDDPSolver:set_event_handler: too many event "
+                                 "handlers for type" + std::to_string( type ) ) );
+
+  EventID id = v_events[ type ].size();
+  v_events[ type ].push_back( std::move( event ) );
+
+  return id ;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// unregister an existing event handler
+ /** Removes the event handler with the given id from the list of those
+  * registered for the given type. If there is no event handler with the given
+  * id for the given type, exception will be thrown. */
+ void reset_event_handler( int type , EventID id ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the maximum number of event types supported by the SDDPSolver
+ [[nodiscard]] virtual EventID max_event_number() const override {
+  return e_last_event_type;
  }
 
 /**@} ----------------------------------------------------------------------*/
@@ -1480,9 +1535,10 @@ protected:
 
  /// returns true if a valid mesh discretization has been provided
  bool mesh_provided() const {
-  return ( ! mesh_discretization.empty() ) &&
-   std::all_of( mesh_discretization.begin() , mesh_discretization.end() ,
-                []( auto i ){ return i > 0; } );
+  return( ( ! mesh_discretization.empty() ) &&
+          std::all_of( mesh_discretization.begin() ,
+                       mesh_discretization.end() ,
+                       []( auto i ) { return( i > 0 ); } ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1530,7 +1586,7 @@ protected:
 
   Eigen::ArrayXd oneStepBackward
   ( const StOpt::SDDPCutOptBase & p_linCut,
-    const std::tuple< std::shared_ptr<Eigen::ArrayXd>, int, int > & p_aState,
+    const std::tuple< std::shared_ptr< Eigen::ArrayXd >, int, int > & p_aState,
     const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
 
 /*--------------------------------------------------------------------------*/
@@ -1968,6 +2024,9 @@ protected:
  /// The frequency in which the future cost functions are output
  int output_frequency;
 
+ /// Periodicity of eEverykIteration events
+ int f_handle_events_every_k_iter;
+
  /** Relative accuracy for declaring a solution optimal. See the
   * comments about the dblAccuracy parameter for more details. */
  double accuracy;
@@ -2076,6 +2135,7 @@ private:
   f_random_cuts_filename = get_dflt_str_par( strRandomCutsFile );
   f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
   f_sub_solver_filename_prefix = get_dflt_str_par( strSubSolverLogFilePrefix );
+  f_handle_events_every_k_iter = Solver::get_dflt_int_par( intEverykIt );
 
   // vector of int
 
@@ -2198,7 +2258,7 @@ public:
   *   PolyhedralFunction over all the space. This variable is optional: if it
   *   is not provided, it means that no finite lower (upper) bound exist,
   *   i.e., the lower (upper) bound is -(+)
-  *   Inf<PolyhedralFunction::FunctionValue>(). */
+  *   Inf< PolyhedralFunction::FunctionValue >(). */
 
  void serialize( netCDF::NcGroup & group ) const override;
 

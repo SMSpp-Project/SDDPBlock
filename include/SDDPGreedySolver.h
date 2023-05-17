@@ -12,7 +12,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \copyright Copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -638,7 +638,7 @@ public:
      random_number_engine.seed( f_seed );
     }
     else
-     f_seed = Inf<Index>();
+     f_seed = Inf< Index >();
    }
    case( intScenarioSampleFrequency ):
     f_scenario_sample_frequency = value;
@@ -917,7 +917,7 @@ public:
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
 
-  static const std::vector<std::string> default_values =
+  static const std::vector< std::string > default_values =
    { "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
@@ -998,7 +998,7 @@ public:
    case( intFirstStageScenarioId ): return f_first_stage_scenario_id;
    case( intUnregisterSolver ): return f_unregister_solver;
    case( intLogVerb ): return log_verbosity;
-   case( intScenarioSeed ): return ( f_seed == Inf<Index>() ) ? -1 : f_seed;
+   case( intScenarioSeed ): return( f_seed == Inf< Index >() ) ? -1 : f_seed;
    case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
    case( intSimulationDataOutputPrecision ):
     return f_simulation_data_output_precision;
@@ -1170,7 +1170,7 @@ public:
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
      "intSimulationDataOutputPrecision" , "intOutputScenario" ,
@@ -1196,7 +1196,7 @@ public:
 
  const std::string & str_par_idx2str( const idx_type idx ) const override {
 
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "strInnerBC" , "strInnerBSC" , "strLoadCuts" , "strRandomCutsFile" ,
      "strSimulationData" };
 
@@ -1219,7 +1219,7 @@ public:
   */
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "vintStagesSample" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
    return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
@@ -1239,7 +1239,7 @@ public:
   */
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
-  static const std::vector<std::string> parameter_names =
+  static const std::vector< std::string > parameter_names =
    { "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
    return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
@@ -1421,7 +1421,7 @@ public:
  OFValue get_lb( void ) override {
   if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
    return solution_value;
-  return( - Inf<OFValue>() );
+  return( - Inf< OFValue >() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1429,14 +1429,14 @@ public:
  OFValue get_ub( void ) override {
   if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
    return solution_value;
-  return( Inf<OFValue>() );
+  return( Inf< OFValue >() );
  }
 
 /*--------------------------------------------------------------------------*/
 
  /** If a call to compute() returns kError, kStopTime, or kStopIter, this
   * method returns the stage at which the associated event has
-  * occurred. Otherwise, this method returns Inf<Index>().
+  * occurred. Otherwise, this method returns Inf< Index >().
   *
   * @return the stage at which a fault has occurred.
   */
@@ -1457,7 +1457,11 @@ public:
   * @return The time horizon of the problem represented by the SDDPBlock
   *         attached to this SDDPGreedySolver.
   */
- Index get_time_horizon( void ) const;
+ Index get_time_horizon( void ) const {
+  if( f_Block )
+   return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+  return 0;
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1542,7 +1546,7 @@ protected:
  int f_output_scenario = -1;
 
  /// The stage at which some special event has happened
- Index fault_stage = Inf<Index>();
+ Index fault_stage = Inf< Index >();
 
  /// It indicates whether the inner Blocks should be configured in advance
  int f_early_config = 0;
@@ -1668,10 +1672,11 @@ private:
 
    if( solver ) {
     this->stage_width =
-     std::max( 6ul , std::to_string( solver->get_time_horizon() ).size() );
+     std::max( std::string::size_type( 6 ) ,
+               std::to_string( solver->get_time_horizon() ).size() );
     const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
     this->scenario_width =
-     std::max( 9ul ,
+     std::max( std::string::size_type( 9 ) ,
                std::to_string( sddp_block->get_scenario_set().size() ).size() );
    }
   }
@@ -1739,7 +1744,21 @@ private:
   *
   * @return A pointer to the BendersBFunction associated with the given stage.
   */
- BendersBFunction * get_benders_function( Index stage ) const;
+ BendersBFunction * get_benders_function( Index stage ) const {
+  if( stage >= get_time_horizon() )
+   throw( std::invalid_argument( "SDDPGreedySolver::get_benders_function: "
+                                 "invalid stage index: " +
+                                 std::to_string( stage ) ) );
+
+  auto benders_block = static_cast< BendersBlock * >
+   ( static_cast< SDDPBlock * >( f_Block )->
+     get_sub_Block( stage )->get_inner_block() );
+
+  auto objective = static_cast< FRealObjective * >
+   ( benders_block->get_objective() );
+
+  return static_cast< BendersBFunction * >( objective->get_function() );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1752,7 +1771,7 @@ private:
   * @return The vector containing the solution of the problem at the given
   *         stage.
   */
- std::vector<double> get_solution( Index stage ) const;
+ std::vector< double > get_solution( Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1764,7 +1783,7 @@ private:
   *
   * @param stage The stage whose state must be set.
   */
- void set_state( const std::vector<double> & state , Index stage ) const;
+ void set_state( const std::vector< double > & state , Index stage ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1984,7 +2003,7 @@ private:
  std::mt19937 random_number_engine;
 
  /// Seed for the random number engine that selects the scenarios
- Index f_seed = Inf<Index>();
+ Index f_seed = Inf< Index >();
 
  /// Point in time at which the most recent call to compute() has started
  std::chrono::time_point< std::chrono::system_clock > f_compute_start_time;

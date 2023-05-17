@@ -4,16 +4,11 @@
 /** @file
  * Implementation of the SDDPSolver class.
  *
- * \version 0.10
- *
- * \date 25 - 01 - 2022
- *
  * \author Rafael Durbano Lobato \n
- *         Operations Research Group \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \copyright Copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -325,7 +320,8 @@ int SDDPSolver::compute( bool changedvars ) {
   /* If an initial state for the first stage is provided, then the initial
    * state for the first stage is updated to the given one. */
 
-  if( initial_state.size() != number_state_variables ) {
+  if( initial_state.size() !=
+      decltype( initial_state )::size_type( number_state_variables ) ) {
    throw( std::logic_error
           ( "SDDPSolver::compute: the size of the given initial state (" +
             std::to_string( initial_state.size() ) + ") is different from the "
@@ -473,7 +469,7 @@ int SDDPSolver::compute( bool changedvars ) {
 
  // Invoke the StOpt SDDP solver
  auto backward_forward_values =
-  StOpt::backwardForwardSDDP<StOpt::LocalLinearRegressionForSDDP>
+  StOpt::backwardForwardSDDP< StOpt::LocalLinearRegressionForSDDP >
   ( sddp_optimizer , number_simulations_for_convergence , initial_state_array ,
     final_cut , dates , mesh_discretization_array , regressors_filename ,
     cuts_filename , visited_states_filename , number_iterations_performed ,
@@ -545,7 +541,7 @@ int SDDPSolver::compute( bool changedvars ) {
 
 double SDDPSolver::get_lb( void ) {
  if( ! f_Block )
-  return - Inf< double >();
+  return -Inf< double >();
 
  const auto minimization =
   ( f_Block->get_objective_sense() == Objective::eMin );
@@ -559,10 +555,10 @@ double SDDPSolver::get_lb( void ) {
  if( status == kInfeasible ) {
   if( minimization )
    return Inf< double >();
-  return - Inf< double >();
+  return -Inf< double >();
  }
 
- return - Inf< double >();
+ return -Inf< double >();
 }
 
 /*--------------------------------------------------------------------------*/
@@ -583,7 +579,7 @@ double SDDPSolver::get_ub( void ) {
  if( status == kInfeasible ) {
   if( minimization )
    return Inf< double >();
-  return - Inf< double >();
+  return -Inf< double >();
  }
 
  return Inf< double >();
@@ -595,6 +591,40 @@ void SDDPSolver::process_outstanding_Modification() {
  v_mod.clear();
 }
 
+/*--------------------------------------------------------------------------*/
+/*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::reset_event_handler( int type , EventID id ) {
+ if( type != eEverykIteration )
+  throw( std::invalid_argument( "SDDPSolver::reset_event_handler: unsupported"
+                                " event type " + std::to_string( type ) ) );
+
+ if( id >= v_events[ type ].size() )
+  throw( std::invalid_argument( "SDDPSolver::reset_event_handler: incorrect "
+                                "event id " + std::to_string( id ) +
+                                " for type " + std::to_string( type ) ) );
+
+ static auto do_nothing = []() -> int {
+  return( ThinComputeInterface::eContinue ); };
+
+ if( id == v_events[ type ].size() - 1 ) {
+  // if the event is the last of its type, shorten the vector; moreover, if
+  // any of the previous events is a do_nothing, keep shortening
+  do
+   v_events[ type ].pop_back();
+  while( ( ! v_events[ type ].empty() ) &&
+         ( *( v_events[ type ].back().target < int( * )() > ( ) ) ==
+           do_nothing ) );
+ }
+ else
+  // the event is not the last of its type: replace it with a do_nothing to
+  // avoid messing up with the id-s, which are positions in the vector
+  v_events[ type ][ id ] = do_nothing;
+}
+
+/*--------------------------------------------------------------------------*/
+/*------------ METHODS FOR HANDLING THE State OF THE SDDPSolver ------------*/
 /*--------------------------------------------------------------------------*/
 
 State * SDDPSolver::get_State( void ) const {
@@ -899,7 +929,7 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
 
 /*--------------------------------------------------------------------------*/
 
-template<class T>
+template< class T >
 T SDDPSolver::get_solution( SDDPBlock::Index stage ,
                             SDDPBlock::Index sub_block_index ) const {
  if( stage >= get_time_horizon() )
@@ -1280,6 +1310,12 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
       ( current_iteration % sddp_solver->output_frequency == 0 ) ) {
    sddp_solver->file_output();
   }
+
+  if( sddp_solver->f_handle_events_every_k_iter &&
+      ( current_iteration % sddp_solver->f_handle_events_every_k_iter == 0 ) )
+   for( auto & event : sddp_solver->v_events[ eEverykIteration ] )
+    event();
+
   current_iteration++;
  }
 
@@ -1682,9 +1718,9 @@ void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
   auto nclb = group.getVar( "PolyFunction_lb_" + std::to_string( t ) );
   if( nclb.isNull() ) {
    if( v_is_convex[ t ] )
-    v_bound[ t ] = - Inf<PolyhedralFunction::FunctionValue>();
+    v_bound[ t ] = -Inf< PolyhedralFunction::FunctionValue >();
    else
-    v_bound[ t ] = Inf<PolyhedralFunction::FunctionValue>();
+    v_bound[ t ] = Inf< PolyhedralFunction::FunctionValue >();
   }
   else
    nclb.getVar( & v_bound[ t ] );

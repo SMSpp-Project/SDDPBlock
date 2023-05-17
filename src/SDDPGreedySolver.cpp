@@ -8,7 +8,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \copyright Copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -265,7 +265,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  const auto time_horizon = get_time_horizon();
  status_compute = Solver::kOK;
- fault_stage = Inf<Index>();
+ fault_stage = Inf< Index >();
  solution_value = 0.0;
  f_has_var_solution = false;
  f_has_dual_solution = true;
@@ -307,7 +307,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   reset_subproblem_time();
 
   // If required, sample a scenario for this stage.
-  if( f_seed < Inf<Index>() )
+  if( f_seed < Inf< Index >() )
    sample_scenario( stage );
 
   logger.log( stage , get_scenario_id( stage ) );
@@ -363,7 +363,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
   else if( sub_status == Solver::kStopTime || sub_status == Solver::kStopIter ) {
    const auto sub_solution_value = get_sub_solution_value( stage );
    solution_value += sub_solution_value;
-   if( fault_stage == Inf<Index>() ) {
+   if( fault_stage == Inf< Index >() ) {
     fault_stage = stage;
     status_compute = sub_status;
    }
@@ -411,12 +411,6 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING THE DATA ----------------------*/
 /*--------------------------------------------------------------------------*/
-
-SDDPGreedySolver::Index SDDPGreedySolver::get_time_horizon() const {
- if( f_Block )
-  return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
- return 0;
-}
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
@@ -641,26 +635,7 @@ Solver * SDDPGreedySolver::get_sub_solver( Index stage ) const {
 
 /*--------------------------------------------------------------------------*/
 
-BendersBFunction * SDDPGreedySolver::get_benders_function( Index stage ) const {
-
- if( stage >= get_time_horizon() )
-  throw( std::invalid_argument( "SDDPGreedySolver::get_benders_function: "
-                                "invalid stage index: " +
-                                std::to_string( stage ) ) );
-
- auto benders_block = static_cast< BendersBlock * >
-  ( static_cast< SDDPBlock * >( f_Block )->
-    get_sub_Block( stage )->get_inner_block() );
-
- auto objective = static_cast< FRealObjective * >
-  ( benders_block->get_objective() );
-
- return static_cast< BendersBFunction * >( objective->get_function() );
-}
-
-/*--------------------------------------------------------------------------*/
-
-std::vector<double> SDDPGreedySolver::get_solution
+std::vector< double > SDDPGreedySolver::get_solution
 ( SDDPBlock::Index stage ) const {
 
  if( stage >= get_time_horizon() )
@@ -676,7 +651,7 @@ std::vector<double> SDDPGreedySolver::get_solution
    sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
  }
 
- std::vector<double> solution;
+ std::vector< double > solution;
  solution.reserve( solution_size );
 
  for( Index i = 0 ;
@@ -694,7 +669,7 @@ std::vector<double> SDDPGreedySolver::get_solution
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::set_state( const std::vector<double> & state ,
+void SDDPGreedySolver::set_state( const std::vector< double > & state ,
                                   Index stage ) const {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPGreedySolver::set_state: invalid "
@@ -1108,7 +1083,7 @@ Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
    return f_first_stage_scenario_id;
   return f_scenario_id;
  }
- else if( f_seed < Inf<Index>() ) { // Random scenarios are being considered
+ else if( f_seed < Inf< Index >() ) { // Random scenarios are being considered
   assert( stage < v_random_scenario_id.size() );
   return v_random_scenario_id[ stage ];
  }
@@ -1118,7 +1093,7 @@ Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
 /*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::should_sample( Index stage ) const {
- if( f_seed == Inf<Index>() )
+ if( f_seed == Inf< Index >() )
   return false;
 
  if( ( f_scenario_sample_frequency > 0 ) &&
