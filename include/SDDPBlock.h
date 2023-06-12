@@ -84,7 +84,6 @@ namespace SMSpp_di_unipi_it
  * \equiv 0 \f$ and
  *
  * \f[
- *
  *    V_{t}(x_{t-1}, \xi_{t}) =
  *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
  *    \mathcal{V}_{t+1}(x_t)
