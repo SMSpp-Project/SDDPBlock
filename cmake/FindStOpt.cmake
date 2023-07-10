@@ -56,26 +56,36 @@ if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
     set(StOpt_FOUND TRUE)
 else ()
 
+    if (MSVC AND (CMAKE_GENERATOR MATCHES "^Visual.*Win64$"))
+        set (BUILD build/x64/)
+    else (MSVC AND (CMAKE_GENERATOR MATCHES "^Visual.*Win64$"))
+        set (BUILD build/)
+    endif (MSVC AND (CMAKE_GENERATOR MATCHES "^Visual.*Win64$"))
+
     # ----- Find the geners library ----------------------------------------- #
     # Note that find_path() creates a cache entry
-    find_path(StOpt_geners_INCLUDE_DIR
-              NAMES geners/uriUtils.hh
+    find_path(StOpt_geners_INCLUDE_DIR uriUtils.hh
+              PATHS ${StOpt_ROOT}/geners-1.11.0/geners
+                    /usr/local/include/geners
               DOC "geners include directory.")
 
     # Note that find_library() creates a cache entry
-    find_library(StOpt_geners_LIBRARY
-                 NAMES geners
+    find_library(StOpt_geners_LIBRARY geners
+                 PATHS ${StOpt_ROOT}/${BUILD}/lib
+                       /usr/local/lib
                  DOC "geners library.")
 
     # ----- Find the StOpt library ------------------------------------------ #
     # Note that find_path() creates a cache entry
-    find_path(StOpt_INCLUDE_DIR
-              NAMES StOpt/sddp/OptimizerSDDPBase.h
+    find_path(StOpt_INCLUDE_DIR OptimizerSDDPBase.h
+              PATHS ${StOpt_ROOT}/sddp
+                    /usr/local/include/StOpt/sddp
               DOC "StOpt include directory.")
 
     # Note that find_library() creates a cache entry
-    find_library(StOpt_LIBRARY
-                 NAMES StOpt
+    find_library(StOpt_LIBRARY StOpt
+                 PATHS ${StOpt_ROOT}/${BUILD}/lib
+                       /usr/local/lib
                  DOC "StOpt library.")
 
     # ----- Handle the standard arguments ----------------------------------- #
