@@ -72,20 +72,18 @@ else ()
     # Note that find_library() creates a cache entry
     find_library(StOpt_geners_LIBRARY geners
                  PATHS ${StOpt_ROOT}/${BUILD}/lib
-                       /usr/local/lib
                  DOC "geners library.")
 
     # ----- Find the StOpt library ------------------------------------------ #
     # Note that find_path() creates a cache entry
     find_path(StOpt_INCLUDE_DIR OptimizerSDDPBase.h
-              PATHS ${StOpt_ROOT}/sddp
+              PATHS ${StOpt_ROOT}/StOpt/sddp
                     /usr/local/include/StOpt/sddp
               DOC "StOpt include directory.")
 
     # Note that find_library() creates a cache entry
     find_library(StOpt_LIBRARY StOpt
                  PATHS ${StOpt_ROOT}/${BUILD}/lib
-                       /usr/local/lib
                  DOC "StOpt library.")
 
     # ----- Handle the standard arguments ----------------------------------- #
