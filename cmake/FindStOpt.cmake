@@ -56,12 +56,6 @@ if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
     set(StOpt_FOUND TRUE)
 else ()
 
-    if (MSVC AND (CMAKE_GENERATOR MATCHES "^Visual.*Win64$"))
-        set (BUILD build/x64/)
-    else (MSVC AND (CMAKE_GENERATOR MATCHES "^Visual.*Win64$"))
-        set (BUILD build/)
-    endif (MSVC AND (CMAKE_GENERATOR MATCHES "^Visual.*Win64$"))
-
     # ----- Find the geners library ----------------------------------------- #
     # Note that find_path() creates a cache entry
     find_path(StOpt_geners_INCLUDE_DIR uriUtils.hh
@@ -71,7 +65,7 @@ else ()
 
     # Note that find_library() creates a cache entry
     find_library(StOpt_geners_LIBRARY geners
-                 PATHS ${StOpt_ROOT}/${BUILD}/lib
+                 PATHS ${StOpt_ROOT}/build/lib
                  DOC "geners library.")
 
     # ----- Find the StOpt library ------------------------------------------ #
@@ -83,7 +77,7 @@ else ()
 
     # Note that find_library() creates a cache entry
     find_library(StOpt_LIBRARY StOpt
-                 PATHS ${StOpt_ROOT}/${BUILD}/lib
+                 PATHS ${StOpt_ROOT}/build/lib
                  DOC "StOpt library.")
 
     # ----- Handle the standard arguments ----------------------------------- #
