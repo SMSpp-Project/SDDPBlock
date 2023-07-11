@@ -78,7 +78,8 @@ else ()
               DOC "StOpt include directory.")
 
     # Note that find_library() creates a cache entry
-    find_library(StOpt_LIBRARY StOpt
+    find_library(StOpt_LIBRARY
+                 NAMES StOpt stopt
                  PATHS ${StOpt_ROOT}/build/lib
                  DOC "StOpt library.")
 
