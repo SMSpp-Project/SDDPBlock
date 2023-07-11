@@ -60,6 +60,7 @@ else ()
     # Note that find_path() creates a cache entry
     find_path(StOpt_geners_INCLUDE_DIR uriUtils.hh
               PATHS ${StOpt_ROOT}/geners-1.11.0/geners
+                    /usr/include/geners
                     /usr/local/include/geners
               DOC "geners include directory.")
 
@@ -72,6 +73,7 @@ else ()
     # Note that find_path() creates a cache entry
     find_path(StOpt_INCLUDE_DIR OptimizerSDDPBase.h
               PATHS ${StOpt_ROOT}/StOpt/sddp
+                    /usr/include/StOpt/sddp
                     /usr/local/include/StOpt/sddp
               DOC "StOpt include directory.")
 
