@@ -41,7 +41,8 @@ else ()
 
     # ----- Find the headers ------------------------------------------------ #
     # Note that find_path() also creates a cache entry
-    find_path(Eigen3_INCLUDE_DIR Eigen/Dense
+    find_path(Eigen3_INCLUDE_DIR
+              NAMES Eigen/Dense
               PATH_SUFFIXES eigen3
               DOC "Eigen3 include directory.")
 
