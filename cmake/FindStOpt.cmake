@@ -58,23 +58,24 @@ else ()
 
     # ----- Find the geners library ----------------------------------------- #
     # Note that find_path() creates a cache entry
-    find_path(StOpt_geners_INCLUDE_DIR uriUtils.hh
-              PATHS ${StOpt_ROOT}/geners-1.11.0/geners
-                    /usr/include/geners
-                    /usr/local/include/geners
+    find_path(StOpt_geners_INCLUDE_DIR
+              NAMES uriUtils.hh
+              HINTS ${StOpt_ROOT}
+              PATH_SUFFIXES geners-1.11.0/geners geners
               DOC "geners include directory.")
 
     # Note that find_library() creates a cache entry
-    find_library(StOpt_geners_LIBRARY geners
+    find_library(StOpt_geners_LIBRARY
+                 NAMES geners
                  PATHS ${StOpt_ROOT}/build/lib
                  DOC "geners library.")
 
     # ----- Find the StOpt library ------------------------------------------ #
     # Note that find_path() creates a cache entry
-    find_path(StOpt_INCLUDE_DIR OptimizerSDDPBase.h
-              PATHS ${StOpt_ROOT}/StOpt/sddp
-                    /usr/include/StOpt/sddp
-                    /usr/local/include/StOpt/sddp
+    find_path(StOpt_INCLUDE_DIR
+              NAMES OptimizerSDDPBase.h
+              HINTS ${StOpt_ROOT}
+              PATH_SUFFIXES StOpt/sddp
               DOC "StOpt include directory.")
 
     # Note that find_library() creates a cache entry
