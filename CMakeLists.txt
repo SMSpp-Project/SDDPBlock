@@ -64,7 +64,7 @@ find_package(MPI)
 configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
 
 # The subsequent fix permits the static SDDP library to be correctly built, it is corrupted otherwise for some reason
-if ( MINGW )
+if (MINGW)
 	message("With MINGW - for the time being, SDDPBlock library has to be static, for some reason building the dynamic library causes the static one to be corrupted")
 	set(BUILD_SHARED_LIBS OFF)
 endif ()
