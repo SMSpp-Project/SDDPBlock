@@ -35,6 +35,10 @@
 #                              Niccolo' Iardella                              #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
+#                                                                             #
+#                                 Donato Meoli                                #
+#                         Dipartimento di Informatica                         #
+#                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
 include(FindPackageHandleStandardArgs)
 
