@@ -73,9 +73,9 @@ else ()
     # ----- Find the StOpt library ------------------------------------------ #
     # Note that find_path() creates a cache entry
     find_path(StOpt_INCLUDE_DIR
-              NAMES OptimizerSDDPBase.h
+              NAMES StOpt/sddp
               HINTS ${StOpt_ROOT}
-              PATH_SUFFIXES StOpt/sddp
+              PATH_SUFFIXES StOpt
               DOC "StOpt include directory.")
 
     # Note that find_library() creates a cache entry
