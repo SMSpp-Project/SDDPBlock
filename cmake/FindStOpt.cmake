@@ -61,7 +61,7 @@ else ()
     find_path(StOpt_geners_INCLUDE_DIR
               NAMES geners
               HINTS ${StOpt_ROOT}
-              PATH_SUFFIXES StOpt/geners-1.11.0
+              PATH_SUFFIXES geners-1.11.0
               DOC "geners include directory.")
 
     # Note that find_library() creates a cache entry
