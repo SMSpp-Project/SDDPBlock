@@ -8,7 +8,7 @@
 #   SDDPBlock, exluding the SMS++ core ones whose symbols are assumed to     #
 #   have been defined already (typically by including SMS++/lib/makefile).   #
 #   Accordingly, all necessary OBJ, H, -I directives, external libraries     #
-#   + -L<libdirs> are added to the corresponding SDDPBk* macros.             #
+#   + -L< libdirs > are added to the corresponding SDDPBk* macros.           #
 #                                                                            #
 #   Input:  $(CC)        = compiler command                                  #
 #           $(SW)        = compiler options                                  #
@@ -17,7 +17,7 @@
 #           $(SDDPBkSDR) = the directory where SDDPBlock source is           #
 #                                                                            #
 #   Output: $(SDDPBkOBJ) = the final object(s) / library                     #
-#           $(SDDPBkLIB) = external libraries + -L<libdirs>                  #
+#           $(SDDPBkLIB) = external libraries + -L< libdirs >                #
 #           $(SDDPBkH)   = the .h files to include for SDDPBlock             #
 #           $(SDDPBkINC) = the -I$( SDDPBlock directory )                    #
 #                                                                            #
@@ -33,15 +33,14 @@
 # each module outputs some macros to be used here:
 # *OBJ is the final object/library
 # *H   is the list of all include files
-# *INC is the -I<include directories>
+# *INC is the -I< include directories >
 
 # define input macros for StochasticBlock makefile, then include it
-StcBlkSDR = $(SDDPBkSDR)../StochasticBlock/
-include $(StcBlkSDR)makefile
+StcBlkSDR = $(SDDPBkSDR)/../StochasticBlock
+include $(StcBlkSDR)/makefile
 
-# define input macros for libStOpt complete makefile, then include it
-libStOptDIR = $(SDDPBkSDR)../extlib/
-include $(libStOptDIR)makefile-libStOpt
+# include makefile for libStOpt
+include $(SDDPBkSDR)/../extlib/makefile-libStOpt
 
 # include the makefile requiring all external modules in input
 include $(SDDPBkSDR)/makefile
