@@ -54,7 +54,7 @@ SDDPBkOBJ := $(SDDPBkOBJ) $(StcBlkOBJ) $(SMS++OBJ)
 SDDPBkH := $(SDDPBkH) $(StcBlkH) $(SMS++H)
 SDDPBkINC := $(SMS++INC) $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
-# external libreries for SDDPBlock
+# external libraries for SDDPBlock
 SDDPBkLIB = $(SMS++LIB) $(libStOptLIB)
 
 ########################### End of makefile-c ################################

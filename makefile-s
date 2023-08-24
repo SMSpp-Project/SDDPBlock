@@ -5,7 +5,7 @@
 #   makefile of SDDPBlock and its dependencies, excluding SMS++              #
 #                                                                            #
 #   The makefile defines internally all external libraries required by       #
-#   SDDPBlock, exluding the SMS++ core ones whose symbols are assumed to     #
+#   SDDPBlock, excluding the SMS++ core ones whose symbols are assumed to    #
 #   have been defined already (typically by including SMS++/lib/makefile).   #
 #   Accordingly, all necessary OBJ, H, -I directives, external libraries     #
 #   + -L< libdirs > are added to the corresponding SDDPBk* macros.           #
@@ -53,7 +53,7 @@ SDDPBkOBJ := $(SDDPBkOBJ) $(StcBlkOBJ)
 SDDPBkH := $(SDDPBkH) $(StcBlkH)
 SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
-# external libreries for SDDPBlock
+# external libraries for SDDPBlock
 SDDPBkLIB = $(libStOptLIB)
 
 ########################### End of makefile-s ################################
