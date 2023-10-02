@@ -29,6 +29,7 @@
 #    happens to be the case for some of our main developers and testers.      #
 #                                                                             #
 #                              Niccolo' Iardella                              #
+#                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
