@@ -104,8 +104,19 @@ else ()
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
-    # Get version from StOpt (there is no way to parse it from the headers)
+    if (StOpt_INCLUDE_DIR)
+        file(STRINGS
+                "${StOpt_INCLUDE_DIR}/StOpt/core/utils/version.h"
+                _stopt_version_lines REGEX "#define STOPT_(MAJOR|MINOR)_VERSION")
 
+        string(REGEX REPLACE ".*STOPT_MAJOR_VERSION *\([0-9]*\).*" "\\1" _stopt_version_major "${_stopt_version_lines}")
+        string(REGEX REPLACE ".*STOPT_MINOR_VERSION *\([0-9]*\).*" "\\1" _stopt_version_minor "${_stopt_version_lines}")
+
+        set(StOpt_VERSION "${_stopt_version_major}.${_stopt_version_minor}")
+        unset(_stopt_version_lines)
+        unset(_stopt_version_major)
+        unset(_stopt_version_minor)
+    endif ()
 
     # ----- Handle the standard arguments ----------------------------------- #
     # The following macro manages the QUIET, REQUIRED and version-related
@@ -117,7 +128,8 @@ else ()
             StOpt REQUIRED_VARS
             StOpt_geners_LIBRARY        StOpt_LIBRARY
             StOpt_geners_LIBRARY_DEBUG  StOpt_LIBRARY_DEBUG
-            StOpt_geners_INCLUDE_DIR    StOpt_INCLUDE_DIR)
+            StOpt_geners_INCLUDE_DIR    StOpt_INCLUDE_DIR
+            VERSION_VAR StOpt_VERSION)
 endif ()
 
 # ----- Export the targets -------------------------------------------------- #
@@ -152,6 +164,7 @@ endif ()
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
 mark_as_advanced(StOpt_geners_INCLUDE_DIR    StOpt_INCLUDE_DIR
                  StOpt_geners_LIBRARY        StOpt_LIBRARY
-                 StOpt_geners_LIBRARY_DEBUG  StOpt_LIBRARY_DEBUG)
+                 StOpt_geners_LIBRARY_DEBUG  StOpt_LIBRARY_DEBUG
+                 StOpt_VERSION)
 
 # --------------------------------------------------------------------------- #
