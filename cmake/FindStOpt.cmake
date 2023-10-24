@@ -65,10 +65,9 @@ else ()
               PATH_SUFFIXES geners-1.11.0
               DOC "geners include directory.")
 
-    # Note that find_library() creates a cache entry
     find_library(StOpt_geners_LIBRARY
                  NAMES geners
-                 PATHS ${StOpt_ROOT}/build/lib
+                 HINTS ${StOpt_ROOT}/build/lib
                  DOC "geners library.")
 
     if (UNIX)
@@ -88,10 +87,9 @@ else ()
               PATH_SUFFIXES StOpt
               DOC "StOpt include directory.")
 
-    # Note that find_library() creates a cache entry
     find_library(StOpt_LIBRARY
                  NAMES StOpt stopt
-                 PATHS ${StOpt_ROOT}/build/lib
+                 HINTS ${StOpt_ROOT}/build/lib
                  DOC "StOpt library.")
 
     if (UNIX)
