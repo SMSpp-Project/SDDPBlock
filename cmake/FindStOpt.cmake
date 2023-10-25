@@ -107,7 +107,8 @@ else ()
                 "${StOpt_INCLUDE_DIR}/StOpt/core/utils/version.h"
                 _stopt_version_lines REGEX "#define STOPT_VERSION")
 
-        string(REGEX REPLACE ".*STOPT_VERSION *\"([0-9].[0-9]*\).*" "\\1" _stopt_version "${_stopt_version_lines}")
+        string(REGEX REPLACE ".*STOPT_VERSION *\"([0-9].[0-9]*\).*" "\\1"
+                _stopt_version "${_stopt_version_lines}")
 
         set(StOpt_VERSION "${_stopt_version}")
         unset(_stopt_version_lines)
