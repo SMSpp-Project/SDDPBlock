@@ -105,15 +105,13 @@ else ()
     if (StOpt_INCLUDE_DIR)
         file(STRINGS
                 "${StOpt_INCLUDE_DIR}/StOpt/core/utils/version.h"
-                _stopt_version_lines REGEX "#define STOPT_(MAJOR|MINOR)_VERSION")
+                _stopt_version_lines REGEX "#define STOPT_VERSION")
 
-        string(REGEX REPLACE ".*STOPT_MAJOR_VERSION *\([0-9]*\).*" "\\1" _stopt_version_major "${_stopt_version_lines}")
-        string(REGEX REPLACE ".*STOPT_MINOR_VERSION *\([0-9]*\).*" "\\1" _stopt_version_minor "${_stopt_version_lines}")
+        string(REGEX REPLACE ".*STOPT_VERSION *\"([0-9].[0-9]*\).*" "\\1" _stopt_version "${_stopt_version_lines}")
 
-        set(StOpt_VERSION "${_stopt_version_major}.${_stopt_version_minor}")
+        set(StOpt_VERSION "${_stopt_version}")
         unset(_stopt_version_lines)
-        unset(_stopt_version_major)
-        unset(_stopt_version_minor)
+        unset(_stopt_version)
     endif ()
 
     # ----- Handle the standard arguments ----------------------------------- #
@@ -124,9 +122,9 @@ else ()
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
     find_package_handle_standard_args(
             StOpt REQUIRED_VARS
-            StOpt_geners_LIBRARY        StOpt_LIBRARY
-            StOpt_geners_LIBRARY_DEBUG  StOpt_LIBRARY_DEBUG
-            StOpt_geners_INCLUDE_DIR    StOpt_INCLUDE_DIR
+            StOpt_LIBRARY       StOpt_geners_LIBRARY
+            StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG
+            StOpt_INCLUDE_DIR   StOpt_geners_INCLUDE_DIR
             VERSION_VAR StOpt_VERSION)
 endif ()
 
@@ -160,9 +158,9 @@ endif ()
 
 # Variables marked as advanced are not displayed in CMake GUIs, see:
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
-mark_as_advanced(StOpt_geners_INCLUDE_DIR    StOpt_INCLUDE_DIR
-                 StOpt_geners_LIBRARY        StOpt_LIBRARY
-                 StOpt_geners_LIBRARY_DEBUG  StOpt_LIBRARY_DEBUG
+mark_as_advanced(StOpt_INCLUDE_DIR      StOpt_geners_INCLUDE_DIR
+                 StOpt_LIBRARY          StOpt_geners_LIBRARY
+                 StOpt_LIBRARY_DEBUG    StOpt_geners_LIBRARY_DEBUG
                  StOpt_VERSION)
 
 # --------------------------------------------------------------------------- #
