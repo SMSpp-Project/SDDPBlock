@@ -144,7 +144,7 @@ public:
  /// indicates if the sampling must be done at at time instant
  /** This function determines if the sampling of scenarios must be done at
   * each time instant as opposed to only at time 0 (for a forward simulator)
-  * or time get_number_dates() - 1 (for a backard simulator).
+  * or time get_number_dates() - 1 (for a backward simulator).
   *
   * @param resampling If true, the sampling is done at each time step within
   *        updateDateIndex(). If false, the sampling is performed only at
