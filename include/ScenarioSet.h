@@ -98,7 +98,7 @@ public:
   *   for all t in {0, ..., "TimeHorizon - 1"}, and "ScenarioSize" is a multiple
   *   of "TimeHorizon". If this dimension is provided, then SubScenarioSize[t]
   *   is the size of the sub-scenario associated with stage t, i.e., s_t =
-  *   SubScenarioSize[t], for each t in {0, ..., TimeHorizon-1}. In the latter
+  *   SubScenarioSize[t], for each t in {0, ..., TimeHorizon - 1}. In the latter
   *   case, the following must hold:
   *
   *   \f[
@@ -305,15 +305,13 @@ public:
 /** @name Methods describing the behavior of a ScenarioSet
  * @{ */
 
-/*--------------------------------------------------------------------------*/
-
  /// returns the number of scenarios in this ScenarioSet
  /** This function returns the number of scenarios in this ScenarioSet.
   *
   * @return The number of scenarios. */
 
  Index size() const {
-  return num_scenarios;
+  return( num_scenarios );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -325,7 +323,7 @@ public:
   * @return The size of a scenario. */
 
  Index get_scenario_size() const {
-  return scenario_size;
+  return( scenario_size );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -336,7 +334,7 @@ public:
   * @return The time horizon. */
 
  Index get_time_horizon() const {
-  return time_horizon;
+  return( time_horizon );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -351,7 +349,7 @@ public:
   * @return The size of each group of related random data. */
 
  const std::vector< Index > & get_size_random_data_groups() const {
-  return size_random_data_groups;
+  return( size_random_data_groups );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -372,7 +370,7 @@ public:
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
 
-  return scenarios[ i ].data();
+  return( scenarios[ i ].data() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -426,7 +424,8 @@ public:
             std::to_string( size() ) + "." ) );
 
   assert( t < get_time_horizon() );
-  return std::next( scenarios[ i ].cbegin() , sub_scenario_start_index[ t ] );
+  return( std::next( scenarios[ i ].cbegin() ,
+                     sub_scenario_start_index[ t ] ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -455,8 +454,8 @@ public:
             std::to_string( size() ) + "." ) );
 
   assert( t < get_time_horizon() );
-  return std::next( scenarios[ i ].cbegin() ,
-                    sub_scenario_start_index[ t + 1 ] );
+  return( std::next( scenarios[ i ].cbegin() ,
+                     sub_scenario_start_index[ t + 1 ] ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -472,7 +471,7 @@ public:
 
  auto get_sub_scenario_size( Index t ) const {
   assert( t < get_time_horizon() );
-  return sub_scenario_start_index[ t + 1 ] - sub_scenario_start_index[ t ];
+  return( sub_scenario_start_index[ t + 1 ] - sub_scenario_start_index[ t ] );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -504,7 +503,7 @@ protected:
  /// The size of each sub-scenario
  /** A scenario is divided into sub-scenarios, each sub-scenario being
   * associated with a time instant. This vector stores the size of each
-  * sub-scenario. For each t in {0, TimeHorizon -1}, sub_scenario_size[ t ] is
+  * sub-scenario. For each t in {0, TimeHorizon - 1}, sub_scenario_size[ t ] is
   * the size of the sub-scenario associated with time t.
   */
  std::vector< Index > sub_scenario_size;

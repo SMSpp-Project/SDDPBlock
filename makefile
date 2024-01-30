@@ -34,7 +34,7 @@ SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
 	$(SDDPBkSDR)/obj/SDDPGreedySolver.o \
 	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o
 
-SDDPBkINC = -I$(SDDPBkSDR)/include/
+SDDPBkINC = -I$(SDDPBkSDR)/include
 
 SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/ScenarioSet.h \
