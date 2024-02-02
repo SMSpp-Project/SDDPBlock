@@ -185,11 +185,10 @@ public:
     auto sub_scenario_begin = scenario_set.sub_scenario_begin( i , t );
     auto sub_scenario_end = scenario_set.sub_scenario_end( i , t );
 
-    if( particle_length == 1 ) {
+    if( particle_length == 1 )
      all_particles[ t ]( 0 , i ) =
       std::accumulate( sub_scenario_begin , sub_scenario_end , double( 0.0 ) ) /
       std::distance( sub_scenario_begin , sub_scenario_end );
-    }
     else {
      Index start = 0;
      for( Index k = 0 ; k < size_random_data_groups.size() ; ++k ) {
