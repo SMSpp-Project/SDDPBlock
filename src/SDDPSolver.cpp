@@ -1149,7 +1149,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
  if( current_stage > 0 ) {
   /* The initial state for the first stage problem is set only once, in the
-   * beggining of compute(). */
+   * beginning of compute(). */
   sddp_solver->set_state( * std::get<0>( state ).get() , current_stage ,
                           sub_block_index );
  }

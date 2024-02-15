@@ -468,7 +468,7 @@ public:
    * function of the subproblem associated with stage t, disregarding the
    * value of the cost-to-go function (or value function, future value
    * function, future cost function). That is, the objective value of the
-   * subroblem is f = c + F, where F is the value of the cost-to-go function.
+   * subproblem is f = c + F, where F is the value of the cost-to-go function.
    *
    * Finally, depending on the value of the parameter #intOutputScenario, the
    * scenario considered during compute() (which can be set by the
