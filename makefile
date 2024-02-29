@@ -28,56 +28,57 @@
 ##############################################################################
 
 
-# macroes to be exported- - - - - - - - - - - - - - - - - - - - - - - - - - -
+# macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-SDDPBkOBJ = $(SDDPBkSDR)obj/SDDPBlock.o $(SDDPBkSDR)obj/SDDPSolver.o \
-	$(SDDPBkSDR)obj/SDDPGreedySolver.o \
-	$(SDDPBkSDR)obj/ParallelSDDPSolver.o
+SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
+	$(SDDPBkSDR)/obj/SDDPGreedySolver.o \
+	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o
 
-SDDPBkINC = -I$(SDDPBkSDR)include/
+SDDPBkINC = -I$(SDDPBkSDR)/include
 
-SDDPBkH   = $(SDDPBkSDR)include/SDDPBlock.h \
-	$(SDDPBkSDR)include/ScenarioSet.h \
-	$(SDDPBkSDR)include/ScenarioSimulator.h \
-	$(SDDPBkSDR)include/SDDPSolver.h \
-	$(SDDPBkSDR)include/SDDPGreedySolver.h \
-	$(SDDPBkSDR)include/ParallelSDDPSolver.h
+SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h \
+	$(SDDPBkSDR)/include/SDDPSolver.h \
+	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
+	$(SDDPBkSDR)/include/ParallelSDDPSolver.h
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
-	rm -f $(SDDPBkOBJ) $(MILPBSDR)*~
+	rm -f $(SDDPBkOBJ) $(MILPBSDR)/*~
 
 # dependencies: every .o from its .C + every recursively included .h- - - - -
 
-$(SDDPBkSDR)obj/SDDPBlock.o: $(SDDPBkSDR)src/SDDPBlock.cpp \
-	$(SDDPBkSDR)include/SDDPBlock.h \
-	$(SDDPBkSDR)include/ScenarioSet.h \
-	$(SDDPBkSDR)include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(SDDPBkSDR)src/SDDPBlock.cpp -o $@ $(SDDPBkINC) \
+$(SDDPBkSDR)/obj/SDDPBlock.o: $(SDDPBkSDR)/src/SDDPBlock.cpp \
+	$(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(CC) -c $(SDDPBkSDR)/src/SDDPBlock.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(SMS++INC) $(SW)
 
-$(SDDPBkSDR)obj/SDDPSolver.o: $(SDDPBkSDR)src/SDDPSolver.cpp \
-	$(SDDPBkSDR)include/SDDPSolver.h $(SDDPBkSDR)include/SDDPBlock.h \
-	$(SDDPBkSDR)include/ScenarioSet.h \
-	$(SDDPBkSDR)include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(SDDPBkSDR)src/SDDPSolver.cpp -o $@ $(SDDPBkINC) \
+$(SDDPBkSDR)/obj/SDDPSolver.o: $(SDDPBkSDR)/src/SDDPSolver.cpp \
+	$(SDDPBkSDR)/include/SDDPSolver.h $(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(CC) -c $(SDDPBkSDR)/src/SDDPSolver.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(libStOptINC) $(SMS++INC) $(SW)
 
-$(SDDPBkSDR)obj/SDDPGreedySolver.o: $(SDDPBkSDR)src/SDDPGreedySolver.cpp \
-	$(SDDPBkSDR)include/SDDPGreedySolver.h \
-	$(SDDPBkSDR)include/SDDPBlock.h \
-	$(SDDPBkSDR)include/ScenarioSet.h \
-	$(SDDPBkSDR)include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(SDDPBkSDR)src/SDDPGreedySolver.cpp -o $@ $(SDDPBkINC) \
+$(SDDPBkSDR)/obj/SDDPGreedySolver.o: $(SDDPBkSDR)/src/SDDPGreedySolver.cpp \
+	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
+	$(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(CC) -c $(SDDPBkSDR)/src/SDDPGreedySolver.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(SMS++INC) $(SW)
 
-$(SDDPBkSDR)obj/ParallelSDDPSolver.o: $(SDDPBkSDR)src/ParallelSDDPSolver.cpp \
-	$(SDDPBkSDR)include/ParallelSDDPSolver.h \
-	$(SDDPBkSDR)include/SDDPSolver.h $(SDDPBkSDR)include/SDDPBlock.h \
-	$(SDDPBkSDR)include/ScenarioSet.h \
-	$(SDDPBkSDR)include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(SDDPBkSDR)src/ParallelSDDPSolver.cpp -o $@ $(SDDPBkINC) \
+$(SDDPBkSDR)/obj/ParallelSDDPSolver.o: \
+	$(SDDPBkSDR)/src/ParallelSDDPSolver.cpp \
+	$(SDDPBkSDR)/include/ParallelSDDPSolver.h \
+	$(SDDPBkSDR)/include/SDDPSolver.h $(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(CC) -c $(SDDPBkSDR)/src/ParallelSDDPSolver.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(libStOptINC) $(SMS++INC) $(SW)
 
 ########################## End of makefile ###################################

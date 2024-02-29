@@ -33,6 +33,7 @@
 #    a CMake configuration file on its own.                                   #
 #                                                                             #
 #                              Niccolo' Iardella                              #
+#                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
@@ -51,32 +52,100 @@ if (NOT Eigen3_FOUND)
 endif ()
 
 # Check if already in cache
-if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
-    StOpt_INCLUDE_DIR AND StOpt_LIBRARY)
+if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND StOpt_geners_LIBRARY_DEBUG AND
+    StOpt_INCLUDE_DIR AND StOpt_LIBRARY AND StOpt_LIBRARY_DEBUG)
     set(StOpt_FOUND TRUE)
 else ()
 
     # ----- Find the geners library ----------------------------------------- #
     # Note that find_path() creates a cache entry
     find_path(StOpt_geners_INCLUDE_DIR
-              NAMES geners/uriUtils.hh
+              NAMES geners
+              HINTS ${StOpt_ROOT}
+              PATH_SUFFIXES geners-1.11.0
               DOC "geners include directory.")
 
-    # Note that find_library() creates a cache entry
     find_library(StOpt_geners_LIBRARY
                  NAMES geners
+                 HINTS ${StOpt_ROOT}/build/lib
                  DOC "geners library.")
+
+    if (UNIX)
+        set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
+    else ()
+
+        # ----- Macro: find_win_stopt_geners_library ------------------------ #
+        # On Windows the version is appended to the library name which cannot be
+        # handled by find_library, so here a macro to search manually.
+        macro(find_win_stopt_geners_library var path_suffixes)
+            foreach (s ${path_suffixes})
+                file(GLOB StOpt_geners_LIBRARY_CANDIDATES "${StOpt_ROOT}/${s}/geners.lib")
+                if (StOpt_geners_LIBRARY_CANDIDATES)
+                    list(GET StOpt_geners_LIBRARY_CANDIDATES 0 ${var})
+                    break()
+                endif ()
+            endforeach ()
+            if (NOT ${var})
+                set(${var} NOTFOUND)
+            endif ()
+        endmacro ()
+
+        # Debug library
+        find_win_stopt_geners_library(StOpt_geners_LIB_DEBUG "debug/lib")
+        set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIB_DEBUG})
+    endif ()
 
     # ----- Find the StOpt library ------------------------------------------ #
     # Note that find_path() creates a cache entry
     find_path(StOpt_INCLUDE_DIR
-              NAMES StOpt/sddp/OptimizerSDDPBase.h
+              NAMES StOpt/sddp
+              HINTS ${StOpt_ROOT}
+              PATH_SUFFIXES StOpt
               DOC "StOpt include directory.")
 
-    # Note that find_library() creates a cache entry
     find_library(StOpt_LIBRARY
-                 NAMES StOpt
+                 NAMES StOpt stopt
+                 HINTS ${StOpt_ROOT}/build/lib
                  DOC "StOpt library.")
+
+    if (UNIX)
+        set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
+    else ()
+
+        # ----- Macro: find_win_stopt_library ------------------------------ #
+        # On Windows the version is appended to the library name which cannot be
+        # handled by find_library, so here a macro to search manually.
+        macro(find_win_stopt_library var path_suffixes)
+            foreach (s ${path_suffixes})
+                file(GLOB StOpt_LIBRARY_CANDIDATES "${StOpt_ROOT}/${s}/StOpt.lib")
+                if (StOpt_LIBRARY_CANDIDATES)
+                    list(GET StOpt_LIBRARY_CANDIDATES 0 ${var})
+                    break()
+                endif ()
+            endforeach ()
+            if (NOT ${var})
+                set(${var} NOTFOUND)
+            endif ()
+        endmacro ()
+
+        # Debug library
+        find_win_stopt_library(StOpt_LIB_DEBUG "debug/lib")
+        set(StOpt_LIBRARY_DEBUG ${StOpt_LIB_DEBUG})
+    endif ()
+
+    # ----- Parse the version ----------------------------------------------- #
+    if (StOpt_INCLUDE_DIR)
+        file(STRINGS
+                "${StOpt_INCLUDE_DIR}/StOpt/core/utils/version.h"
+                _stopt_version_lines REGEX "#define STOPT_VERSION")
+
+        string(REGEX REPLACE ".*STOPT_VERSION *\"([0-9].[0-9]*\).*" "\\1"
+                _stopt_version "${_stopt_version_lines}")
+
+        set(StOpt_VERSION "${_stopt_version}")
+        unset(_stopt_version_lines)
+        unset(_stopt_version)
+    endif ()
 
     # ----- Handle the standard arguments ----------------------------------- #
     # The following macro manages the QUIET, REQUIRED and version-related
@@ -85,43 +154,46 @@ else ()
     # REQUIRED_VARS should be cache entries and not output variables. See:
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
     find_package_handle_standard_args(
-            StOpt
-            REQUIRED_VARS
-            StOpt_geners_INCLUDE_DIR StOpt_geners_LIBRARY
-            StOpt_LIBRARY StOpt_INCLUDE_DIR)
+            StOpt REQUIRED_VARS
+            StOpt_LIBRARY       StOpt_geners_LIBRARY
+            StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG
+            StOpt_INCLUDE_DIR   StOpt_geners_INCLUDE_DIR
+            VERSION_VAR StOpt_VERSION)
 endif ()
 
 # ----- Export the targets -------------------------------------------------- #
 if (StOpt_FOUND)
     set(StOpt_geners_INCLUDE_DIRS "${StOpt_geners_INCLUDE_DIR}")
-    set(StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY}")
+    set(StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY}" "${StOpt_geners_LIBRARY_DEBUG}")
 
     if (NOT TARGET StOpt::geners)
         add_library(StOpt::geners UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::geners PROPERTIES
                 IMPORTED_LOCATION "${StOpt_geners_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${StOpt_geners_INCLUDE_DIR}")
+                IMPORTED_LOCATION_DEBUG "${StOpt_geners_LIBRARY_DEBUG}"
+                INTERFACE_INCLUDE_DIRECTORIES "${StOpt_geners_INCLUDE_DIRS}")
     endif ()
 
     set(StOpt_INCLUDE_DIRS "${StOpt_INCLUDE_DIR}")
-    set(StOpt_LIBRARIES "${StOpt_LIBRARY}")
+    set(StOpt_LIBRARIES "${StOpt_LIBRARY}" "${StOpt_LIBRARY_DEBUG}")
 
     if (NOT TARGET StOpt::StOpt)
         add_library(StOpt::StOpt UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::StOpt PROPERTIES
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIR}"
+                IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
+                INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
                 INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
     endif ()
 endif ()
 
 # Variables marked as advanced are not displayed in CMake GUIs, see:
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
-mark_as_advanced(StOpt_geners_INCLUDE_DIR
-                 StOpt_geners_LIBRARY
-                 StOpt_INCLUDE_DIR
-                 StOpt_LIBRARY)
+mark_as_advanced(StOpt_INCLUDE_DIR      StOpt_geners_INCLUDE_DIR
+                 StOpt_LIBRARY          StOpt_geners_LIBRARY
+                 StOpt_LIBRARY_DEBUG    StOpt_geners_LIBRARY_DEBUG
+                 StOpt_VERSION)
 
 # --------------------------------------------------------------------------- #

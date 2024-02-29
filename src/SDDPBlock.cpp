@@ -8,7 +8,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright Copyright &copy; by Rafael Durbano Lobato
+ * \copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -126,10 +126,10 @@ int SDDPBlock::get_objective_sense() const {
  try {
   auto sub_Block = get_sub_Block( 0 );
   if( sub_Block )
-   return sub_Block->get_objective_sense();
+   return( sub_Block->get_objective_sense() );
  }
  catch( ... ) {}
- return Objective::eUndef;
+ return( Objective::eUndef );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -143,7 +143,7 @@ StochasticBlock * SDDPBlock::get_sub_Block
   throw( std::invalid_argument( "SDDPBlock::get_sub_Block: invalid sub-Block in"
                                 "dex " + std::to_string( sub_block_index ) ) );
  const auto index = stage * num_sub_blocks_per_stage + sub_block_index;
- return static_cast< StochasticBlock * >( v_Block[ index ] );
+ return( static_cast< StochasticBlock * >( v_Block[ index ] ) );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -235,9 +235,9 @@ double SDDPBlock::get_future_cost( Index stage , Index sub_block_index ) const {
  auto function = get_polyhedral_function( stage , 0 , sub_block_index );
  if( ! function )
   // If this SDDPBlock has no PolyhedralFunction, the future cost must be 0
-  return 0;
+  return( 0 );
  function->compute();
- return function->get_value();
+ return( function->get_value() );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -270,7 +270,7 @@ std::vector< double > SDDPBlock::get_state( Index stage ,
  assert( sub_block_index < get_num_sub_blocks_per_stage() );
  auto benders_block = static_cast< BendersBlock * >
   ( get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
- return benders_block->get_variable_values();
+ return( benders_block->get_variable_values() );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -322,8 +322,7 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const
  // StochasticBlock_i
 
  for( Index i = 0 ; i < get_time_horizon() ; ++i ) {
-  auto sub_group = group.addGroup( "StochasticBlock_" +
-                                   std::to_string( i ) );
+  auto sub_group = group.addGroup( "StochasticBlock_" + std::to_string( i ) );
   get_sub_Block( i )->serialize( sub_group );
  }
 
@@ -363,7 +362,8 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const
 
  std::vector< Index > state_size( time_horizon );
  for( Index t = 0 ; t < time_horizon - 1 ; ++t )
-  state_size[ t ] = admissible_state_begin[ t+1 ] - admissible_state_begin[ t ];
+  state_size[ t ] = admissible_state_begin[ t + 1 ] -
+                    admissible_state_begin[ t ];
  if( time_horizon > 0 )
   state_size.back() = admissible_states.size() - admissible_state_begin.back();
 

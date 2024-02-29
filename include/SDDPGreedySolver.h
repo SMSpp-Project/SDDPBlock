@@ -12,7 +12,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright Copyright &copy; by Rafael Durbano Lobato
+ * \copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -468,7 +468,7 @@ public:
    * function of the subproblem associated with stage t, disregarding the
    * value of the cost-to-go function (or value function, future value
    * function, future cost function). That is, the objective value of the
-   * subroblem is f = c + F, where F is the value of the cost-to-go function.
+   * subproblem is f = c + F, where F is the value of the cost-to-go function.
    *
    * Finally, depending on the value of the parameter #intOutputScenario, the
    * scenario considered during compute() (which can be set by the
@@ -721,8 +721,8 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// set the vector-of-int paramaters of SDDPGreedySolver
- /** Set a given vector-of-int paramater. Besides considering the
+ /// set the vector-of-int parameters of SDDPGreedySolver
+ /** Set a given vector-of-int parameter. Besides considering the
   * vector-of-int parameters defined in #vint_par_type_S, this function
   * also accepts the following parameters:
   *
@@ -745,8 +745,8 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// set the vector-of-double paramaters of SDDPGreedySolver
- /** Set a given vector-of-double paramater. Besides considering the
+ /// set the vector-of-double parameters of SDDPGreedySolver
+ /** Set a given vector-of-double parameter. Besides considering the
   * vector-of-double parameters defined in #vdbl_par_type_S, this function
   * also accepts the following parameters:
   *

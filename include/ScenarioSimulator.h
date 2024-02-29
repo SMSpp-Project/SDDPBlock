@@ -10,7 +10,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright Copyright &copy; by Rafael Durbano Lobato
+ * \copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -144,7 +144,7 @@ public:
  /// indicates if the sampling must be done at at time instant
  /** This function determines if the sampling of scenarios must be done at
   * each time instant as opposed to only at time 0 (for a forward simulator)
-  * or time get_number_dates() - 1 (for a backard simulator).
+  * or time get_number_dates() - 1 (for a backward simulator).
   *
   * @param resampling If true, the sampling is done at each time step within
   *        updateDateIndex(). If false, the sampling is performed only at
@@ -185,11 +185,10 @@ public:
     auto sub_scenario_begin = scenario_set.sub_scenario_begin( i , t );
     auto sub_scenario_end = scenario_set.sub_scenario_end( i , t );
 
-    if( particle_length == 1 ) {
+    if( particle_length == 1 )
      all_particles[ t ]( 0 , i ) =
       std::accumulate( sub_scenario_begin , sub_scenario_end , double( 0.0 ) ) /
       std::distance( sub_scenario_begin , sub_scenario_end );
-    }
     else {
      Index start = 0;
      for( Index k = 0 ; k < size_random_data_groups.size() ; ++k ) {

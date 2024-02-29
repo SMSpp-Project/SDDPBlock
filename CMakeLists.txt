@@ -15,10 +15,11 @@
 #          keep it in mind when editing it.                                   #
 #                                                                             #
 #                              Niccolo' Iardella                              #
+#                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.19)
 cmake_policy(VERSION 3.12)
 project(SDDPBlock
         VERSION 0.5.2
@@ -54,7 +55,7 @@ if (NOT hasParent)
     find_package(StochasticBlock REQUIRED)
 endif ()
 
-find_package(StOpt REQUIRED)
+find_package(StOpt)
 find_package(OpenMP)
 find_package(Boost COMPONENTS mpi)
 find_package(MPI)
@@ -62,12 +63,6 @@ find_package(MPI)
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
 configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
-
-#The subsequent fix permits the static SDDP library to be correctly built, it is corrupted otherwise for some reason
-if ( MINGW )
-	message("With MINGW - for the time being, SDDPBlock library has to be static, for some reason building the dynamic library causes the static one to be corrupted")
-	set(BUILD_SHARED_LIBS OFF)
-endif ()
 
 # ----- Library ------------------------------------------------------------- #
 # With the BUILD_SHARED_LIBS variable we can specify if the library will
@@ -143,7 +138,7 @@ install(TARGETS ${modName}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # Install the headers
-install(DIRECTORY include/
+install(DIRECTORY include
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
 # Install the auto-generated configuration header (see above).

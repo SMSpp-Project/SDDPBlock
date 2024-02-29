@@ -13,7 +13,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright Copyright &copy; by Rafael Durbano Lobato
+ * \copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -662,8 +662,8 @@ public:
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// set the vector-of-int paramaters of SDDPSolver
- /** Set a given vector-of-int paramater. Besides considering the vector-of-int
+ /// set the vector-of-int parameters of SDDPSolver
+ /** Set a given vector-of-int parameter. Besides considering the vector-of-int
   * parameters defined in #vint_par_type_S, this function also accepts the
   * following parameters:
   *
@@ -686,8 +686,8 @@ public:
  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// set the vector-of-double paramaters of SDDPSolver
- /** Set a given vector-of-double paramater. Besides considering the
+ /// set the vector-of-double parameters of SDDPSolver
+ /** Set a given vector-of-double parameter. Besides considering the
   * vector-of-double parameters defined in #vdbl_par_type_S, this function
   * also accepts the following parameters:
   *

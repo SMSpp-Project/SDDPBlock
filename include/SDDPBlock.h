@@ -9,7 +9,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright Copyright &copy; by Rafael Durbano Lobato
+ * \copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -84,7 +84,6 @@ namespace SMSpp_di_unipi_it
  * \equiv 0 \f$ and
  *
  * \f[
- *
  *    V_{t}(x_{t-1}, \xi_{t}) =
  *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
  *    \mathcal{V}_{t+1}(x_t)
@@ -309,8 +308,8 @@ public:
   *   "NumPolyhedralFunctionsPerSubBlock * TimeHorizon" then the i-th
   *   PolyhedralFunction of a sub-Block at stage t is given by the
   *   AbstractPath at position "i + t * NumPolyhedralFunctionsPerSubBlock" for
-  *   each t in {0, ..., TimeHorizon-1} and i in {0, ...,
-  *   NumPolyhedralFunctionsPerSubBlock-1}. An AbstractPath associated with a
+  *   each t in {0, ..., TimeHorizon - 1} and i in {0, ...,
+  *   NumPolyhedralFunctionsPerSubBlock - 1}. An AbstractPath associated with a
   *   stage t is taken with respect to the inner Block of a sub-Block for
   *   stage t of this SDDPBlock.
   *
@@ -331,7 +330,7 @@ public:
   *   specifying the sizes of the states at each stage. If this variable is a
   *   scalar, then all states are assumed to have the same size given by
   *   "StateSize". If it is an array then, for each t in {0, ...,
-  *   TimeHorizon-1}, StateSize[t] contains the size of the final state at
+  *   TimeHorizon - 1}, StateSize[t] contains the size of the final state at
   *   stage t. The state being a vector, its size is the dimension of the
   *   space in which it lies.
   *
@@ -375,10 +374,9 @@ public:
 
   // NumSubBlocksPerStage
 
-  Index NumSubBlocksPerStage;
-  if( ::SMSpp_di_unipi_it::deserialize_dim
-      ( group , "NumSubBlocksPerStage" , NumSubBlocksPerStage ) ) {
-   num_sub_blocks_per_stage = NumSubBlocksPerStage;
+  if( ! ::SMSpp_di_unipi_it::deserialize_dim
+      ( group , "NumSubBlocksPerStage" , num_sub_blocks_per_stage ) ) {
+   num_sub_blocks_per_stage = 1;
   }
 
   // StochasticBlock
@@ -592,7 +590,7 @@ public:
   * @return The time horizon.
   */
  virtual Index get_time_horizon() const {
-  return v_Block.size() / num_sub_blocks_per_stage;
+  return( v_Block.size() / num_sub_blocks_per_stage );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -605,7 +603,7 @@ public:
   */
  const std::vector< PolyhedralFunction * > &
  get_polyhedral_functions() const {
-  return v_polyhedral_functions;
+  return( v_polyhedral_functions );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -630,7 +628,7 @@ public:
 
   if( ! num_polyhedral_per_sub_block )
    // Well, this is a funny SDDPBlock that has no PolyhedralFunction.
-   return nullptr;
+   return( nullptr );
 
   assert( stage < get_time_horizon() );
   assert( sub_block_index < num_sub_blocks_per_stage );
@@ -639,7 +637,7 @@ public:
   const auto index = ( stage * num_sub_blocks_per_stage + sub_block_index )
    * num_polyhedral_per_sub_block + i;
 
-  return v_polyhedral_functions[ index ];
+  return( v_polyhedral_functions[ index ] );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -651,7 +649,7 @@ public:
   * @return The number of PolyhedralFunction in each sub-Block.
   */
  Index get_num_polyhedral_function_per_sub_block() const {
-  return num_polyhedral_per_sub_block;
+  return( num_polyhedral_per_sub_block );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -662,7 +660,7 @@ public:
   * @return The number of sub-Blocks for each stage.
   */
  Index get_num_sub_blocks_per_stage() const {
-  return num_sub_blocks_per_stage;
+  return( num_sub_blocks_per_stage );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -700,8 +698,8 @@ public:
 
  std::vector< double >::const_iterator get_admissible_state( Index stage ) const {
   assert( stage < get_time_horizon() );
-  return std::next( admissible_states.cbegin() ,
-                    admissible_state_begin[ stage ] );
+  return( std::next( admissible_states.cbegin() ,
+                     admissible_state_begin[ stage ] ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -717,9 +715,10 @@ public:
  Index get_admissible_state_size( Index stage ) const {
   assert( stage < get_time_horizon() );
   if( stage == get_time_horizon() - 1 )
-   return admissible_states.size() - admissible_state_begin[ stage ];
+   return( admissible_states.size() - admissible_state_begin[ stage ] );
   else
-   return admissible_state_begin[ stage + 1 ] - admissible_state_begin[ stage ];
+   return( admissible_state_begin[ stage + 1 ] -
+           admissible_state_begin[ stage ] );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -727,7 +726,7 @@ public:
  /// returns the set of scenarios
  /** This function returns the set of scenarios. */
  const ScenarioSet & get_scenario_set() const {
-  return scenario_set;
+  return( scenario_set );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -735,7 +734,7 @@ public:
  /// returns the initial state for the first stage problem
  /** This function returns the initial state for the first stage problem. */
  const std::vector< double > & get_initial_state() const {
-  return initial_state;
+  return( initial_state );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -757,7 +756,7 @@ public:
           ( "SDDPBlock::get_random_cut: no random cut for scenario index " +
             std::to_string( scenario_index ) + "." ) );
 
-  return random_cuts[ stage ][ scenario_index ];
+  return( random_cuts[ stage ][ scenario_index ] );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -916,7 +915,7 @@ public:
    throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
                                  "index: " + std::to_string( stage ) ) );
 
-  return get_polyhedral_function( stage , i , sub_block_index )->get_nrows();
+  return( get_polyhedral_function( stage , i , sub_block_index )->get_nrows() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1158,30 +1157,30 @@ private:
   if( sub_group.isNull() ) {
    sub_group = group.getGroup( "StochasticBlock" );
    if( sub_group.isNull() )
-    throw std::logic_error( "SDDPBlock::deserialize: neither group '" +
-                            sub_group_name + "' nor 'StochasticBlock' "
-                            "was found." );
+    throw( std::logic_error( "SDDPBlock::deserialize: neither group '" +
+                             sub_group_name + "' nor 'StochasticBlock' "
+                             "was found." ) );
    sub_group_name = "StochasticBlock";
   }
 
   auto type = sub_group.getAtt( "type" );
   if( type.isNull() )
-   throw std::logic_error( "SDDPBlock::deserialize: attribute 'type' of '" +
-                           sub_group_name + "' must be present." );
+   throw( std::logic_error( "SDDPBlock::deserialize: attribute 'type' of '" +
+                            sub_group_name + "' must be present." ) );
 
   std::string type_name;
   type.getValues( type_name );
 
   if( type_name != "StochasticBlock" )
-   throw std::logic_error( "SDDPBlock::deserialize: attribute 'type' of '" +
-                           sub_group_name + "' must contain "
-                           "'StochasticBlock'." );
+   throw( std::logic_error( "SDDPBlock::deserialize: attribute 'type' of '" +
+                            sub_group_name + "' must contain "
+                            "'StochasticBlock'." ) );
 
   auto sub_Block = new_Block( sub_group , this );
 
   if( ! sub_Block )
-   throw std::logic_error( "SDDPBlock::deserialize: sub-group '" +
-                           sub_group_name + "' is incomplete." );
+   throw( std::logic_error( "SDDPBlock::deserialize: sub-group '" +
+                            sub_group_name + "' is incomplete." ) );
 
   if( sub_group_name != "StochasticBlock" ) {
 
@@ -1191,22 +1190,21 @@ private:
 
     auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
     if( StochasticBlock_group.isNull() )
-     throw std::logic_error( "SDDPBlock::deserialize: sub-group 'Block' was not "
-                             "provided neither in '" + sub_group_name +
-                             "' nor in 'StochasticBlock'" );
-
+     throw( std::logic_error( "SDDPBlock::deserialize: sub-group 'Block' was "
+                              "not provided neither in '" + sub_group_name +
+                              "' nor in 'StochasticBlock'" ) );
 
     auto Block_group = StochasticBlock_group.getGroup( "Block" );
     if( Block_group.isNull() )
-     throw std::logic_error( "SDDPBlock::deserialize: sub-group 'Block' was not "
-                             "provided neither in '" + sub_group_name +
-                             "' nor in 'StochasticBlock'" );
+     throw( std::logic_error( "SDDPBlock::deserialize: sub-group 'Block' was "
+                              "not provided neither in '" + sub_group_name +
+                              "' nor in 'StochasticBlock'" ) );
 
     auto inner_block = new_Block( Block_group, this );
     if( ! inner_block )
-     throw std::logic_error( "SDDPBlock::deserialize: the 'Block' sub-group of "
-                             "the 'StochasticBlock' group has an invalid or "
-                             "incomplete description." );
+     throw( std::logic_error( "SDDPBlock::deserialize: the 'Block' sub-group "
+                              "of the 'StochasticBlock' group has an invalid "
+                              "or incomplete description." ) );
 
     static_cast< StochasticBlock * >( sub_Block )->
      set_inner_block( inner_block );
@@ -1239,7 +1237,7 @@ private:
    }
   }
 
-  return sub_Block;
+  return( sub_Block );
  }
 
  /*--------------------------------------------------------------------------*/
