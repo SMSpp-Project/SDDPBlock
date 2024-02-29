@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added 
+
+### Changed 
+
+### Fixed 
+
+## [0.5.3] - 2024-02-28
+
+### Changed 
+
+- adapted to new CMake / makefile organisation
+
 ## [0.5.2] - 2023-17-05
 
 ### Added
@@ -80,7 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release.
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.2...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.3...develop
+[0.5.3]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.2...0.5.3
 [0.5.2]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.1...0.5.2
 [0.5.1]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.0...0.5.1
 [0.5.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.4.0...0.5.0
