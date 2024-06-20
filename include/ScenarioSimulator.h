@@ -204,6 +204,13 @@ public:
   }
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// set the initial seed of the random number generator
+ void set_seed( unsigned int seed ) {
+  initial_seed = seed;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------- METHODS DESCRIBING THE BEHAVIOR OF A ScenarioSimulator ---------*/
 /*--------------------------------------------------------------------------*/
@@ -345,6 +352,13 @@ public:
   if( all_particles.empty() )
    return 0;
   return all_particles.front().cols();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the initial seed of the random number generator
+ unsigned int get_seed() const {
+  return initial_seed;
  }
 
 /**@} ----------------------------------------------------------------------*/

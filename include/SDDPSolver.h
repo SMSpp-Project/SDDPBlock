@@ -1,3 +1,4 @@
+
 /*--------------------------------------------------------------------------*/
 /*------------------------- File SDDPSolver.h ------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -306,6 +307,12 @@ public:
    * number between 0 and the total number of scenarios minus 1. By default,
    * its value is 0. */
 
+  intForwardSimulatorSeed ,
+  ///< The seed for he forward simulator
+  /**< This is the seed for the forward simulator, which determines
+   * the sequence of scenarios selected. By default, its value is
+   * 93645. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -557,6 +564,8 @@ public:
   *
   * - #intFirstStageScenarioId
   *
+  * - #intForwardSimulatorSeed
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -580,6 +589,8 @@ public:
    case( intOutputFrequency ): output_frequency = value; return;
    case( intFirstStageScenarioId ):
     first_stage_scenario_index = value; return;
+   case( intForwardSimulatorSeed ):
+    sddp_optimizer->set_forward_seed( value ); return;
   }
   Solver::set_par( par , value );
  }
@@ -850,6 +861,8 @@ public:
   *
   * - #intFirstStageScenarioId: 0
   *
+  * - #intForwardSimulatorSeed: 93645
+  *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
@@ -868,6 +881,7 @@ public:
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioId ): return 0;
+   case( intForwardSimulatorSeed ): return 93645;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -993,6 +1007,8 @@ public:
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
    case( intFirstStageScenarioId ): return first_stage_scenario_index;
+   case( intForwardSimulatorSeed ):
+    return sddp_optimizer->get_forward_seed();
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1100,6 +1116,7 @@ public:
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
+  if( name == "intForwardSimulatorSeed" ) return intForwardSimulatorSeed;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1193,7 +1210,7 @@ public:
   static const std::vector< std::string > parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioId" };
+     "intFirstStageScenarioId" , "intForwardSimulatorSeed" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1747,6 +1764,18 @@ protected:
 
   void set_number_simulations_forward( int number_simulations ) {
    simulator_forward->set_number_simulations( number_simulations );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  void set_forward_seed( int seed ) {
+   simulator_forward->set_seed( seed );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_forward_seed() const {
+   return simulator_forward->get_seed();
   }
 
 /*--------------------------------------------------------------------------*/
