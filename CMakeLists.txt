@@ -55,12 +55,11 @@ if (NOT hasParent)
     find_package(StochasticBlock REQUIRED)
 endif ()
 
-find_package(StOpt)
-find_package(OpenMP)
-
 # Set a variable to indicate not to use pkg-config
 set(MPI_CXX_FIND_QUIETLY TRUE)
 
+find_package(StOpt)
+find_package(OpenMP)
 find_package(Boost COMPONENTS mpi)
 find_package(MPI)
 
