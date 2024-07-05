@@ -57,8 +57,8 @@ endif ()
 
 find_package(StOpt)
 find_package(OpenMP)
-find_package(Boost COMPONENTS mpi)
 find_package(MPI)
+find_package(Boost COMPONENTS mpi)
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
