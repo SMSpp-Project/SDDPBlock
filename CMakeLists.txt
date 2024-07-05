@@ -106,11 +106,14 @@ target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock
                       StOpt::StOpt)
 
-if (OPENMP_FOUND)
+if (OpenMP_CXX_FOUND)
+    message(STATUS "${modName}: OpenMP found. Using OpenMP.")
     target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)
 endif ()
 
 if (MPI_CXX_FOUND AND Boost_MPI_FOUND)
+    message(STATUS "${modName}: MPI and Boost::mpi found. Using MPI.")
+    set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
     target_compile_definitions(${modName} PRIVATE USE_MPI)
     target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
 endif ()
