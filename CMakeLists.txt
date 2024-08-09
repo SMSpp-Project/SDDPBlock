@@ -113,7 +113,7 @@ endif ()
 
 if (MPI_CXX_FOUND AND Boost_MPI_FOUND)
     message(STATUS "${modName}: MPI and Boost::mpi found. Using MPI.")
-    target_compile_definitions(${modName} PRIVATE USE_MPI)
+    target_compile_definitions(${modName} PUBLIC USE_MPI)
     target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
 endif ()
 
