@@ -48,7 +48,7 @@ SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 clean::
 	rm -f $(SDDPBkOBJ) $(MILPBSDR)/*~
 
-# dependencies: every .o from its .C + every recursively included .h- - - - -
+# dependencies: every .o from its .cpp + every recursively included .h- - - -
 
 $(SDDPBkSDR)/obj/SDDPBlock.o: $(SDDPBkSDR)/src/SDDPBlock.cpp \
 	$(SDDPBkSDR)/include/SDDPBlock.h \
