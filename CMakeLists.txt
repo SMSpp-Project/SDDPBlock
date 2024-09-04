@@ -22,7 +22,7 @@
 cmake_minimum_required(VERSION 3.19)
 cmake_policy(VERSION 3.12)
 project(SDDPBlock
-        VERSION 0.5.2
+        VERSION 0.5.3
         DESCRIPTION "SMS++ SDDPBlock module"
         HOMEPAGE_URL https://gitlab.com/smspp/sddpblock
         LANGUAGES C CXX)
