@@ -250,7 +250,7 @@ public:
  /// destructor
  virtual ~SDDPBlock() {
   for( auto & block : v_Block )
-   delete block;
+   delete( block );
   v_Block.clear();
  }
 
