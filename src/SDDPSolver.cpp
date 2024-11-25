@@ -1430,7 +1430,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* The objective_value takes into account the value of the future cost
   * function. For all stages other than the last one, we subtract the value of
   * the future cost function from objective_value. The subproblem at the last
-  * stage, however, has a fixed future cost and it is kept as it is considered
+  * stage, however, has a fixed future cost, and it is kept as it is considered
   * part of the cost of that stage. */
 
  if( current_stage < sddp_solver->get_time_horizon() - 1 )
@@ -1438,7 +1438,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    get_future_cost( current_stage , sub_block_index );
 
  /**************************/
- /* RETRIVING THE SOLUTION */
+ /* RETRIEVING THE SOLUTION */
  /**************************/
 
  // Retrieve the solution x_t of the Block associated with the current stage.
