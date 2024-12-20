@@ -19,7 +19,7 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __SDDPGreedySolver
-#define __SDDPGreedySolver
+ #define __SDDPGreedySolver
                       /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/

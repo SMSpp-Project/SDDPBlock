@@ -21,7 +21,7 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __SDDPSolver
-#define __SDDPSolver
+ #define __SDDPSolver
                       /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
