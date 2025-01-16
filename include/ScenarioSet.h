@@ -15,7 +15,7 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __ScenarioSet
-#define __ScenarioSet
+ #define __ScenarioSet
                       /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/

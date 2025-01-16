@@ -55,7 +55,7 @@ if (NOT hasParent)
     find_package(StochasticBlock REQUIRED)
 endif ()
 
-find_package(StOpt)
+find_package(StOpt REQUIRED)
 find_package(OpenMP)
 find_package(MPI)
 find_package(Boost COMPONENTS mpi)

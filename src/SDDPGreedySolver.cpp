@@ -967,10 +967,10 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
  // Now, add the cuts to the PolyhedralFunction. Notice that, even if the
  // SDDPBlock has multiple sub-Blocks per stage, we only add cuts to the first
  // sub-Block of a given stage. This is so because only the first sub-Block
- // associated with each stage is used during the simulation and it may also
+ // associated with each stage is used during the simulation, and it may also
  // be the only sub-Block that has been configured.
 
- // We alsso assume that there is only one PolyhedralFunction per sub-Block.
+ // We also assume that there is only one PolyhedralFunction per sub-Block.
 
  assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
 
