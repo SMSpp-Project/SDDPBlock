@@ -430,9 +430,9 @@ public:
 
   strDirOUT,
   ///< path where the results are written
-  /**< this can be empty
-   * in that case results are written where solver is launched */
-  
+  /**< this can be empty in that case results are
+   * written where solver is launched */
+
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -1062,7 +1062,6 @@ public:
    case( strFilenameSuffix ): return f_filename_suffix;
    case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
    case( strDirOUT ): return f_dir_out_pathname;
-
   }
   return Solver::get_str_par( par );
  }
@@ -1263,7 +1262,7 @@ public:
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
      "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix",
-     "strDirOUT"	 };
+     "strDirOUT" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];

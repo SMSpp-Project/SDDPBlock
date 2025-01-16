@@ -8,7 +8,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright Copyright &copy; by Rafael Durbano Lobato
+ * \copyright &copy; by Rafael Durbano Lobato
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -472,8 +472,8 @@ int SDDPSolver::compute( bool changedvars ) {
  auto backward_forward_values =
   StOpt::backwardForwardSDDP< StOpt::LocalLinearRegressionForSDDP >
   ( sddp_optimizer , number_simulations_for_convergence , initial_state_array ,
-    final_cut , dates , mesh_discretization_array , f_dir_out_pathname+regressors_filename ,
-    f_dir_out_pathname+cuts_filename , f_dir_out_pathname+visited_states_filename , number_iterations_performed ,
+    final_cut , dates , mesh_discretization_array , f_dir_out_pathname + regressors_filename ,
+    f_dir_out_pathname + cuts_filename , f_dir_out_pathname + visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
 #ifdef USE_MPI
     mpi_communicator ,
@@ -962,7 +962,7 @@ void SDDPSolver::file_output() const {
 
  if( ! f_output_filename.empty() ) {
   // Output the future cost functions
-  std::string cuts_filename = f_dir_out_pathname+f_output_filename;
+  std::string cuts_filename = f_dir_out_pathname + f_output_filename;
   if( f_add_suffix )
    cuts_filename += f_filename_suffix;
   output_future_cost_functions( cuts_filename );
@@ -970,7 +970,7 @@ void SDDPSolver::file_output() const {
 
  if( ! f_state_filename.empty() ) {
   // Serialize the State
-  std::string state_filename = f_dir_out_pathname+f_state_filename;
+  std::string state_filename = f_dir_out_pathname + f_state_filename;
   if( f_add_suffix )
    state_filename += f_filename_suffix;
   serialize_State( state_filename );
@@ -978,7 +978,7 @@ void SDDPSolver::file_output() const {
 
  if( ! f_random_cuts_filename.empty() ) {
   // Output the random cuts
-  std::string random_cuts_filename = f_dir_out_pathname+f_random_cuts_filename;
+  std::string random_cuts_filename = f_dir_out_pathname + f_random_cuts_filename;
   if( f_add_suffix )
    random_cuts_filename += f_filename_suffix;
   auto sddp_block = static_cast< SDDPBlock *>( f_Block );
