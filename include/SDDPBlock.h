@@ -1228,7 +1228,7 @@ private:
       data_mappings.reserve( num_data_mappings );
       SimpleDataMappingBase::deserialize
        ( group , data_mappings ,
-         static_cast< StochasticBlock *>( sub_Block )->get_inner_block() );
+         static_cast< StochasticBlock * >( sub_Block )->get_inner_block() );
 
       static_cast< StochasticBlock * >( sub_Block )->
        set_data_mappings( std::move( data_mappings ) );

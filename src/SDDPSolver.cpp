@@ -981,7 +981,7 @@ void SDDPSolver::file_output() const {
   std::string random_cuts_filename = f_dir_out_pathname + f_random_cuts_filename;
   if( f_add_suffix )
    random_cuts_filename += f_filename_suffix;
-  auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+  auto sddp_block = static_cast< SDDPBlock * >( f_Block );
   sddp_block->serialize_random_cuts( random_cuts_filename );
  }
 
@@ -996,7 +996,7 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
  if( filename.empty() )
   return;
 
- auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
 
  const auto & functions = sddp_block->get_polyhedral_functions();
  if( functions.empty() )
