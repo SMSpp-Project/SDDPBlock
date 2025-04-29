@@ -450,7 +450,7 @@ public:
 
   std::vector< Index > state_size;
 
-  ::SMSpp_di_unipi_it::deserialize( group , "StateSize" , { time_horizon } ,
+  ::SMSpp_di_unipi_it::deserialize( group , "StateSize" , time_horizon ,
                                     state_size , false , true );
 
   bool state_size_is_scalar = ( state_size.size() == 1 );
