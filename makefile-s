@@ -54,6 +54,6 @@ SDDPBkH := $(SDDPBkH) $(StcBlkH)
 SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
 # external libraries for SDDPBlock
-SDDPBkLIB = $(libStOptLIB)
+SDDPBkLIB = $(libStOptLIB) -lmpi -lboost_mpi
 
 ########################### End of makefile-s ################################

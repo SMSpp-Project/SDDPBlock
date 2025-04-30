@@ -59,8 +59,8 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
-
+void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
+{
  ThinComputeInterface::set_ComputeConfig( scfg );
 
  if( ! scfg ) { // factory reset
@@ -74,7 +74,7 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
   f_get_var_solution_config = nullptr;
 
   return;
- }
+  }
 
  if( ! scfg->f_extra_Configuration )
   // No extra Configuration has been provided. There is nothing else to do.
@@ -104,8 +104,8 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
            dynamic_cast< BlockConfig * >( config->f_value.front() ) ) )
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The first "
                                   "element of the extra Configuration is "
-                                  "not a BlockConfig." ) );
-  }
+                                  "not a BlockConfig" ) );
+   }
 
   if( config->f_value.size() >= 2 && config->f_value[ 1 ] ) {
    // A BlockSolverConfig must have been provided.
@@ -114,26 +114,27 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The second "
                                   "element of the extra Configuration is "
                                   "not a BlockSolverConfig." ) );
-  }
+   }
 
   if( config->f_value.size() >= 3 && config->f_value[ 2 ] ) {
    // A Configuration for get_var_solution() of the Solver attached to the
    // inner Blocks.
    f_get_var_solution_config = config->f_value[ 2 ]->clone();
+   }
   }
- }
  else {
   // The extra Configuration must be either a BlockConfig or a
   // BlockSolverConfig.
   if( auto bc = dynamic_cast< BlockConfig * >( scfg->f_extra_Configuration ) )
    block_config = bc;
-  else if( auto bsc =
-           dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
-   block_solver_config = bsc;
   else
-   throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The extra "
-                                 "Configuration is invalid." ) );
- }
+   if( auto bsc =
+       dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
+    block_solver_config = bsc;
+   else
+    throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The extra "
+				  "Configuration is invalid" ) );
+  }
 
  // Now, replace the old Configurations if new ones have been provided.
 
@@ -142,19 +143,20 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
   // given one.
   delete f_inner_block_config;
   f_inner_block_config = block_config->clone();
- }
+  }
 
  if( block_solver_config ) {
   // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
   // and clone the given one.
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = block_solver_config->clone();
+  }
  }
-}
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPSolver::set_Block( Block * block ) {
+void SDDPSolver::set_Block( Block * block )
+{
  if( f_Block == block )  // registering to the same Block
   return;                // cowardly and silently return
 
