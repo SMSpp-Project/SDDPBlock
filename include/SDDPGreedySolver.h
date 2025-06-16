@@ -29,6 +29,7 @@
 #include "SDDPBlock.h"
 #include "Solver.h"
 
+#include <chrono>
 #include <random>
 
 /*--------------------------------------------------------------------------*/
