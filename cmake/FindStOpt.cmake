@@ -152,15 +152,16 @@ else ()
     # REQUIRED_VARS are set.
     # REQUIRED_VARS should be cache entries and not output variables. See:
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
+    set(_required_vars
+            StOpt_LIBRARY     StOpt_geners_LIBRARY
+            StOpt_INCLUDE_DIR StOpt_geners_INCLUDE_DIR)
+
     if (DEFINED StOpt_LIBRARY_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
         list(APPEND _required_vars StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG)
     endif()
 
     find_package_handle_standard_args(
-            StOpt REQUIRED_VARS
-            StOpt_LIBRARY     StOpt_geners_LIBRARY
-            StOpt_INCLUDE_DIR StOpt_geners_INCLUDE_DIR
-            ${_required_vars}
+            StOpt REQUIRED_VARS ${_required_vars}
             VERSION_VAR StOpt_VERSION)
 endif ()
 
