@@ -50,6 +50,15 @@ if (NOT Eigen3_FOUND)
     find_package(Eigen3 REQUIRED)
 endif ()
 
+# Determine if we're building in Debug mode
+set(_STOPT_BUILD_DEBUG FALSE)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(_STOPT_BUILD_DEBUG TRUE)
+elseif (DEFINED CMAKE_CONFIGURATION_TYPES)
+    # Multi-config generator (e.g., Visual Studio): assume both Debug and Release
+    set(_STOPT_BUILD_DEBUG TRUE)
+endif ()
+
 # Check if already in cache
 if (StOpt_INCLUDE_DIR AND StOpt_LIBRARY AND
     StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY)
@@ -69,29 +78,31 @@ else ()
                  HINTS ${StOpt_ROOT}/build/lib
                  DOC "geners library.")
 
-    if (UNIX)
-        set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
-    else ()
+    if (_STOPT_BUILD_DEBUG)
+        if (UNIX)
+            set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
+        else ()
 
-        # ----- Macro: find_win_stopt_geners_library ------------------------ #
-        # On Windows the version is appended to the library name which cannot be
-        # handled by find_library, so here a macro to search manually.
-        macro(find_win_stopt_geners_library var path_suffixes)
-            foreach (s ${path_suffixes})
-                file(GLOB StOpt_geners_LIBRARY_CANDIDATES "${StOpt_ROOT}/${s}/geners.lib")
-                if (StOpt_geners_LIBRARY_CANDIDATES)
-                    list(GET StOpt_geners_LIBRARY_CANDIDATES 0 ${var})
-                    break()
+            # ----- Macro: find_win_stopt_geners_library ------------------------ #
+            # On Windows the version is appended to the library name which cannot be
+            # handled by find_library, so here a macro to search manually.
+            macro(find_win_stopt_geners_library var path_suffixes)
+                foreach (s ${path_suffixes})
+                    file(GLOB StOpt_geners_LIBRARY_CANDIDATES "${StOpt_ROOT}/${s}/geners.lib")
+                    if (StOpt_geners_LIBRARY_CANDIDATES)
+                        list(GET StOpt_geners_LIBRARY_CANDIDATES 0 ${var})
+                        break()
+                    endif ()
+                endforeach ()
+                if (NOT ${var})
+                    set(${var} NOTFOUND)
                 endif ()
-            endforeach ()
-            if (NOT ${var})
-                set(${var} NOTFOUND)
-            endif ()
-        endmacro ()
+            endmacro ()
 
-        # Debug library
-        find_win_stopt_geners_library(StOpt_geners_LIB_DEBUG "debug/lib")
-        set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIB_DEBUG})
+            # Debug library
+            find_win_stopt_geners_library(StOpt_geners_LIB_DEBUG "debug/lib")
+            set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIB_DEBUG})
+        endif ()
     endif ()
 
     # ----- Find the StOpt library ------------------------------------------ #
@@ -107,29 +118,31 @@ else ()
                  HINTS ${StOpt_ROOT}/build/lib
                  DOC "StOpt library.")
 
-    if (UNIX)
-        set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
-    else ()
+    if (_STOPT_BUILD_DEBUG)
+        if (UNIX)
+            set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
+        else ()
 
-        # ----- Macro: find_win_stopt_library ------------------------------ #
-        # On Windows the version is appended to the library name which cannot be
-        # handled by find_library, so here a macro to search manually.
-        macro(find_win_stopt_library var path_suffixes)
-            foreach (s ${path_suffixes})
-                file(GLOB StOpt_LIBRARY_CANDIDATES "${StOpt_ROOT}/${s}/StOpt.lib")
-                if (StOpt_LIBRARY_CANDIDATES)
-                    list(GET StOpt_LIBRARY_CANDIDATES 0 ${var})
-                    break()
+            # ----- Macro: find_win_stopt_library ------------------------------ #
+            # On Windows the version is appended to the library name which cannot be
+            # handled by find_library, so here a macro to search manually.
+            macro(find_win_stopt_library var path_suffixes)
+                foreach (s ${path_suffixes})
+                    file(GLOB StOpt_LIBRARY_CANDIDATES "${StOpt_ROOT}/${s}/StOpt.lib")
+                    if (StOpt_LIBRARY_CANDIDATES)
+                        list(GET StOpt_LIBRARY_CANDIDATES 0 ${var})
+                        break()
+                    endif ()
+                endforeach ()
+                if (NOT ${var})
+                    set(${var} NOTFOUND)
                 endif ()
-            endforeach ()
-            if (NOT ${var})
-                set(${var} NOTFOUND)
-            endif ()
-        endmacro ()
+            endmacro ()
 
-        # Debug library
-        find_win_stopt_library(StOpt_LIB_DEBUG "debug/lib")
-        set(StOpt_LIBRARY_DEBUG ${StOpt_LIB_DEBUG})
+            # Debug library
+            find_win_stopt_library(StOpt_LIB_DEBUG "debug/lib")
+            set(StOpt_LIBRARY_DEBUG ${StOpt_LIB_DEBUG})
+        endif ()
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
@@ -156,7 +169,8 @@ else ()
             StOpt_LIBRARY     StOpt_geners_LIBRARY
             StOpt_INCLUDE_DIR StOpt_geners_INCLUDE_DIR)
 
-    if (DEFINED StOpt_LIBRARY_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
+    if (_STOPT_BUILD_DEBUG AND
+            DEFINED StOpt_LIBRARY_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
         list(APPEND _required_vars StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG)
     endif()
 
@@ -169,7 +183,7 @@ endif ()
 if (StOpt_FOUND)
     set(StOpt_geners_INCLUDE_DIRS "${StOpt_geners_INCLUDE_DIR}")
     set(StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY}")
-    if (DEFINED StOpt_geners_LIBRARY_DEBUG)
+    if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
         list(APPEND StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY_DEBUG}")
     endif()
 
@@ -179,7 +193,7 @@ if (StOpt_FOUND)
                 StOpt::geners PROPERTIES
                 IMPORTED_LOCATION "${StOpt_geners_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_geners_INCLUDE_DIRS}")
-        if (DEFINED StOpt_geners_LIBRARY_DEBUG)
+        if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
             set_target_properties(
                     StOpt::geners PROPERTIES
                     IMPORTED_LOCATION_DEBUG "${StOpt_geners_LIBRARY_DEBUG}")
@@ -188,7 +202,7 @@ if (StOpt_FOUND)
 
     set(StOpt_INCLUDE_DIRS "${StOpt_INCLUDE_DIR}")
     set(StOpt_LIBRARIES "${StOpt_LIBRARY}")
-    if (DEFINED StOpt_LIBRARY_DEBUG)
+    if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_LIBRARY_DEBUG)
         list(APPEND StOpt_LIBRARIES "${StOpt_LIBRARY_DEBUG}")
     endif()
 
@@ -199,7 +213,7 @@ if (StOpt_FOUND)
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
                 INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
-        if (DEFINED StOpt_LIBRARY_DEBUG)
+        if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_LIBRARY_DEBUG)
             set_target_properties(
                     StOpt::StOpt PROPERTIES
                     IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}")
