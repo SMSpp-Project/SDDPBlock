@@ -50,15 +50,6 @@ if (NOT Eigen3_FOUND)
     find_package(Eigen3 REQUIRED)
 endif ()
 
-# Determine if we're building in Debug mode
-set(_STOPT_BUILD_DEBUG FALSE)
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(_STOPT_BUILD_DEBUG TRUE)
-elseif (DEFINED CMAKE_CONFIGURATION_TYPES)
-    # Multi-config generator (e.g., Visual Studio): assume both Debug and Release
-    set(_STOPT_BUILD_DEBUG TRUE)
-endif ()
-
 # Check if already in cache
 if (StOpt_INCLUDE_DIR AND StOpt_LIBRARY AND StOpt_LIBRARY_DEBUG AND
     StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND StOpt_geners_LIBRARY_DEBUG)
@@ -78,15 +69,13 @@ else ()
                  HINTS ${StOpt_ROOT}/build/lib
                  DOC "geners library.")
 
-    if (_STOPT_BUILD_DEBUG)
-        if (UNIX)
-            set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
-         else ()
-            find_library(StOpt_geners_LIBRARY_DEBUG
-                         NAMES geners
-                         HINTS ${StOpt_ROOT}/debug/lib
-                         DOC "geners debug library.")
-        endif ()
+    if (UNIX)
+        set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
+    else ()
+        find_library(StOpt_geners_LIBRARY_DEBUG
+                     NAMES geners
+                     HINTS ${StOpt_ROOT}/debug/lib
+                     DOC "geners debug library.")
     endif ()
 
     # ----- Find the StOpt library ------------------------------------------ #
@@ -102,15 +91,13 @@ else ()
                  HINTS ${StOpt_ROOT}/build/lib
                  DOC "StOpt library.")
 
-    if (_STOPT_BUILD_DEBUG)
-        if (UNIX)
-            set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
-        else ()
-            find_library(StOpt_LIBRARY_DEBUG
-                         NAMES StOpt
-                         HINTS ${StOpt_ROOT}/debug/lib
-                         DOC "StOpt debug library.")
-        endif ()
+    if (UNIX)
+        set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
+    else ()
+        find_library(StOpt_LIBRARY_DEBUG
+                     NAMES StOpt
+                     HINTS ${StOpt_ROOT}/debug/lib
+                     DOC "StOpt debug library.")
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
@@ -137,8 +124,7 @@ else ()
             StOpt_LIBRARY     StOpt_geners_LIBRARY
             StOpt_INCLUDE_DIR StOpt_geners_INCLUDE_DIR)
 
-    if (_STOPT_BUILD_DEBUG AND
-            DEFINED StOpt_LIBRARY_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
+    if (DEFINED StOpt_LIBRARY_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
         list(APPEND _required_vars StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG)
     endif()
 
@@ -151,7 +137,7 @@ endif ()
 if (StOpt_FOUND)
     set(StOpt_geners_INCLUDE_DIRS "${StOpt_geners_INCLUDE_DIR}")
     set(StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY}")
-    if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
+    if (DEFINED StOpt_geners_LIBRARY_DEBUG)
         list(APPEND StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY_DEBUG}")
     endif()
 
@@ -161,7 +147,7 @@ if (StOpt_FOUND)
                 StOpt::geners PROPERTIES
                 IMPORTED_LOCATION "${StOpt_geners_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_geners_INCLUDE_DIRS}")
-        if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_geners_LIBRARY_DEBUG)
+        if (DEFINED StOpt_geners_LIBRARY_DEBUG)
             set_target_properties(
                     StOpt::geners PROPERTIES
                     IMPORTED_LOCATION_DEBUG "${StOpt_geners_LIBRARY_DEBUG}")
@@ -170,7 +156,7 @@ if (StOpt_FOUND)
 
     set(StOpt_INCLUDE_DIRS "${StOpt_INCLUDE_DIR}")
     set(StOpt_LIBRARIES "${StOpt_LIBRARY}")
-    if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_LIBRARY_DEBUG)
+    if (DEFINED StOpt_LIBRARY_DEBUG)
         list(APPEND StOpt_LIBRARIES "${StOpt_LIBRARY_DEBUG}")
     endif()
 
@@ -181,7 +167,7 @@ if (StOpt_FOUND)
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
                 INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
-        if (_STOPT_BUILD_DEBUG AND DEFINED StOpt_LIBRARY_DEBUG)
+        if (DEFINED StOpt_LIBRARY_DEBUG)
             set_target_properties(
                     StOpt::StOpt PROPERTIES
                     IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}")
