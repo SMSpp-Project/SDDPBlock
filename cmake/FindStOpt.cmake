@@ -51,8 +51,8 @@ if (NOT Eigen3_FOUND)
 endif ()
 
 # Check if already in cache
-if (StOpt_INCLUDE_DIR AND StOpt_LIBRARY AND StOpt_LIBRARY_DEBUG AND
-    StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND StOpt_geners_LIBRARY_DEBUG)
+if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND StOpt_geners_LIBRARY_DEBUG AND
+    StOpt_INCLUDE_DIR AND StOpt_LIBRARY AND StOpt_LIBRARY_DEBUG)
     set(StOpt_FOUND TRUE)
 else ()
 
@@ -136,42 +136,28 @@ endif ()
 # ----- Export the targets -------------------------------------------------- #
 if (StOpt_FOUND)
     set(StOpt_geners_INCLUDE_DIRS "${StOpt_geners_INCLUDE_DIR}")
-    set(StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY}")
-    if (DEFINED StOpt_geners_LIBRARY_DEBUG)
-        list(APPEND StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY_DEBUG}")
-    endif()
+    set(StOpt_geners_LIBRARIES "${StOpt_geners_LIBRARY}" "${StOpt_geners_LIBRARY_DEBUG}")
 
     if (NOT TARGET StOpt::geners)
         add_library(StOpt::geners UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::geners PROPERTIES
                 IMPORTED_LOCATION "${StOpt_geners_LIBRARY}"
+                IMPORTED_LOCATION_DEBUG "${StOpt_geners_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_geners_INCLUDE_DIRS}")
-        if (DEFINED StOpt_geners_LIBRARY_DEBUG)
-            set_target_properties(
-                    StOpt::geners PROPERTIES
-                    IMPORTED_LOCATION_DEBUG "${StOpt_geners_LIBRARY_DEBUG}")
-        endif()
     endif ()
 
     set(StOpt_INCLUDE_DIRS "${StOpt_INCLUDE_DIR}")
-    set(StOpt_LIBRARIES "${StOpt_LIBRARY}")
-    if (DEFINED StOpt_LIBRARY_DEBUG)
-        list(APPEND StOpt_LIBRARIES "${StOpt_LIBRARY_DEBUG}")
-    endif()
+    set(StOpt_LIBRARIES "${StOpt_LIBRARY}" "${StOpt_LIBRARY_DEBUG}")
 
     if (NOT TARGET StOpt::StOpt)
         add_library(StOpt::StOpt UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::StOpt PROPERTIES
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
+                IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
                 INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
-        if (DEFINED StOpt_LIBRARY_DEBUG)
-            set_target_properties(
-                    StOpt::StOpt PROPERTIES
-                    IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}")
-        endif()
     endif ()
 endif ()
 
