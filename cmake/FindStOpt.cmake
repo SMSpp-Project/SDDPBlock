@@ -64,16 +64,20 @@ else ()
               PATH_SUFFIXES geners-1.11.0
               DOC "geners include directory.")
 
-    find_library(StOpt_geners_LIBRARY
-                 NAMES geners
-                 HINTS ${StOpt_ROOT}
-                 PATH_SUFFIXES lib build/lib
-                 NO_DEFAULT_PATH
-                 DOC "geners library.")
-
     if (UNIX)
+        find_library(StOpt_geners_LIBRARY
+                     NAMES geners
+                     HINTS ${StOpt_ROOT}
+                     PATH_SUFFIXES lib build/lib
+                     DOC "geners library.")
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
     else ()
+        find_library(StOpt_geners_LIBRARY
+                     NAMES geners
+                     HINTS ${StOpt_ROOT}/lib
+                     NO_DEFAULT_PATH
+                     DOC "geners library.")
+
         find_library(StOpt_geners_LIBRARY_DEBUG
                      NAMES geners
                      HINTS ${StOpt_ROOT}/debug/lib
@@ -89,16 +93,20 @@ else ()
               PATH_SUFFIXES StOpt
               DOC "StOpt include directory.")
 
-    find_library(StOpt_LIBRARY
-                 NAMES StOpt stopt
-                 HINTS ${StOpt_ROOT}
-                 PATH_SUFFIXES lib build/lib
-                 NO_DEFAULT_PATH
-                 DOC "StOpt library.")
-
     if (UNIX)
+        find_library(StOpt_LIBRARY
+                     NAMES StOpt
+                     HINTS ${StOpt_ROOT}
+                     PATH_SUFFIXES lib build/lib
+                     DOC "StOpt library.")
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
     else ()
+        find_library(StOpt_LIBRARY
+                     NAMES StOpt
+                     HINTS ${StOpt_ROOT}/lib
+                     NO_DEFAULT_PATH
+                     DOC "StOpt library.")
+
         find_library(StOpt_LIBRARY_DEBUG
                      NAMES StOpt
                      HINTS ${StOpt_ROOT}/debug/lib
