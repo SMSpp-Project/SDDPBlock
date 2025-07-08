@@ -66,7 +66,9 @@ else ()
 
     find_library(StOpt_geners_LIBRARY
                  NAMES geners
-                 HINTS ${StOpt_ROOT}/build/lib
+                 HINTS ${StOpt_ROOT}
+                 PATH_SUFFIXES lib build/lib
+                 NO_DEFAULT_PATH
                  DOC "geners library.")
 
     if (UNIX)
@@ -75,6 +77,7 @@ else ()
         find_library(StOpt_geners_LIBRARY_DEBUG
                      NAMES geners
                      HINTS ${StOpt_ROOT}/debug/lib
+                     NO_DEFAULT_PATH
                      DOC "geners debug library.")
     endif ()
 
@@ -88,7 +91,9 @@ else ()
 
     find_library(StOpt_LIBRARY
                  NAMES StOpt stopt
-                 HINTS ${StOpt_ROOT}/build/lib
+                 HINTS ${StOpt_ROOT}
+                 PATH_SUFFIXES lib build/lib
+                 NO_DEFAULT_PATH
                  DOC "StOpt library.")
 
     if (UNIX)
@@ -97,6 +102,7 @@ else ()
         find_library(StOpt_LIBRARY_DEBUG
                      NAMES StOpt
                      HINTS ${StOpt_ROOT}/debug/lib
+                     NO_DEFAULT_PATH
                      DOC "StOpt debug library.")
     endif ()
 
