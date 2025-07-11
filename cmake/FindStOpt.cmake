@@ -56,25 +56,21 @@ if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND StOpt_geners_LIBRARY_D
     set(StOpt_FOUND TRUE)
 else ()
 
-    # ----- Find the geners library ----------------------------------------- #
-    # Note that find_path() creates a cache entry
+    # ----- Find the geners include directory ------------------------------- #
     find_path(StOpt_geners_INCLUDE_DIR
               NAMES geners
               HINTS ${StOpt_ROOT}/geners
               DOC "geners include directory.")
 
+    # ----- Find the geners library ----------------------------------------- #
+    find_library(StOpt_geners_LIBRARY
+            NAMES geners
+            HINTS ${StOpt_ROOT}/lib
+            DOC "geners library.")
+
     if (UNIX)
-        find_library(StOpt_geners_LIBRARY
-                     NAMES geners
-                     HINTS ${StOpt_ROOT}/lib
-                     DOC "geners library.")
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
     else ()
-        find_library(StOpt_geners_LIBRARY
-                     NAMES geners
-                     HINTS ${StOpt_ROOT}/lib
-                     DOC "geners library.")
-
         find_library(StOpt_geners_LIBRARY_DEBUG
                      NAMES geners
                      HINTS ${StOpt_ROOT}/debug/lib
@@ -82,26 +78,22 @@ else ()
                      DOC "geners debug library.")
     endif ()
 
-    # ----- Find the StOpt library ------------------------------------------ #
-    # Note that find_path() creates a cache entry
+    # ----- Find the StOpt include directory -------------------------------- #
     find_path(StOpt_INCLUDE_DIR
               NAMES StOpt/sddp
               HINTS ${StOpt_ROOT}
               PATH_SUFFIXES StOpt
               DOC "StOpt include directory.")
 
-    if (UNIX)
-        find_library(StOpt_LIBRARY
-                     NAMES StOpt
-                     HINTS ${StOpt_ROOT}/lib
-                     DOC "StOpt library.")
-        set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
-    else ()
-        find_library(StOpt_LIBRARY
-                     NAMES StOpt
-                     HINTS ${StOpt_ROOT}/lib
-                     DOC "StOpt library.")
+    # ----- Find the StOpt library ------------------------------------------ #
+    find_library(StOpt_LIBRARY
+                 NAMES StOpt
+                 HINTS ${StOpt_ROOT}/lib
+                 DOC "StOpt library.")
 
+    if (UNIX)
+        set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
+    elseif (WIN32)
         find_library(StOpt_LIBRARY_DEBUG
                      NAMES StOpt
                      HINTS ${StOpt_ROOT}/debug/lib
@@ -129,29 +121,10 @@ else ()
     # REQUIRED_VARS are set.
     # REQUIRED_VARS should be cache entries and not output variables. See:
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
-    set(_required_vars
-            StOpt_LIBRARY     StOpt_geners_LIBRARY
-            StOpt_INCLUDE_DIR StOpt_geners_INCLUDE_DIR)
-
-    # Check if we are in a Debug configuration
-    # (since Conda uses prebuilt StOpt binaries, *_LIBRARY_DEBUG libs are not available)
-    set(_is_debug FALSE)
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug") # for single-config generators (Makefiles)
-        set(_is_debug TRUE)
-    elseif (CMAKE_CONFIGURATION_TYPES) # for multi-config generators (Visual Studio)
-        list(FIND CMAKE_CONFIGURATION_TYPES "Debug" _debug_index)
-        if (NOT _debug_index EQUAL -1)
-            set(_is_debug TRUE)
-        endif ()
-    endif ()
-
-    if (_is_debug)
-        list(APPEND _required_vars StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG)
-    endif ()
-
     find_package_handle_standard_args(
-            StOpt REQUIRED_VARS ${_required_vars}
-            VERSION_VAR StOpt_VERSION)
+            StOpt
+            REQUIRED_VARS StOpt_geners_LIBRARY StOpt_geners_INCLUDE_DIR
+                          StOpt_LIBRARY        StOpt_INCLUDE_DIR)
 endif ()
 
 # ----- Export the targets -------------------------------------------------- #
