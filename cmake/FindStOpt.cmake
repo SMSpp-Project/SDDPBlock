@@ -73,7 +73,6 @@ else ()
         find_library(StOpt_geners_LIBRARY
                      NAMES geners
                      HINTS ${StOpt_ROOT}/lib
-                     NO_DEFAULT_PATH
                      DOC "geners library.")
 
         find_library(StOpt_geners_LIBRARY_DEBUG
@@ -101,7 +100,6 @@ else ()
         find_library(StOpt_LIBRARY
                      NAMES StOpt
                      HINTS ${StOpt_ROOT}/lib
-                     NO_DEFAULT_PATH
                      DOC "StOpt library.")
 
         find_library(StOpt_LIBRARY_DEBUG
