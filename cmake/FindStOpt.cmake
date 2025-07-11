@@ -60,8 +60,7 @@ else ()
     # Note that find_path() creates a cache entry
     find_path(StOpt_geners_INCLUDE_DIR
               NAMES geners
-              HINTS ${StOpt_ROOT}
-              PATH_SUFFIXES geners-1.11.0
+              HINTS ${StOpt_ROOT}/geners
               DOC "geners include directory.")
 
     if (UNIX)
