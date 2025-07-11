@@ -67,8 +67,7 @@ else ()
     if (UNIX)
         find_library(StOpt_geners_LIBRARY
                      NAMES geners
-                     HINTS ${StOpt_ROOT}
-                     PATH_SUFFIXES lib build/lib
+                     HINTS ${StOpt_ROOT}/lib
                      DOC "geners library.")
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY})
     else ()
@@ -96,8 +95,7 @@ else ()
     if (UNIX)
         find_library(StOpt_LIBRARY
                      NAMES StOpt
-                     HINTS ${StOpt_ROOT}
-                     PATH_SUFFIXES lib build/lib
+                     HINTS ${StOpt_ROOT}/lib
                      DOC "StOpt library.")
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY})
     else ()
