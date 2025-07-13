@@ -66,7 +66,8 @@ else ()
     find_library(StOpt_geners_LIBRARY
                  NAMES geners
                  PATHS ${StOpt_ROOT}
-                 PATH_SUFFIXES lib
+                 PATH_SUFFIXES Library/lib lib
+                 NO_DEFAULT_PATH
                  DOC "geners library.")
 
     # ----- Find the StOpt include directory -------------------------------- #
@@ -80,7 +81,8 @@ else ()
     find_library(StOpt_LIBRARY
                  NAMES StOpt
                  PATHS ${StOpt_ROOT}
-                 PATH_SUFFIXES lib
+                 PATH_SUFFIXES Library/lib lib
+                 NO_DEFAULT_PATH
                  DOC "StOpt library.")
 
     # ----- Parse the version ----------------------------------------------- #
