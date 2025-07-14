@@ -63,17 +63,24 @@ else ()
               DOC "geners include directory.")
 
     # ----- Find the geners library ----------------------------------------- #
-    find_library(StOpt_geners_LIBRARY
-                 NAMES geners
-                 PATHS ${StOpt_ROOT}
-                 PATH_SUFFIXES Library/lib lib
-                 NO_DEFAULT_PATH
-                 DOC "geners library.")
 
     if (UNIX)
+        find_library(StOpt_geners_LIBRARY
+                     NAMES geners
+                     PATHS ${StOpt_ROOT}
+                     PATH_SUFFIXES ${LIBRARY_LIB} lib
+                     DOC "geners library.")
+
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY}
                 CACHE FILEPATH "geners debug library." FORCE)
     else ()
+        find_library(StOpt_geners_LIBRARY
+                     NAMES geners
+                     PATHS ${StOpt_ROOT}
+                     PATH_SUFFIXES ${LIBRARY_LIB} lib
+                     NO_DEFAULT_PATH
+                     DOC "geners library.")
+
         find_library(StOpt_geners_LIBRARY_DEBUG
                      NAMES geners
                      PATHS ${StOpt_ROOT}/debug/lib
@@ -89,17 +96,23 @@ else ()
               DOC "StOpt include directory.")
 
     # ----- Find the StOpt library ------------------------------------------ #
-    find_library(StOpt_LIBRARY
-                 NAMES StOpt
-                 PATHS ${StOpt_ROOT}
-                 PATH_SUFFIXES Library/lib lib
-                 NO_DEFAULT_PATH
-                 DOC "StOpt library.")
-
     if (UNIX)
+        find_library(StOpt_LIBRARY
+                     NAMES StOpt
+                     PATHS ${StOpt_ROOT}
+                     PATH_SUFFIXES ${LIBRARY_LIB} lib
+                     DOC "StOpt library.")
+
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY}
                 CACHE FILEPATH "StOpt debug library." FORCE)
     elseif (WIN32)
+        find_library(StOpt_LIBRARY
+                     NAMES StOpt
+                     PATHS ${StOpt_ROOT}
+                     PATH_SUFFIXES ${LIBRARY_LIB} lib
+                     NO_DEFAULT_PATH
+                     DOC "StOpt library.")
+
         find_library(StOpt_LIBRARY_DEBUG
                      NAMES StOpt
                      PATHS ${StOpt_ROOT}/debug/lib
