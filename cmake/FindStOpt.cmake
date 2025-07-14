@@ -142,9 +142,9 @@ if (StOpt_FOUND)
         add_library(StOpt::geners UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::geners PROPERTIES
-                IMPORTED_LOCATION ${StOpt_geners_LIBRARY}
-                IMPORTED_LOCATION_DEBUG ${StOpt_geners_LIBRARY_DEBUG}
-                INTERFACE_INCLUDE_DIRECTORIES ${StOpt_geners_INCLUDE_DIRS})
+                IMPORTED_LOCATION "${StOpt_geners_LIBRARY}"
+                IMPORTED_LOCATION_DEBUG "${StOpt_geners_LIBRARY_DEBUG}"
+                INTERFACE_INCLUDE_DIRECTORIES "${StOpt_geners_INCLUDE_DIRS}")
     endif ()
 
     set(StOpt_INCLUDE_DIRS ${StOpt_INCLUDE_DIR})
@@ -154,9 +154,9 @@ if (StOpt_FOUND)
         add_library(StOpt::StOpt UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::StOpt PROPERTIES
-                IMPORTED_LOCATION ${StOpt_LIBRARY}
-                IMPORTED_LOCATION_DEBUG ${StOpt_LIBRARY_DEBUG}
-                INTERFACE_INCLUDE_DIRECTORIES ${StOpt_INCLUDE_DIRS}
+                IMPORTED_LOCATION "${StOpt_LIBRARY}"
+                IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
+                INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
                 INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
     endif ()
 endif ()
