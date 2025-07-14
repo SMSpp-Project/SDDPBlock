@@ -70,6 +70,17 @@ else ()
                  NO_DEFAULT_PATH
                  DOC "geners library.")
 
+    if (UNIX)
+        set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY}
+                CACHE FILEPATH "geners debug library." FORCE)
+    else ()
+        find_library(StOpt_geners_LIBRARY_DEBUG
+                     NAMES geners
+                     PATHS ${StOpt_ROOT}/debug/lib
+                     NO_DEFAULT_PATH
+                     DOC "geners debug library.")
+    endif ()
+
     # ----- Find the StOpt include directory -------------------------------- #
     find_path(StOpt_INCLUDE_DIR
               NAMES StOpt/sddp
@@ -84,6 +95,17 @@ else ()
                  PATH_SUFFIXES Library/lib lib
                  NO_DEFAULT_PATH
                  DOC "StOpt library.")
+
+    if (UNIX)
+        set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY}
+                CACHE FILEPATH "StOpt debug library." FORCE)
+    elseif (WIN32)
+        find_library(StOpt_LIBRARY_DEBUG
+                     NAMES StOpt
+                     PATHS ${StOpt_ROOT}/debug/lib
+                     NO_DEFAULT_PATH
+                     DOC "StOpt debug library.")
+    endif ()
 
     # ----- Parse the version ----------------------------------------------- #
     if (StOpt_INCLUDE_DIR)
@@ -121,6 +143,7 @@ if (StOpt_FOUND)
         set_target_properties(
                 StOpt::geners PROPERTIES
                 IMPORTED_LOCATION ${StOpt_geners_LIBRARY}
+                IMPORTED_LOCATION_DEBUG ${StOpt_geners_LIBRARY_DEBUG}
                 INTERFACE_INCLUDE_DIRECTORIES ${StOpt_geners_INCLUDE_DIRS})
     endif ()
 
@@ -132,6 +155,7 @@ if (StOpt_FOUND)
         set_target_properties(
                 StOpt::StOpt PROPERTIES
                 IMPORTED_LOCATION ${StOpt_LIBRARY}
+                IMPORTED_LOCATION_DEBUG ${StOpt_LIBRARY_DEBUG}
                 INTERFACE_INCLUDE_DIRECTORIES ${StOpt_INCLUDE_DIRS}
                 INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
     endif ()
@@ -141,6 +165,7 @@ endif ()
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
 mark_as_advanced(StOpt_INCLUDE_DIR      StOpt_geners_INCLUDE_DIR
                  StOpt_LIBRARY          StOpt_geners_LIBRARY
+                 StOpt_LIBRARY_DEBUG    StOpt_geners_LIBRARY_DEBUG
                  StOpt_VERSION)
 
 # --------------------------------------------------------------------------- #
