@@ -74,6 +74,9 @@ else ()
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY}
                 CACHE FILEPATH "geners debug library." FORCE)
     else ()
+        message(STATUS "StOpt_ROOT = ${StOpt_ROOT}")
+        message(STATUS "ENV{LIBRARY_LIB} = $ENV{LIBRARY_LIB}")
+        message(STATUS "LIBRARY_LIB = ${LIBRARY_LIB}")
         find_library(StOpt_geners_LIBRARY
                      NAMES geners
                      PATHS ${StOpt_ROOT}
@@ -106,6 +109,9 @@ else ()
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY}
                 CACHE FILEPATH "StOpt debug library." FORCE)
     elseif (WIN32)
+        message(STATUS "StOpt_LIBRARY = ${StOpt_LIBRARY}")
+        message(STATUS "ENV{LIBRARY_LIB} = $ENV{LIBRARY_LIB}")
+        message(STATUS "LIBRARY_LIB = ${LIBRARY_LIB}")
         find_library(StOpt_LIBRARY
                      NAMES StOpt
                      PATHS ${StOpt_ROOT}
