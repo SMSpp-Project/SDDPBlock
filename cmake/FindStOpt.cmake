@@ -67,20 +67,16 @@ else ()
     if (UNIX)
         find_library(StOpt_geners_LIBRARY
                      NAMES geners
-                     PATHS ${StOpt_ROOT}
-                     PATH_SUFFIXES ${LIBRARY_LIB} lib
+                     PATHS ${StOpt_ROOT}/lib
                      DOC "geners library.")
 
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY}
                 CACHE FILEPATH "geners debug library." FORCE)
-    else ()
-        message(STATUS "StOpt_ROOT = ${StOpt_ROOT}")
-        message(STATUS "ENV{LIBRARY_LIB} = $ENV{LIBRARY_LIB}")
-        message(STATUS "LIBRARY_LIB = ${LIBRARY_LIB}")
+    elseif (WIN32)
         find_library(StOpt_geners_LIBRARY
                      NAMES geners
-                     PATHS ${StOpt_ROOT}
-                     PATH_SUFFIXES $ENV{LIBRARY_LIB} lib
+                     PATHS ${StOpt_ROOT}/lib
+                           $ENV{LIBRARY_LIB}
                      NO_DEFAULT_PATH
                      DOC "geners library.")
 
@@ -102,20 +98,16 @@ else ()
     if (UNIX)
         find_library(StOpt_LIBRARY
                      NAMES StOpt
-                     PATHS ${StOpt_ROOT}
-                     PATH_SUFFIXES ${LIBRARY_LIB} lib
+                     PATHS ${StOpt_ROOT}/lib
                      DOC "StOpt library.")
 
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY}
                 CACHE FILEPATH "StOpt debug library." FORCE)
     elseif (WIN32)
-        message(STATUS "StOpt_LIBRARY = ${StOpt_LIBRARY}")
-        message(STATUS "ENV{LIBRARY_LIB} = $ENV{LIBRARY_LIB}")
-        message(STATUS "LIBRARY_LIB = ${LIBRARY_LIB}")
         find_library(StOpt_LIBRARY
                      NAMES StOpt
-                     PATHS ${StOpt_ROOT}
-                     PATH_SUFFIXES $ENV{LIBRARY_LIB} lib
+                     PATHS ${StOpt_ROOT}/lib
+                           $ENV{LIBRARY_LIB}
                      NO_DEFAULT_PATH
                      DOC "StOpt library.")
 
