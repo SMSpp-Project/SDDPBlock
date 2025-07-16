@@ -39,6 +39,7 @@
 include(FindPackageHandleStandardArgs)
 
 # ----- Requirements -------------------------------------------------------- #
+find_package(BLAS REQUIRED QUIET)
 find_package(BZip2 REQUIRED QUIET)
 find_package(ZLIB REQUIRED QUIET)
 find_package(Boost REQUIRED COMPONENTS system timer QUIET)
