@@ -39,7 +39,6 @@
 include(FindPackageHandleStandardArgs)
 
 # ----- Requirements -------------------------------------------------------- #
-find_package(BLAS REQUIRED QUIET)
 find_package(BZip2 REQUIRED QUIET)
 find_package(ZLIB REQUIRED QUIET)
 find_package(Boost REQUIRED COMPONENTS system timer QUIET)
@@ -169,7 +168,7 @@ if (StOpt_FOUND)
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
                 IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
-                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer;${BLAS_LIBRARIES}")
+                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
     endif ()
 endif ()
 
