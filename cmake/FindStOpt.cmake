@@ -168,7 +168,7 @@ if (StOpt_FOUND)
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
                 IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
-                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
+                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer;Boost::exception")
     endif ()
 endif ()
 
