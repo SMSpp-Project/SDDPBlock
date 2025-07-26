@@ -41,7 +41,7 @@ include(FindPackageHandleStandardArgs)
 # ----- Requirements -------------------------------------------------------- #
 find_package(BZip2 REQUIRED QUIET)
 find_package(ZLIB REQUIRED QUIET)
-find_package(Boost REQUIRED COMPONENTS system timer QUIET)
+find_package(Boost REQUIRED COMPONENTS system timer exception QUIET)
 
 # This will try first with Eigen3 own configuration file,
 # then with the find module we provide.
