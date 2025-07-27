@@ -76,7 +76,7 @@ else ()
         find_library(StOpt_geners_LIBRARY
                      NAMES geners
                      PATHS ${StOpt_ROOT}/lib
-                           $ENV{LIBRARY_PREFIX}/lib
+                           $ENV{LIBRARY_LIB}
                      NO_DEFAULT_PATH
                      DOC "geners library.")
 
@@ -107,7 +107,7 @@ else ()
         find_library(StOpt_LIBRARY
                      NAMES StOpt
                      PATHS ${StOpt_ROOT}/lib
-                           $ENV{LIBRARY_PREFIX}/lib
+                           $ENV{LIBRARY_LIB}
                      NO_DEFAULT_PATH
                      DOC "StOpt library.")
 
