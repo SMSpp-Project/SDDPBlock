@@ -59,7 +59,7 @@ else ()
     # ----- Find the geners include directory ------------------------------- #
     find_path(StOpt_geners_INCLUDE_DIR
               NAMES geners
-              PATHS ${StOpt_ROOT}/geners
+              PATHS ${StOpt_ROOT}/include/geners
               DOC "geners include directory.")
 
     # ----- Find the geners library ----------------------------------------- #
@@ -90,7 +90,7 @@ else ()
     # ----- Find the StOpt include directory -------------------------------- #
     find_path(StOpt_INCLUDE_DIR
               NAMES StOpt/sddp
-              PATHS ${StOpt_ROOT}
+              PATHS ${StOpt_ROOT}/include
               PATH_SUFFIXES StOpt
               DOC "StOpt include directory.")
 
