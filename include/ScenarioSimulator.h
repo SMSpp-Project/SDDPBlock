@@ -312,7 +312,7 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /** This function simply updates the the number of simulations and calls
+ /** This function simply updates the number of simulations and calls
   * resetTime(). This function should only be called by a forward simulator.
   *
   * @param number_simulations The new number of simulations. */
