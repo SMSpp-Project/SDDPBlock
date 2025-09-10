@@ -44,6 +44,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # See: https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html
 include(BuildType)
 
+option(USE_MPI "Enable MPI" ON)
+
 # ----- Requirements -------------------------------------------------------- #
 # If it's not being called by the umbrella, we need to
 # look for the system-installed libraries.
@@ -53,8 +55,11 @@ endif ()
 
 find_package(StOpt REQUIRED)
 find_package(OpenMP)
-find_package(MPI)
-find_package(Boost COMPONENTS mpi)
+
+if (USE_MPI)
+    find_package(MPI)
+    find_package(Boost COMPONENTS mpi)
+endif ()
 
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
@@ -107,7 +112,7 @@ if (OpenMP_CXX_FOUND)
     target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)
 endif ()
 
-if (MPI_CXX_FOUND AND Boost_MPI_FOUND)
+if (USE_MPI AND MPI_CXX_FOUND AND Boost_MPI_FOUND)
     message(STATUS "${modName}: MPI and Boost::mpi found. Using MPI.")
     target_compile_definitions(${modName} PUBLIC USE_MPI)
     target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
