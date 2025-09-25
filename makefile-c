@@ -32,13 +32,10 @@
 # *H   is the list of all include files
 # *INC is the -I< include directories >
 
-# define input macros for SMS++ complete makefile, then include it
-SMS++SDR = $(SDDPBkSDR)/../SMS++
-include $(SMS++SDR)/lib/makefile-c
-
-# define input macros for StochasticBlock makefile, then include it
+# define input macros for the complete StochasticBlock makefile (comprised
+# core SMS++), then include it
 StcBlkSDR = $(SDDPBkSDR)/../StochasticBlock
-include $(StcBlkSDR)/makefile
+include $(StcBlkSDR)/makefile-c
 
 # include makefile for libStOpt
 include $(SDDPBkSDR)/../extlib/makefile-libStOpt
@@ -50,11 +47,11 @@ include $(SDDPBkSDR)/makefile
 
 # append external -I directives to SDDPBkINC, SDDPBkOBJ and SDDPBkH as
 # defined by the makefile, thus the := assignment has to be used (use GNU make)
-SDDPBkOBJ := $(SDDPBkOBJ) $(StcBlkOBJ) $(SMS++OBJ)
-SDDPBkH := $(SDDPBkH) $(StcBlkH) $(SMS++H)
-SDDPBkINC := $(SMS++INC) $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
+SDDPBkOBJ := $(SDDPBkOBJ) $(StcBlkOBJ)
+SDDPBkH := $(SDDPBkH) $(StcBlkH)
+SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
 # external libraries for SDDPBlock
-SDDPBkLIB = $(SMS++LIB) $(libStOptLIB) -lmpi -lboost_mpi
+SDDPBkLIB = $(StcBlkLIB) $(libStOptLIB) -lmpi -lboost_mpi
 
 ########################### End of makefile-c ################################
