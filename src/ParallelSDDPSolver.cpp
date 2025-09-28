@@ -143,7 +143,7 @@ void ParallelSDDPSolver::ParallelSDDPOptimizer::prepare_new_stage
 
  non_reserved_block.assign( num_sub_blocks , true );
 
- auto i = decltype( num_simulations ){ 0 };
+ auto i = decltype( num_simulations ) { 0 };
  for( auto & block_index : preferred_block ) {
   const auto scenario_index = get_scenario_index( i++ , backward );
   block_index = get_sub_block_with_scenario( stage , scenario_index );
