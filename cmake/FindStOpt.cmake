@@ -41,7 +41,7 @@ include(FindPackageHandleStandardArgs)
 # ----- Requirements -------------------------------------------------------- #
 find_package(BZip2 REQUIRED QUIET)
 find_package(ZLIB REQUIRED QUIET)
-find_package(Boost REQUIRED COMPONENTS system timer QUIET)
+find_package(Boost REQUIRED COMPONENTS timer QUIET)
 
 # This will try first with Eigen3 own configuration file,
 # then with the find module we provide.
@@ -174,7 +174,7 @@ if (StOpt_FOUND)
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
                 IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
-                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::system;Boost::timer")
+                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::timer")
     endif ()
 endif ()
 
