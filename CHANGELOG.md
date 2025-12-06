@@ -13,6 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed 
 
+## [0.5.4] - 2025-12-xx
+
+### Added 
+
+- SDDPSolver parameters to better control outputs
+
+- parameter to set the seed of the forward simulator
+
+### Changed 
+
+- adapted to new standard organization of makefiles
+
+- parameter in set_ComputeConfig() is now const
+
+- made USE_MPI public
+
+### Fixed 
+
+- corrected dysfunctional makefile-s and -c
+
 ## [0.5.3] - 2024-02-29
 
 ### Changed 
