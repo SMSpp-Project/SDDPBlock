@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed 
 
-## [0.5.4] - 2025-12-xx
+## [0.5.4] - 2025-12-12
 
 ### Added 
 
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - adapted to new standard organization of makefiles
 
-- parameter in set_ComputeConfig() is now const
+- parameter in set\_ComputeConfig() is now const
 
 - made USE_MPI public
 
@@ -53,66 +53,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- SDDPGreedySolver::set_ComputeConfig().
-- Load cuts from file.
-- Allow scenarios to be randomly chosen in SDDPGreedySolver.
-- Multiple parameters to SDDPGreedySolver.
+- SDDPGreedySolver::set\_ComputeConfig()
+
+- Load cuts from file
+
+- Allow scenarios to be randomly chosen in SDDPGreedySolver
+
+- Multiple parameters to SDDPGreedySolver
 
 ### Changed
 
-- Update interface with StOpt.
-- SDDPGreedySolver becomes a CDASolver.
-- Output of SDDPSolver and SDDPGreedySolver.
-- Define the sense of the "Objective" of the SDDPBlock.
+- Update interface with StOpt
+
+- SDDPGreedySolver becomes a CDASolver
+
+- Output of SDDPSolver and SDDPGreedySolver
+
+- Define the sense of the "Objective" of the SDDPBlock
 
 ## [0.5.0] - 2021-12-08
 
 ### Added
 
-- Multiple parameters to SDDPSolver and SDDPGreedySolver.
-- Support for multiple sub-Blocks per stage in SDDPBlock.
-- ParallelSDDPSolver.
-- SDDPSolverState.
-- SDDPSolver::set_ComputeConfig().
-- Handling Configuration for get_var_solution().
-- Storage of random cuts.
+- Multiple parameters to SDDPSolver and SDDPGreedySolver
+
+- Support for multiple sub-Blocks per stage in SDDPBlock
+
+- ParallelSDDPSolver
+
+- SDDPSolverState
+
+- SDDPSolver::set_ComputeConfig()
+
+- Handling Configuration for get\_var\_solution()
+
+- Storage of random cuts
 
 ### Changed
 
-- Cuts provided by StOpt are added incrementally.
+- Cuts provided by StOpt are added incrementally
 
 ### Fixed
 
-- Objective value of subproblem in SDDPGreedySolver.
-- Bug in oneStepForward() regarding the simulation id.
+- Objective value of subproblem in SDDPGreedySolver
+
+- Bug in oneStepForward() regarding the simulation id
 
 ## [0.4.0] - 2021-05-02
 
 ### Added
 
-- Inner Blocks of SDDPBlock can be configured by SDDPSolver and SDDPGreedySolver.
+- Inner Blocks of SDDPBlock can be configured by SDDPSolver and
+  SDDPGreedySolver
 
-- Implementation of SDDPSolver.
+- Implementation of SDDPSolver
 
 ## [0.3.0] - 2020-09-16
 
 ### Added
 
-- SDDPGreedySolver.
+- SDDPGreedySolver
 
 ## [0.2.0] - 2020-03-06
 
 ### Added
 
-- Serialization.
+- Serialization
 
 ## [0.1.0] - 2020-01-09
 
 ### Added
 
-- First test release.
+- First test release
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.3...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.4...develop
+[0.5.4]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.3...0.5.4
 [0.5.3]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.2...0.5.3
 [0.5.2]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.1...0.5.2
 [0.5.1]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.0...0.5.1
