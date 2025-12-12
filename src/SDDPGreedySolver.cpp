@@ -46,19 +46,20 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
 /*--------------------------------------------------------------------------*/
 
-SDDPGreedySolver::~SDDPGreedySolver() {
+SDDPGreedySolver::~SDDPGreedySolver()
+{
  delete f_inner_block_config;
  delete f_inner_block_solver_config;
  delete f_get_var_solution_config;
  delete f_get_dual_solution_config;
-}
+ }
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
-
+void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
+{
  ThinComputeInterface::set_ComputeConfig( scfg );
 
  if( ! scfg ) { // factory reset
@@ -75,7 +76,7 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
   f_get_dual_solution_config = nullptr;
 
   return;
- }
+  }
 
  if( ! scfg->f_extra_Configuration ) {
   // No extra Configuration has been provided.
@@ -91,7 +92,7 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
 
   // There is nothing else to do.
   return;
- }
+  }
 
  BlockConfig * block_config = nullptr;
  BlockSolverConfig * block_solver_config = nullptr;
@@ -120,8 +121,8 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
            dynamic_cast< BlockConfig * >( config->f_value.front() ) ) )
     throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
                                   "first element of the extra Configuration "
-                                  "is not a BlockConfig." ) );
-  }
+                                  "is not a BlockConfig" ) );
+   }
 
   if( config->f_value.size() >= 2 && config->f_value[ 1 ] ) {
    // A BlockSolverConfig must have been provided.
@@ -129,33 +130,33 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
            dynamic_cast< BlockSolverConfig * >( config->f_value[ 1 ] ) ) )
     throw( std::invalid_argument( "SDDGreedyPSolver::set_ComputeConfig: The "
                                   "second element of the extra Configuration "
-                                  "is not a BlockSolverConfig." ) );
-  }
+                                  "is not a BlockSolverConfig" ) );
+   }
 
-  if( config->f_value.size() >= 3 && config->f_value[ 2 ] ) {
+  if( config->f_value.size() >= 3 && config->f_value[ 2 ] )
    // A Configuration for get_var_solution() of the Solver attached to the
    // inner Blocks.
    f_get_var_solution_config = config->f_value[ 2 ]->clone();
-  }
 
-  if( config->f_value.size() >= 4 && config->f_value[ 3 ] ) {
+
+  if( config->f_value.size() >= 4 && config->f_value[ 3 ] )
    // A Configuration for get_dual_solution() of the Solver attached to the
    // inner Blocks.
    f_get_dual_solution_config = config->f_value[ 3 ]->clone();
   }
- }
  else {
   // The extra Configuration must be either a BlockConfig or a
-  // BlockSolverConfig.
+  // BlockSolverConfig
   if( auto bc = dynamic_cast< BlockConfig * >( scfg->f_extra_Configuration ) )
    block_config = bc;
-  else if( auto bsc =
-           dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
-   block_solver_config = bsc;
   else
-   throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
-                                 "extra Configuration is invalid." ) );
- }
+   if( auto bsc =
+       dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
+    block_solver_config = bsc;
+   else
+    throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
+				  "extra Configuration is invalid" ) );
+  }
 
  // Now, replace the old Configurations if new ones have been provided.
 
@@ -168,20 +169,20 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
                    v_inner_block_configured.cend() ,
                    []( auto b ) { return b; } ) ) {
 
-   f_inner_block_config ->clear();
+   f_inner_block_config->clear();
 
    const auto time_horizon = get_time_horizon();
    for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
     auto benders_function = get_benders_function( stage );
     auto inner_block = benders_function->get_inner_block();
     f_inner_block_config->apply( inner_block );
+    }
    }
-  }
 
   delete f_inner_block_config;
   f_inner_block_config = block_config->clone();
   v_inner_block_configured.assign( get_time_horizon() , false );
- }
+  }
 
  if( block_solver_config ) {
   // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
@@ -192,34 +193,33 @@ void SDDPGreedySolver::set_ComputeConfig( ComputeConfig * scfg ) {
                    v_inner_solver_configured.cend() ,
                    []( auto b ) { return b; } ) ) {
 
-   f_inner_block_solver_config ->clear();
+   f_inner_block_solver_config->clear();
 
    const auto time_horizon = get_time_horizon();
    for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
     auto benders_function = get_benders_function( stage );
     auto inner_block = benders_function->get_inner_block();
     f_inner_block_solver_config->apply( inner_block );
+    }
    }
-  }
 
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = block_solver_config->clone();
   v_inner_solver_configured.assign( get_time_horizon() , false );
- }
+  }
 
  if( f_early_config && f_Block ) {
   // If required, configure the SDDPBlock right away.
   const auto time_horizon = get_time_horizon();
   for( Index stage = 0 ; stage < time_horizon ; ++stage )
    configure_inner_block( stage );
+  }
  }
-
-}
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::set_Block( Block * block ) {
-
+void SDDPGreedySolver::set_Block( Block * block )
+{
  if( f_Block == block )
   return;
 
@@ -967,10 +967,10 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
  // Now, add the cuts to the PolyhedralFunction. Notice that, even if the
  // SDDPBlock has multiple sub-Blocks per stage, we only add cuts to the first
  // sub-Block of a given stage. This is so because only the first sub-Block
- // associated with each stage is used during the simulation and it may also
+ // associated with each stage is used during the simulation, and it may also
  // be the only sub-Block that has been configured.
 
- // We alsso assume that there is only one PolyhedralFunction per sub-Block.
+ // We also assume that there is only one PolyhedralFunction per sub-Block.
 
  assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
 

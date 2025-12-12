@@ -1,3 +1,4 @@
+
 /*--------------------------------------------------------------------------*/
 /*------------------------- File SDDPSolver.h ------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -20,7 +21,7 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __SDDPSolver
-#define __SDDPSolver
+ #define __SDDPSolver
                       /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
@@ -306,6 +307,12 @@ public:
    * number between 0 and the total number of scenarios minus 1. By default,
    * its value is 0. */
 
+  intForwardSimulatorSeed ,
+  ///< The seed for he forward simulator
+  /**< This is the seed for the forward simulator, which determines
+   * the sequence of scenarios selected. By default, its value is
+   * 93645. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -420,6 +427,11 @@ public:
    * then the log of the sub-Solver associated with time instant t and i-th
    * sub-Block at stage t will be output into a file called "logfile-t-i". By
    * default, this is empty. */
+
+  strDirOUT,
+  ///< path where the results are written
+  /**< this can be empty in that case results are
+   * written where solver is launched */
 
   strLastAlgPar
   ///< first allowed new string parameter for derived classes
@@ -557,6 +569,8 @@ public:
   *
   * - #intFirstStageScenarioId
   *
+  * - #intForwardSimulatorSeed
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -580,6 +594,8 @@ public:
    case( intOutputFrequency ): output_frequency = value; return;
    case( intFirstStageScenarioId ):
     first_stage_scenario_index = value; return;
+   case( intForwardSimulatorSeed ):
+    sddp_optimizer->set_forward_seed( value ); return;
   }
   Solver::set_par( par , value );
  }
@@ -634,6 +650,8 @@ public:
   *
   * - #strSubSolverLogFilePrefix
   *
+  * - #strDirOUT [""]: path where results are written
+  *
   * Please refer to the #str_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -653,6 +671,7 @@ public:
    case( strStateFile ): f_state_filename = value; return;
    case( strRandomCutsFile ): f_random_cuts_filename = value; return;
    case( strFilenameSuffix ): f_filename_suffix = value; return;
+   case( strDirOUT): f_dir_out_pathname = value; return;
    case( strSubSolverLogFilePrefix ): {
     f_sub_solver_filename_prefix = value;
     return;
@@ -761,10 +780,9 @@ public:
   * responsible for destroying all these Configuration and the Configuration
   * pointed by \p scfg.
   *
-  * @param scfg a pointer to a ComputeConfig.
-  */
+  * @param scfg a pointer to a ComputeConfig. */
 
- void set_ComputeConfig( ComputeConfig *scfg = nullptr ) override;
+ void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
@@ -850,6 +868,8 @@ public:
   *
   * - #intFirstStageScenarioId: 0
   *
+  * - #intForwardSimulatorSeed: 93645
+  *
   * For any other parameter, see Solver::get_dflt_int_par().
   *
   * @param par The parameter whose default value is desired.
@@ -868,6 +888,7 @@ public:
    case( intLogVerb ): return 0;
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioId ): return 0;
+   case( intForwardSimulatorSeed ): return 93645;
   }
   return Solver::get_dflt_int_par( par );
  }
@@ -905,7 +926,7 @@ public:
 
   static const std::vector< std::string > default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
-     "", "" , "" , "" , "" , "" , "" };
+     "", "" , "" , "" , "" , "" , "" ,"" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
    return default_values[ par - str_par_type_S::strLastAlgPar ];
@@ -993,6 +1014,8 @@ public:
    case( intLogVerb ): return log_verbosity;
    case( intOutputFrequency ): return output_frequency;
    case( intFirstStageScenarioId ): return first_stage_scenario_index;
+   case( intForwardSimulatorSeed ):
+    return sddp_optimizer->get_forward_seed();
   }
   return( Solver::get_dflt_int_par( par ) );
  }
@@ -1037,6 +1060,7 @@ public:
    case( strRandomCutsFile ): return f_random_cuts_filename;
    case( strFilenameSuffix ): return f_filename_suffix;
    case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
+   case( strDirOUT ): return f_dir_out_pathname;
   }
   return Solver::get_str_par( par );
  }
@@ -1100,6 +1124,7 @@ public:
   if( name == "intNbSimulForward" ) return intNbSimulForward;
   if( name == "intOutputFrequency" ) return intOutputFrequency;
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
+  if( name == "intForwardSimulatorSeed" ) return intForwardSimulatorSeed;
   return Solver::int_par_str2idx( name );
  }
 
@@ -1141,6 +1166,7 @@ public:
   if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   if( name == "strFilenameSuffix" ) return strFilenameSuffix;
   if( name == "strSubSolverLogFilePrefix" ) return strSubSolverLogFilePrefix;
+  if( name == "strDirOUT" ) return strDirOUT;
   return Solver::str_par_str2idx( name );
  }
 
@@ -1193,7 +1219,7 @@ public:
   static const std::vector< std::string > parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioId" };
+     "intFirstStageScenarioId" , "intForwardSimulatorSeed" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -1234,7 +1260,8 @@ public:
   static const std::vector< std::string > parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
-     "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix" };
+     "strRandomCutsFile", "strFilenameSuffix" , "strSubSolverLogFilePrefix",
+     "strDirOUT" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
@@ -1751,6 +1778,18 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
+  void set_forward_seed( int seed ) {
+   simulator_forward->set_seed( seed );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+  int get_forward_seed() const {
+   return simulator_forward->get_seed();
+  }
+
+/*--------------------------------------------------------------------------*/
+
   int get_dflt_number_simulations_backward() const {
    return simulator_backward->get_number_scenarios();
   }
@@ -1972,6 +2011,9 @@ protected:
  /// Prefix for the name of the file to which the random cuts are output
  std::string f_random_cuts_filename;
 
+ /// The path where to write the results
+ std::string f_dir_out_pathname = "";
+
  /// The suffix to be added to an output filename every other iteration
  std::string f_filename_suffix = "";
 
@@ -2133,6 +2175,7 @@ private:
   f_output_filename = get_dflt_str_par( strOutputFile );
   f_state_filename = get_dflt_str_par( strStateFile );
   f_random_cuts_filename = get_dflt_str_par( strRandomCutsFile );
+  f_dir_out_pathname = get_dflt_str_par( strDirOUT );
   f_filename_suffix = get_dflt_str_par( strFilenameSuffix );
   f_sub_solver_filename_prefix = get_dflt_str_par( strSubSolverLogFilePrefix );
   f_handle_events_every_k_iter = Solver::get_dflt_int_par( intEverykIt );

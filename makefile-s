@@ -37,7 +37,7 @@
 
 # define input macros for StochasticBlock makefile, then include it
 StcBlkSDR = $(SDDPBkSDR)/../StochasticBlock
-include $(StcBlkSDR)/makefile
+include $(StcBlkSDR)/makefile-s
 
 # include makefile for libStOpt
 include $(SDDPBkSDR)/../extlib/makefile-libStOpt
@@ -54,6 +54,6 @@ SDDPBkH := $(SDDPBkH) $(StcBlkH)
 SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
 # external libraries for SDDPBlock
-SDDPBkLIB = $(libStOptLIB)
+SDDPBkLIB = $(StcBlkLIB) $(libStOptLIB) -lmpi -lboost_mpi
 
 ########################### End of makefile-s ################################

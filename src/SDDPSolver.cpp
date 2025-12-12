@@ -59,8 +59,8 @@ SMSpp_insert_in_factory_cpp_0( SDDPSolverState );
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
-
+void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
+{
  ThinComputeInterface::set_ComputeConfig( scfg );
 
  if( ! scfg ) { // factory reset
@@ -74,7 +74,7 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
   f_get_var_solution_config = nullptr;
 
   return;
- }
+  }
 
  if( ! scfg->f_extra_Configuration )
   // No extra Configuration has been provided. There is nothing else to do.
@@ -104,8 +104,8 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
            dynamic_cast< BlockConfig * >( config->f_value.front() ) ) )
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The first "
                                   "element of the extra Configuration is "
-                                  "not a BlockConfig." ) );
-  }
+                                  "not a BlockConfig" ) );
+   }
 
   if( config->f_value.size() >= 2 && config->f_value[ 1 ] ) {
    // A BlockSolverConfig must have been provided.
@@ -114,26 +114,27 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The second "
                                   "element of the extra Configuration is "
                                   "not a BlockSolverConfig." ) );
-  }
+   }
 
   if( config->f_value.size() >= 3 && config->f_value[ 2 ] ) {
    // A Configuration for get_var_solution() of the Solver attached to the
    // inner Blocks.
    f_get_var_solution_config = config->f_value[ 2 ]->clone();
+   }
   }
- }
  else {
   // The extra Configuration must be either a BlockConfig or a
   // BlockSolverConfig.
   if( auto bc = dynamic_cast< BlockConfig * >( scfg->f_extra_Configuration ) )
    block_config = bc;
-  else if( auto bsc =
-           dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
-   block_solver_config = bsc;
   else
-   throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The extra "
-                                 "Configuration is invalid." ) );
- }
+   if( auto bsc =
+       dynamic_cast< BlockSolverConfig * >( scfg->f_extra_Configuration ) )
+    block_solver_config = bsc;
+   else
+    throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The extra "
+				  "Configuration is invalid" ) );
+  }
 
  // Now, replace the old Configurations if new ones have been provided.
 
@@ -142,19 +143,20 @@ void SDDPSolver::set_ComputeConfig( ComputeConfig * scfg ) {
   // given one.
   delete f_inner_block_config;
   f_inner_block_config = block_config->clone();
- }
+  }
 
  if( block_solver_config ) {
   // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
   // and clone the given one.
   delete f_inner_block_solver_config;
   f_inner_block_solver_config = block_solver_config->clone();
+  }
  }
-}
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPSolver::set_Block( Block * block ) {
+void SDDPSolver::set_Block( Block * block )
+{
  if( f_Block == block )  // registering to the same Block
   return;                // cowardly and silently return
 
@@ -273,7 +275,7 @@ int SDDPSolver::compute( bool changedvars ) {
     auto suffix = std::to_string( t );
     if( num_sub_blocks_per_stage > 1 )
      suffix += "-" + std::to_string( i );
-    const auto filename = f_sub_solver_filename_prefix + suffix;
+    const auto filename = f_dir_out_pathname + f_sub_solver_filename_prefix + suffix;
 
     sub_solvers_logfiles.emplace_back
      ( std::ofstream{ filename , std::ofstream::out | std::ofstream::app } );
@@ -468,11 +470,12 @@ int SDDPSolver::compute( bool changedvars ) {
  /***********************/
 
  // Invoke the StOpt SDDP solver
+    
  auto backward_forward_values =
   StOpt::backwardForwardSDDP< StOpt::LocalLinearRegressionForSDDP >
   ( sddp_optimizer , number_simulations_for_convergence , initial_state_array ,
-    final_cut , dates , mesh_discretization_array , regressors_filename ,
-    cuts_filename , visited_states_filename , number_iterations_performed ,
+    final_cut , dates , mesh_discretization_array , f_dir_out_pathname + regressors_filename ,
+    f_dir_out_pathname + cuts_filename , f_dir_out_pathname + visited_states_filename , number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
 #ifdef USE_MPI
     mpi_communicator ,
@@ -961,7 +964,7 @@ void SDDPSolver::file_output() const {
 
  if( ! f_output_filename.empty() ) {
   // Output the future cost functions
-  std::string cuts_filename = f_output_filename;
+  std::string cuts_filename = f_dir_out_pathname + f_output_filename;
   if( f_add_suffix )
    cuts_filename += f_filename_suffix;
   output_future_cost_functions( cuts_filename );
@@ -969,7 +972,7 @@ void SDDPSolver::file_output() const {
 
  if( ! f_state_filename.empty() ) {
   // Serialize the State
-  std::string state_filename = f_state_filename;
+  std::string state_filename = f_dir_out_pathname + f_state_filename;
   if( f_add_suffix )
    state_filename += f_filename_suffix;
   serialize_State( state_filename );
@@ -977,10 +980,10 @@ void SDDPSolver::file_output() const {
 
  if( ! f_random_cuts_filename.empty() ) {
   // Output the random cuts
-  std::string random_cuts_filename = f_random_cuts_filename;
+  std::string random_cuts_filename = f_dir_out_pathname + f_random_cuts_filename;
   if( f_add_suffix )
    random_cuts_filename += f_filename_suffix;
-  auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+  auto sddp_block = static_cast< SDDPBlock * >( f_Block );
   sddp_block->serialize_random_cuts( random_cuts_filename );
  }
 
@@ -995,7 +998,7 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
  if( filename.empty() )
   return;
 
- auto sddp_block = static_cast< SDDPBlock *>( f_Block );
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
 
  const auto & functions = sddp_block->get_polyhedral_functions();
  if( functions.empty() )
@@ -1430,7 +1433,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* The objective_value takes into account the value of the future cost
   * function. For all stages other than the last one, we subtract the value of
   * the future cost function from objective_value. The subproblem at the last
-  * stage, however, has a fixed future cost and it is kept as it is considered
+  * stage, however, has a fixed future cost, and it is kept as it is considered
   * part of the cost of that stage. */
 
  if( current_stage < sddp_solver->get_time_horizon() - 1 )
@@ -1438,7 +1441,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
    get_future_cost( current_stage , sub_block_index );
 
  /**************************/
- /* RETRIVING THE SOLUTION */
+ /* RETRIEVING THE SOLUTION */
  /**************************/
 
  // Retrieve the solution x_t of the Block associated with the current stage.

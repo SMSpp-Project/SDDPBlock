@@ -19,7 +19,7 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __SDDPGreedySolver
-#define __SDDPGreedySolver
+ #define __SDDPGreedySolver
                       /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
@@ -29,6 +29,7 @@
 #include "SDDPBlock.h"
 #include "Solver.h"
 
+#include <chrono>
 #include <random>
 
 /*--------------------------------------------------------------------------*/
@@ -822,10 +823,9 @@ public:
   * responsible for destroying all these Configuration and the Configuration
   * pointed by \p scfg.
   *
-  * @param scfg a pointer to a ComputeConfig.
-  */
+  * @param scfg a pointer to a ComputeConfig. */
 
- void set_ComputeConfig( ComputeConfig *scfg = nullptr ) override;
+ void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
 /**@} ----------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/

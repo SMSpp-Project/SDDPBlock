@@ -204,6 +204,13 @@ public:
   }
  }
 
+/*--------------------------------------------------------------------------*/
+
+ /// set the initial seed of the random number generator
+ void set_seed( unsigned int seed ) {
+  initial_seed = seed;
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*--------- METHODS DESCRIBING THE BEHAVIOR OF A ScenarioSimulator ---------*/
 /*--------------------------------------------------------------------------*/
@@ -305,7 +312,7 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /** This function simply updates the the number of simulations and calls
+ /** This function simply updates the number of simulations and calls
   * resetTime(). This function should only be called by a forward simulator.
   *
   * @param number_simulations The new number of simulations. */
@@ -345,6 +352,13 @@ public:
   if( all_particles.empty() )
    return 0;
   return all_particles.front().cols();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the initial seed of the random number generator
+ unsigned int get_seed() const {
+  return initial_seed;
  }
 
 /**@} ----------------------------------------------------------------------*/
