@@ -827,7 +827,7 @@ public:
 
  void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Handling the parameters of the SDDPGreedySolver
@@ -836,45 +836,41 @@ public:
  /// get the number of int parameters
  /** Get the number of int parameters.
   *
-  * @return The number of int parameters.
-  */
+  * @return The number of int parameters. */
 
  idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the number of string parameters
  /** Get the number of string parameters.
   *
-  * @return The number of string parameters.
-  */
+  * @return The number of string parameters. */
 
  idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the number of vector-of-int parameters
  /** Get the number of vector-of-int  parameters.
   *
-  * @return The number of vector-of-int parameters.
-  */
+  * @return The number of vector-of-int parameters. */
 
  idx_type get_num_vint_par( void ) const override {
   return( idx_type( vintLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the number of vector-of-double parameters
  /** Get the number of vector-of-double  parameters.
   *
-  * @return The number of vector-of-double parameters.
-  */
+  * @return The number of vector-of-double parameters. */
 
  idx_type get_num_vdbl_par( void ) const override {
   return( idx_type( vdblLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of an int parameter
@@ -884,8 +880,7 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
@@ -899,12 +894,11 @@ public:
    case( intOutputScenario ): return -1;
    case( intEarlyConfig ): return 0;
    case( intLoadCutsOnce ): return 1;
+   }
+  return( Solver::get_dflt_int_par( par ) );
   }
-  return Solver::get_dflt_int_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// get the default value of a string parameter
  /** Get the default value of the string parameter with given index. Please
   * see the #str_par_type_SDDP_Greedy_S and #str_par_type_S enumerations for a
@@ -912,19 +906,17 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
-
   static const std::vector< std::string > default_values =
    { "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
-   return default_values[ par - str_par_type_S::strLastAlgPar ];
+   return( default_values[ par - str_par_type_S::strLastAlgPar ] );
 
-  return Solver::get_dflt_str_par( par );
- }
+  return( Solver::get_dflt_str_par( par ) );
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of a vector-of-int parameter
@@ -939,19 +931,17 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::vector< int > & get_dflt_vint_par( const idx_type par )
   const override {
   const static std::vector< int > empty;
 
-  if( par == vintStagesSample ) {
-   return empty;
-  }
+  if( par == vintStagesSample )
+   return( empty );
 
-  return Solver::get_dflt_vint_par( par );
- }
+  return( Solver::get_dflt_vint_par( par ) );
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of a vector-of-double parameter
@@ -966,22 +956,19 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
   const override {
   const static std::vector< double > empty;
 
-  if( par == vdblInitialState ) {
-   return empty;
+  if( par == vdblInitialState )
+   return( empty );
+
+  return( Solver::get_dflt_vdbl_par( par ) );
   }
 
-  return Solver::get_dflt_vdbl_par( par );
- }
-
 /*--------------------------------------------------------------------------*/
-
  /// get a specific integer (int) numerical parameter
  /** Get a specific integer (int) numerical parameter. Please see the
   * #int_par_type_SDDP_Greedy_S and #int_par_type_S enumerations for a
@@ -989,8 +976,7 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
@@ -1005,21 +991,19 @@ public:
    case( intOutputScenario ): return f_output_scenario;
    case( intEarlyConfig ): return f_early_config;
    case( intLoadCutsOnce ): return f_load_cuts_once;
-  }
+   }
   return( Solver::get_dflt_int_par( par ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// get a specific string numerical parameter
- /** Get a specific string numerical parameter. Please see the
+ /// get a specific string parameter
+ /** Get a specific string parameter. Please see the
   * #str_par_type_SDDP_Greedy_S and #str_par_type_S enumerations for a
   * detailed explanation of the possible parameters.
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
@@ -1028,12 +1012,11 @@ public:
    case( strLoadCuts ): return f_load_cuts_filename;
    case( strRandomCutsFile ): return f_random_cuts_filename;
    case( strSimulationData ): return f_simulation_data_filename;
+   }
+  return( Solver::get_str_par( par ) );
   }
-  return Solver::get_str_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// get a specific vector-of-int parameter
  /** Get a specific vector-of-int parameter. Please see the
   * #vint_par_type_SDDP_Greedy_S and #vint_par_type_S enumerations for a
@@ -1041,19 +1024,17 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::vector< int > & get_vint_par( const idx_type par )
   const override {
   switch( par ) {
-   case( vintStagesSample ): return v_stages_to_sample;
+   case( vintStagesSample ): return( v_stages_to_sample );
+   }
+  return( Solver::get_vint_par( par ) );
   }
-  return Solver::get_vint_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// get a specific vector-of-double parameter
  /** Get a specific vector-of-double parameter. Please see the
   * #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S enumerations for a
@@ -1061,19 +1042,17 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::vector< double > & get_vdbl_par( const idx_type par )
   const override {
   switch( par ) {
-   case( vdblInitialState ): return v_initial_state;
+   case( vdblInitialState ): return( v_initial_state );
+   }
+  return( Solver::get_vdbl_par( par ) );
   }
-  return Solver::get_vdbl_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the index of the int parameter with given string \p name
  /** This method takes a string, which is assumed to be the name of an int
   * parameter, and returns its index, i.e., the integer value that can be
@@ -1084,8 +1063,7 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
@@ -1099,10 +1077,9 @@ public:
   if( name == "intEarlyConfig" ) return intEarlyConfig;
   if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
   return Solver::int_par_str2idx( name );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the index of the string parameter with given string name
  /** This method takes a string, which is assumed to be the name of a string
   * parameter, and returns its index, i.e., the integer value that can be
@@ -1110,8 +1087,7 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
@@ -1119,11 +1095,10 @@ public:
   if( name == "strLoadCuts" ) return strLoadCuts;
   if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   if( name == "strSimulationData" ) return strSimulationData;
-  return Solver::str_par_str2idx( name );
- }
+  return( Solver::str_par_str2idx( name ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the index of the vector-of-int parameter with given string name
  /** This method takes a string, which is assumed to be the name of a
   * vector-of-int parameter, and returns its index, i.e., the int value that
@@ -1131,33 +1106,29 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type vint_par_str2idx( const std::string & name ) const override {
   if( name == "vintStagesSample" ) return vintStagesSample;
-  return Solver::vint_par_str2idx( name );
- }
+  return( Solver::vint_par_str2idx( name ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the index of the vector-of-double parameter with given string name
+ /// returns the index of the vector-of-double parameter with given str. name
  /** This method takes a string, which is assumed to be the name of a
   * vector-of-double parameter, and returns its index, i.e., the double value
   * that can be used in [set/get]_par() to set/get it.
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name.xs */
 
  idx_type vdbl_par_str2idx( const std::string & name ) const override {
-  if( name == "vdblInitialState" ) return vdblInitialState;
-  return Solver::vdbl_par_str2idx( name );
- }
+  if( name == "vdblInitialState" ) return( vdblInitialState );
+  return( Solver::vdbl_par_str2idx( name ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
 /// returns the string name of the int parameter with given index
  /** This method takes an int parameter index, i.e., the integer value that
   * can be used in [set/get]_par() [see above] to set/get it, and returns its
@@ -1165,11 +1136,9 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
-
   static const std::vector< std::string > parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
@@ -1177,13 +1146,12 @@ public:
      "intEarlyConfig" , "intLoadCutsOnce" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
-   return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
+   return( parameter_names[ idx - int_par_type_S::intLastAlgPar ] );
 
-  return Solver::int_par_idx2str( idx );
- }
+  return( Solver::int_par_idx2str( idx ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the string name of the string parameter with given index
  /** This method takes a string parameter index, i.e., the integer value that
   * can be used in [set/get]_par() [see above] to set/get it, and returns its
@@ -1191,62 +1159,56 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & str_par_idx2str( const idx_type idx ) const override {
-
   static const std::vector< std::string > parameter_names =
    { "strInnerBC" , "strInnerBSC" , "strLoadCuts" , "strRandomCutsFile" ,
      "strSimulationData" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
-   return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
+   return( parameter_names[ idx - str_par_type_S::strLastAlgPar ] );
 
-  return Solver::str_par_idx2str( idx );
- }
+  return( Solver::str_par_idx2str( idx ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the string name of the vector-of-double parameter with given index
+ /// returns the name of the vector-of-double parameter with given index
  /** This method takes a vector-of-double parameter index, i.e., the double
   * value that can be used in [set/get]_par() [see above] to set/get it, and
   * returns its "string name".
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
    { "vintStagesSample" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
-   return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
-  return Solver::vint_par_idx2str( idx );
- }
+   return( parameter_names[ idx - vint_par_type_S::vintLastAlgPar ] );
+  return( Solver::vint_par_idx2str( idx ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the string name of the vector-of-double parameter with given index
+ /// returns the name of the vector-of-double parameter with given index
  /** This method takes a vector-of-double parameter index, i.e., the double
   * value that can be used in [set/get]_par() [see above] to set/get it, and
   * returns its "string name".
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
    { "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
-   return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
-  return Solver::vdbl_par_idx2str( idx );
- }
+   return( parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ] );
+  return( Solver::vdbl_par_idx2str( idx ) );
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Solving the model encoded by the current Block

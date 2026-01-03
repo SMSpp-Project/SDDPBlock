@@ -88,7 +88,7 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
    const auto time_horizon = get_time_horizon();
    for( Index stage = 0 ; stage < time_horizon ; ++stage )
     configure_inner_block( stage );
-  }
+   }
 
   // There is nothing else to do.
   return;
@@ -519,7 +519,8 @@ bool SDDPGreedySolver::new_dual_direction() {
 
 void SDDPGreedySolver::configure_inner_block( Index stage ) {
 
- if( v_inner_block_configured[ stage ] && v_inner_solver_configured[ stage ] )
+ if( v_inner_block_configured[ stage ] &&
+     v_inner_solver_configured[ stage ] )
   return;
 
  auto benders_function = get_benders_function( stage );
@@ -572,8 +573,8 @@ void SDDPGreedySolver::configure_inner_block( Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::unregister_solver_inner_block( Index stage ) {
-
+void SDDPGreedySolver::unregister_solver_inner_block( Index stage )
+{
  auto benders_function = get_benders_function( stage );
  auto inner_block = benders_function->get_inner_block();
 
@@ -583,25 +584,25 @@ void SDDPGreedySolver::unregister_solver_inner_block( Index stage ) {
 
  if( v_BSC.size() > stage && v_BSC[ stage ] )
   inner_block_solver_config = v_BSC[ stage ]->clone();
- else if( f_inner_block_solver_config )
-  inner_block_solver_config = f_inner_block_solver_config->clone();
+ else
+  if( f_inner_block_solver_config )
+   inner_block_solver_config = f_inner_block_solver_config->clone();
 
  if( inner_block_solver_config ) {
   inner_block_solver_config->clear();
   inner_block_solver_config->apply( inner_block );
   delete inner_block_solver_config;
- }
- else {
+  }
+ else
   inner_block->unregister_Solvers();
- }
 
  v_inner_solver_configured[ stage ] = false;
-}
+ }
 
 /*--------------------------------------------------------------------------*/
 
-int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
-
+int SDDPGreedySolver::solve( Index stage , bool write_solution )
+{
  auto benders_function = get_benders_function( stage );
 
  auto status = benders_function->compute();
@@ -617,21 +618,21 @@ int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
    if( cda_solver->has_dual_solution() ) {
     cda_solver->get_dual_solution( f_get_dual_solution_config );
     solver_has_dual_solution = true;
+    }
    }
   }
- }
 
  f_has_dual_solution = f_has_dual_solution && solver_has_dual_solution;
 
- return status;
-}
+ return( status );
+ }
 
 /*--------------------------------------------------------------------------*/
 
 Solver * SDDPGreedySolver::get_sub_solver( Index stage ) const {
  auto benders_function = get_benders_function( stage );
- return benders_function->get_solver();
-}
+ return( benders_function->get_solver() );
+ }
 
 /*--------------------------------------------------------------------------*/
 
