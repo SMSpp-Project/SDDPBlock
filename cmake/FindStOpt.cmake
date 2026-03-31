@@ -75,7 +75,8 @@ else ()
     elseif (WIN32)
         find_library(StOpt_geners_LIBRARY
                 NAMES geners
-                PATHS ${StOpt_ROOT}/lib
+                PATHS
+                ${StOpt_ROOT}/lib
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
                 $ENV{LIBRARY_LIB}
                 NO_DEFAULT_PATH
@@ -83,7 +84,8 @@ else ()
 
         find_library(StOpt_geners_LIBRARY_DEBUG
                 NAMES geners
-                PATHS ${StOpt_ROOT}/debug/lib
+                PATHS
+                ${StOpt_ROOT}/debug/lib
                 ${StOpt_ROOT}/build/lib/Debug
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
                 NO_DEFAULT_PATH
@@ -109,7 +111,8 @@ else ()
     elseif (WIN32)
         find_library(StOpt_LIBRARY
                 NAMES StOpt
-                PATHS ${StOpt_ROOT}/lib
+                PATHS
+                ${StOpt_ROOT}/lib
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
                 $ENV{LIBRARY_LIB}
                 NO_DEFAULT_PATH
@@ -117,7 +120,8 @@ else ()
 
         find_library(StOpt_LIBRARY_DEBUG
                 NAMES StOpt
-                PATHS ${StOpt_ROOT}/debug/lib
+                PATHS
+                ${StOpt_ROOT}/debug/lib
                 ${StOpt_ROOT}/build/lib/Debug
                 ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
                 NO_DEFAULT_PATH
