@@ -8,7 +8,14 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Claude Opus 4.7 \n
+ *         Antrophic \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -241,6 +248,95 @@ void SDDPGreedySolver::set_Block( Block * block )
 
  v_inner_block_configured.assign( sddp_block->get_time_horizon() , false );
  v_inner_solver_configured.assign( sddp_block->get_time_horizon() , false );
+
+ // If the SDDPBlock carries a ScenarioGenerator, build the random pool
+ // and snapshot it into the SDDPBlock-side cache so that the data-
+ // access helpers route through the generator path. The actual scenario
+ // picking logic of SDDPGreedySolver (intScenarioId / intScenarioSeed /
+ // intScenarioSampleFrequency / ...) then operates on top of this
+ // random pool.
+ //
+ // Shuffling is the essence of the Greedy solver, so we *always* call
+ // init_random_pool(): the question is just with which size argument
+ // at each stage. Pool-size dispatch:
+ //
+ //  - vintRandomPoolSize non-empty: per-stage sizes for a multi-stage
+ //    generator. We loop init_random_pool( sizes[t] ) + next_stage()
+ //    across all stages, then rewind the cursor with
+ //    previous_stage( INFStage ).
+ //
+ //  - intRandomPoolSize > 0: scalar size. For a single-stage
+ //    generator, init_random_pool( K ). For a multi-stage generator,
+ //    loop init_random_pool( K ) + next_stage() across all stages.
+ //
+ //  - otherwise: default INFScenario, which means "shuffle the whole
+ //    current universe". For a multi-stage generator this is still
+ //    looped across stages.
+ //
+ // The dispatch on MultiStageScenarioGenerator mirrors the one in
+ // SDDPSolver::set_Block: stage-independence is required because
+ // prepare_multi_stage_generator_pool() walks each stage on its own.
+ if( auto gen = sddp_block->get_scenario_generator() ) {
+  auto * mgen = dynamic_cast< MultiStageScenarioGenerator * >( gen );
+
+  if( mgen && ! mgen->is_stage_independent() )
+   throw( std::logic_error( "SDDPGreedySolver::set_Block: the attached "
+                            "MultiStageScenarioGenerator is not "
+                            "stage-independent; SDDPBlock currently "
+                            "supports stage-independent multi-stage "
+                            "generators only." ) );
+
+  if( ! random_pool_size_vec.empty() ) {
+   if( ! mgen )
+    throw( std::logic_error( "SDDPGreedySolver::set_Block: "
+                             "vintRandomPoolSize is set but the "
+                             "attached ScenarioGenerator is not a "
+                             "MultiStageScenarioGenerator." ) );
+   const auto T = mgen->get_stage_number();
+   if( random_pool_size_vec.size() != T )
+    throw( std::invalid_argument(
+     "SDDPGreedySolver::set_Block: vintRandomPoolSize size (" +
+     std::to_string( random_pool_size_vec.size() ) +
+     ") does not match the generator's stage number (" +
+     std::to_string( T ) + ")." ) );
+   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+   for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
+    mgen->init_random_pool(
+     static_cast< ScenarioGenerator::ScenarioIndex >(
+      random_pool_size_vec[ t ] ) );
+    if( t + 1 < T && ! mgen->next_stage() )
+     throw( std::logic_error(
+      "SDDPGreedySolver::set_Block: next_stage() failed at stage " +
+      std::to_string( t ) + " while applying vintRandomPoolSize." ) );
+    }
+   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+   }
+  else {
+   const auto K = ( random_pool_size > 0 )
+    ? static_cast< ScenarioGenerator::ScenarioIndex >( random_pool_size )
+    : ScenarioGenerator::INFScenario;
+   if( mgen ) {
+    const auto T = mgen->get_stage_number();
+    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+    for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
+     mgen->init_random_pool( K );
+     if( t + 1 < T && ! mgen->next_stage() )
+      throw( std::logic_error(
+       "SDDPGreedySolver::set_Block: next_stage() failed at stage " +
+       std::to_string( t ) +
+       " while applying intRandomPoolSize." ) );
+     }
+    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+    }
+   else
+    gen->init_random_pool( K );
+   }
+
+  if( mgen )
+   sddp_block->prepare_multi_stage_generator_pool();
+  else
+   sddp_block->prepare_generator_pool();
+  }
 
 }  // end( SDDPGreedySolver::set_Block )
 
@@ -1054,15 +1150,16 @@ void SDDPGreedySolver::output_simulation_data
   }
  }
  else if( f_output_scenario > 0 ) {
-  // Output the full scenario
+  // Output the full scenario. Route through SDDPBlock-side helpers so
+  // that we transparently get either the legacy scenario_set storage
+  // or the ScenarioGenerator-backed cache.
   const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
-  const auto & scenario_set = sddp_block->get_scenario_set();
 
   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
    auto scenario_id = get_scenario_id( stage );
-   auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
-   auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
+   auto scenario_begin = sddp_block->sub_scenario_begin( scenario_id , stage );
+   auto scenario_end   = sddp_block->sub_scenario_end  ( scenario_id , stage );
 
    file << stage;
 
@@ -1122,7 +1219,7 @@ void SDDPGreedySolver::sample_scenario( Index stage ) {
  if( should_sample( stage ) ) {
   using param_type = std::uniform_int_distribution< Index >::param_type;
   const auto num_scenarios =
-   static_cast< SDDPBlock * >( f_Block )->get_scenario_set().size();
+   static_cast< SDDPBlock * >( f_Block )->size();
   v_random_scenario_id[ stage ] = scenario_distribution
    ( random_number_engine , param_type( 0 , num_scenarios - 1 ) );
  }

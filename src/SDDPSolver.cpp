@@ -8,7 +8,14 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Claude Opus 4.7 \n
+ *         Antrophic \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -171,8 +178,112 @@ void SDDPSolver::set_Block( Block * block )
   throw( std::invalid_argument( "SDDPSolver::set_Block: An SDDPSolver can "
                                 "only be attached to an SDDPBlock." ) );
 
- const auto & scenario_set = sddp_block->get_scenario_set();
- sddp_optimizer->set_scenarios( scenario_set );
+ // If the SDDPBlock carries a ScenarioGenerator, optionally restrict
+ // its representative pool according to the #intRepresentativePoolSize
+ // / #vintRepresentativePoolSize algorithmic parameters, then snapshot
+ // the pool into the SDDPBlock-side cache so that the data-access
+ // helpers route through the generator path. Structural metadata
+ // (SubScenarioSize / random data groups) was populated in
+ // SDDPBlock::deserialize().
+ //
+ // Two flavours, discriminated by dynamic_cast on the generator:
+ //
+ //  - MultiStageScenarioGenerator: a tree of per-stage realisations.
+ //    prepare_multi_stage_generator_pool() walks each stage
+ //    independently, so the generator must be stage-independent
+ //    [see is_stage_independent()]; non-independent multi-stage
+ //    generators would need an SDDPBlock-side dispatcher that walks
+ //    the tree rather than the per-stage forms.
+ //
+ //  - base ScenarioGenerator: a single scenario spans all stages, the
+ //    per-stage decomposition is taken from the SubScenarioSize
+ //    metadata, and the pool has a single global size.
+ //
+ // Pool-size dispatch:
+ //
+ //  - vintRepresentativePoolSize non-empty: per-stage sizes for a
+ //    multi-stage generator. We loop init_representative_pool() +
+ //    next_stage() across all stages, then rewind the cursor with
+ //    previous_stage( INFStage ).
+ //
+ //  - intRepresentativePoolSize > 0: scalar size. For a single-stage
+ //    generator, a plain init_representative_pool( K ) call. For a
+ //    multi-stage generator, we loop init_representative_pool( K ) +
+ //    next_stage() across all stages (the same K everywhere).
+ //
+ //  - otherwise: no call. The generator was left walkable on the
+ //    canonical full-universe pool by the deserialize() lazy-init
+ //    contract — that is the default "representative pool = full
+ //    universe" SDDPSolver runs want.
+ if( auto gen = sddp_block->get_scenario_generator() ) {
+  auto * mgen = dynamic_cast< MultiStageScenarioGenerator * >( gen );
+
+  if( mgen && ! mgen->is_stage_independent() )
+   throw( std::logic_error( "SDDPSolver::set_Block: the attached "
+                            "MultiStageScenarioGenerator is not "
+                            "stage-independent; SDDPBlock currently "
+                            "supports stage-independent multi-stage "
+                            "generators only." ) );
+
+  if( ! representative_pool_size_vec.empty() ) {
+   if( ! mgen )
+    throw( std::logic_error( "SDDPSolver::set_Block: "
+                             "vintRepresentativePoolSize is set but "
+                             "the attached ScenarioGenerator is not a "
+                             "MultiStageScenarioGenerator." ) );
+   const auto T = mgen->get_stage_number();
+   if( representative_pool_size_vec.size() != T )
+    throw( std::invalid_argument(
+     "SDDPSolver::set_Block: vintRepresentativePoolSize size (" +
+     std::to_string( representative_pool_size_vec.size() ) +
+     ") does not match the generator's stage number (" +
+     std::to_string( T ) + ")." ) );
+   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+   for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
+    mgen->init_representative_pool(
+     static_cast< ScenarioGenerator::ScenarioIndex >(
+      representative_pool_size_vec[ t ] ) );
+    if( t + 1 < T && ! mgen->next_stage() )
+     throw( std::logic_error(
+      "SDDPSolver::set_Block: next_stage() failed at stage " +
+      std::to_string( t ) + " while applying "
+      "vintRepresentativePoolSize." ) );
+    }
+   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+   }
+  else if( representative_pool_size > 0 ) {
+   const auto K = static_cast< ScenarioGenerator::ScenarioIndex >(
+                                              representative_pool_size );
+   if( mgen ) {
+    const auto T = mgen->get_stage_number();
+    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+    for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
+     mgen->init_representative_pool( K );
+     if( t + 1 < T && ! mgen->next_stage() )
+      throw( std::logic_error(
+       "SDDPSolver::set_Block: next_stage() failed at stage " +
+       std::to_string( t ) +
+       " while applying intRepresentativePoolSize." ) );
+     }
+    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+    }
+   else
+    gen->init_representative_pool( K );
+   }
+  // else: default, leave the generator in its lazy-init canonical state.
+
+  if( mgen )
+   sddp_block->prepare_multi_stage_generator_pool();
+  else
+   sddp_block->prepare_generator_pool();
+  }
+
+ // Pass *sddp_block as the scenarios source: SDDPBlock exposes the
+ // minimal ScenarioSimulator interface (size / get_time_horizon /
+ // get_size_random_data_groups / sub_scenario_begin / sub_scenario_end)
+ // and internally dispatches to either the generator-backed cache or
+ // the legacy ScenarioSet storage.
+ sddp_optimizer->set_scenarios( *sddp_block );
 
  // BlockConfig for the inner Blocks
  if( ( ! f_inner_block_config ) &&

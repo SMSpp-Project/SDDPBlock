@@ -9,7 +9,14 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Claude Opus 4.7 \n
+ *         Antrophic \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -25,6 +32,7 @@
 #include "Block.h"
 #include "Objective.h"
 #include "PolyhedralFunction.h"
+#include "ScenarioGenerator.h"
 #include "ScenarioSimulator.h"
 #include "ScenarioSet.h"
 #include "StochasticBlock.h"
@@ -252,6 +260,8 @@ public:
   for( auto & block : v_Block )
    delete( block );
   v_Block.clear();
+  delete f_scenario_generator;
+  f_scenario_generator = nullptr;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -438,8 +448,174 @@ public:
   }
 
   // Scenarios
+  //
+  // Two mutually-exclusive paths are supported:
+  //
+  // (legacy) The scenarios are stored inline at the SDDPBlock group level
+  //   (variables "Scenarios", "NumberScenarios", "ScenarioSize" plus the
+  //   structural metadata SubScenarioSize / NumberRandomDataGroups /
+  //   SizeRandomDataGroups). ScenarioSet::deserialize() handles the lot.
+  //
+  // (new) A ScenarioGenerator is provided via a "ScenarioGenerator" sub-
+  //   group (with the standard factory schema, i.e. "type" attribute);
+  //   the actual scenarios are produced by the generator at runtime, via
+  //   init_*_pool() / load_scenarios_from_generator(). In this case the
+  //   variables "Scenarios", "NumberScenarios" and "ScenarioSize" are NOT
+  //   present at the SDDPBlock level (they would have nothing meaningful
+  //   to encode, since the pool is yet to be chosen), but the structural
+  //   metadata (SubScenarioSize / NumberRandomDataGroups /
+  //   SizeRandomDataGroups) remains at the SDDPBlock level, exactly where
+  //   they would be in the legacy path. An optional sub-group
+  //   "ScenarioGeneratorConfig" can carry a Configuration to be passed to
+  //   the generator's set_config().
+  //
+  // If both forms are present in the same netCDF we throw, to avoid
+  // silently picking one over the other. If neither is present, we throw
+  // as well (the SDDPBlock has no source of scenarios).
 
-  scenario_set.deserialize( group );
+  const auto gen_group = group.getGroup( "ScenarioGenerator" );
+  const auto scenarios_var = group.getVar( "Scenarios" );
+  const bool has_new_path = ! gen_group.isNull();
+  const bool has_legacy_path = ! scenarios_var.isNull();
+
+  if( has_new_path && has_legacy_path )
+   throw( std::logic_error( "SDDPBlock::deserialize: both the legacy "
+                            "'Scenarios' variable and the new "
+                            "'ScenarioGenerator' sub-group are present in "
+                            "the netCDF; only one of the two is allowed." ) );
+
+  if( ( ! has_new_path ) && ( ! has_legacy_path ) )
+   throw( std::logic_error( "SDDPBlock::deserialize: neither the legacy "
+                            "'Scenarios' variable nor a 'ScenarioGenerator' "
+                            "sub-group are present in the netCDF; no source "
+                            "of scenarios available." ) );
+
+  if( has_new_path ) {
+
+   // (new path) build the generator via factory, set ourselves as its
+   // partner Block, optionally apply ScenarioGeneratorConfig, and
+   // populate the structural metadata of scenario_set (the actual data
+   // will be filled later by the attached Solver, via
+   // load_scenarios_from_generator()).
+
+   f_scenario_generator =
+    ::SMSpp_di_unipi_it::ScenarioGenerator::new_ScenarioGenerator(
+                                                              gen_group );
+   if( ! f_scenario_generator )
+    throw( std::logic_error( "SDDPBlock::deserialize: failed to "
+                             "deserialize the 'ScenarioGenerator' "
+                             "sub-group." ) );
+
+   f_scenario_generator->set_Block( this );
+
+   // optional ScenarioGeneratorConfig: any standard Configuration that
+   // the specific :ScenarioGenerator can interpret in its set_config()
+   const auto cfg_group = group.getGroup( "ScenarioGeneratorConfig" );
+   if( ! cfg_group.isNull() ) {
+    auto cfg = ::SMSpp_di_unipi_it::Configuration::new_Configuration(
+                                                              cfg_group );
+    f_scenario_generator->set_config( cfg );
+    delete cfg;
+    }
+
+   // read SDDPBlock-level structural metadata. TimeHorizon was already
+   // read at the top of this method; the per-stage sub_scenario_size
+   // vector is derived differently depending on the generator kind:
+   //
+   //  - multi-stage generator: derive from the generator itself by
+   //    walking next_stage() and reading get_scenario_size() at each
+   //    stage. The 'SubScenarioSize' netCDF attribute is ignored if
+   //    present (it would be meaningful only on the SDDPBlock side
+   //    if it were authoritative, which it isn't here — the generator
+   //    owns the per-stage sizes). Requires the generator to be
+   //    walkable right after deserialize() (lazy-init contract).
+   //
+   //  - single-stage generator: read 'SubScenarioSize' from the netCDF
+   //    group (optional — if absent, all sub-scenarios share the same
+   //    size derived from the generator's scenario_size and time
+   //    horizon, mirroring the legacy convention).
+   std::vector< Index > sub_scenario_size;
+   if( auto mgen = dynamic_cast<
+       ::SMSpp_di_unipi_it::MultiStageScenarioGenerator * >(
+                                                f_scenario_generator ) ) {
+    const auto T = mgen->get_stage_number();
+    if( T != time_horizon )
+     throw( std::logic_error( "SDDPBlock::deserialize: the multi-stage "
+                              "generator's stage number (" +
+                              std::to_string( T ) + ") does not match "
+                              "SDDPBlock's TimeHorizon (" +
+                              std::to_string( time_horizon ) + ")." ) );
+    sub_scenario_size.reserve( time_horizon );
+    sub_scenario_size.push_back( mgen->get_scenario_size() );
+    for( Index t = 1 ; t < time_horizon ; ++t ) {
+     if( ! mgen->next_stage() )
+      throw( std::logic_error( "SDDPBlock::deserialize: multi-stage "
+                               "generator failed to advance to stage " +
+                               std::to_string( t ) + "." ) );
+     sub_scenario_size.push_back( mgen->get_scenario_size() );
+     }
+    // restore the generator to its canonical "at first stage" state so
+    // that downstream consumers see the same post-deserialize layout
+    mgen->previous_stage( time_horizon - 1 );
+    }
+   else if( ! ::SMSpp_di_unipi_it::deserialize( group , "SubScenarioSize" ,
+                                                time_horizon ,
+                                                sub_scenario_size ,
+                                                true , false ) ) {
+    const auto sz = f_scenario_generator->get_scenario_size();
+    if( sz % time_horizon != 0 )
+     throw( std::logic_error( "SDDPBlock::deserialize: 'SubScenarioSize' "
+                              "was not provided in the new path, but the "
+                              "generator's scenario_size (" +
+                              std::to_string( sz ) + ") is not a multiple "
+                              "of 'TimeHorizon' (" +
+                              std::to_string( time_horizon ) + ")." ) );
+    sub_scenario_size.assign( time_horizon , sz / time_horizon );
+    }
+
+   Index num_random_data_groups = 1;
+   std::vector< Index > size_random_data_groups;
+
+   // NumberRandomDataGroups / SizeRandomDataGroups are meaningful only if
+   // all sub-scenarios share the same size (mirroring the legacy logic
+   // in ScenarioSet::deserialize())
+   if( std::adjacent_find( sub_scenario_size.begin() ,
+                           sub_scenario_size.end() ,
+                           std::not_equal_to<>() ) ==
+       sub_scenario_size.end() ) {
+
+    if( ! ::SMSpp_di_unipi_it::deserialize_dim( group ,
+                                                "NumberRandomDataGroups" ,
+                                                num_random_data_groups ,
+                                                true ) )
+     num_random_data_groups = 1;
+
+    if( num_random_data_groups > 1 ||
+        group.getVar( "SizeRandomDataGroups" ).isNull() == false ) {
+     if( ! ::SMSpp_di_unipi_it::deserialize( group ,
+                                             "SizeRandomDataGroups" ,
+                                             num_random_data_groups ,
+                                             size_random_data_groups ,
+                                             true , false ) ) {
+      size_random_data_groups = { sub_scenario_size.front() };
+      if( num_random_data_groups > 1 )
+       throw( std::logic_error( "SDDPBlock::deserialize: "
+                                "'SizeRandomDataGroups' must be provided "
+                                "since 'NumberRandomDataGroups' > 1." ) );
+      }
+     }
+    }
+
+   scenario_set.set_structural_metadata( time_horizon ,
+                                         std::move( sub_scenario_size ) ,
+                                         num_random_data_groups ,
+                                         std::move(
+                                          size_random_data_groups ) );
+   }
+  else {
+   // (legacy path) ScenarioSet handles everything inline
+   scenario_set.deserialize( group );
+   }
 
   // Initial state
 
@@ -537,7 +713,7 @@ public:
    num_sub_blocks_per_stage = n;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------- METHODS FOR Saving THE DATA OF THE SDDPBlock -------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Saving the data of the SDDPBlock
@@ -578,7 +754,7 @@ public:
 
  void serialize_random_cuts( const std::string & filename ) const;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the data of the SDDPBlock
@@ -731,6 +907,221 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the ScenarioGenerator attached to this SDDPBlock (or nullptr)
+ /** Returns a non-owning pointer to the ScenarioGenerator attached to this
+  * SDDPBlock, or nullptr if no generator has been provided (in which case
+  * the scenarios are entirely owned by get_scenario_set()).
+  *
+  * If a ScenarioGenerator is present, the typical workflow is for the
+  * attached Solver to decide which kind of pool it wants (representative
+  * for SDDPSolver, random for SDDPGreedySolver), call the appropriate
+  * init_*_pool() on the generator with the desired size, and then call
+  * prepare_generator_pool() on this SDDPBlock to snapshot the current
+  * pool into the internal cache, after which the data-access helpers
+  * #size() / #sub_scenario_begin() / #sub_scenario_end() (and therefore
+  * #set_scenario() and ScenarioSimulator) will route reads through the
+  * cache instead of through the legacy ScenarioSet storage.
+  *
+  * Note: in v2 step 1 only the base ScenarioGenerator is supported (the
+  * scenario produced by get_current_scenario() is assumed to span all
+  * stages, and the per-stage decomposition is taken from the netCDF
+  * SubScenarioSize variable that is read at deserialization time, as for
+  * the legacy ScenarioSet path). MultiStageScenarioGenerator support is
+  * planned for step 2 and will be discriminated via dynamic_cast inside
+  * prepare_generator_pool() and the attached Solvers. */
+
+ ScenarioGenerator * get_scenario_generator() const {
+  return( f_scenario_generator );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// snapshot the generator's current pool into the internal cache
+ /** This method walks the pool currently produced by the ScenarioGenerator
+  * attached to this SDDPBlock (if any), copying each scenario into the
+  * internal #f_generator_pool_cache buffer. From this moment on, the
+  * SDDPBlock-side data-access helpers (#size(), #sub_scenario_begin(),
+  * #sub_scenario_end()) route reads through this cache instead of
+  * through #scenario_set (whose .scenarios storage is left untouched and
+  * is in fact empty in the generator-backed path). The number of
+  * scenarios is also mirrored into scenario_set via
+  * ScenarioSet::set_num_scenarios(), so that legacy callers that still
+  * read get_scenario_set().size() observe the right count.
+  *
+  * The generator's pool must already have been initialized (typically by
+  * the caller via init_random_pool() or init_representative_pool());
+  * otherwise an exception is thrown.
+  *
+  * Each scenario produced by the generator is expected to be a flat
+  * vector spanning all stages, of length get_scenario_size() matching the
+  * SubScenarioSize structural metadata read from the netCDF group at
+  * deserialize time (see deserialize()). The per-scenario probabilities
+  * returned by the generator must all be equal to 1 / pool_size (uniform);
+  * non-uniform probabilities trigger an explicit "not yet implemented"
+  * exception, since incorporating non-uniform weights into the SDDP cut
+  * averaging is deferred to a follow-up version (cf. v2 step 2+ TODO).
+  *
+  * After this method returns, the generator's pool iteration is left at
+  * the beginning (reset_pool() is called at the end) so that subsequent
+  * external uses of the generator are unaffected.
+  *
+  * @throws std::logic_error if no generator is attached, or if the
+  *         generator's pool is not initialized, or if probabilities are
+  *         non-uniform. */
+
+ void prepare_generator_pool();
+
+/*--------------------------------------------------------------------------*/
+
+ /// snapshot a MultiStageScenarioGenerator's per-stage pools into the cache
+ /** Analogue of #prepare_generator_pool() for the MultiStageScenarioGenerator
+  * branch (v2 step 2). Walks the attached MultiStageScenarioGenerator and
+  * fills #f_multi_stage_pool_cache, a per-stage table of scenario vectors,
+  * where each row cache[t][k] is a flat scenario of length
+  * scenario_set.get_sub_scenario_size(t).
+  *
+  * The walk currently assumes **stage independence** — i.e., the per-stage
+  * pool is the same regardless of the path history H_t. Concretely, for
+  * each stage t the method navigates to a (default-history) realization
+  * of X_t and enumerates next_scenario() until exhausted. This matches
+  * the planned MultiStageScenarioSet implementation (one DiscreteScenarioSet
+  * per stage), which is the only concrete subclass we will be able to
+  * validate against in the immediate future; supporting genuinely
+  * history-dependent multi-stage generators (a full tree walk) is left as
+  * a follow-up.
+  *
+  * As in #prepare_generator_pool(), the per-stage probabilities must be
+  * uniform (otherwise weighted-average cuts in the backward pass would
+  * be required, which is deferred). The pool sizes per stage may differ.
+  * After this method returns, the generator's pool iteration is reset
+  * (reset_pool()) so that subsequent external uses are unaffected.
+  *
+  * @throws std::logic_error if no MultiStageScenarioGenerator is
+  *         attached, or if the generator's pool is not initialized, or
+  *         if probabilities are non-uniform, or if the generator reports
+  *         a stage_number() incompatible with the SDDPBlock's
+  *         get_time_horizon(). */
+
+ void prepare_multi_stage_generator_pool();
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the number of scenarios available to this SDDPBlock at stage \p stage
+ /** Dispatches between three possible scenario sources, in order of
+  * precedence:
+  *
+  *  1. The MultiStageScenarioGenerator cache (#f_multi_stage_pool_cache,
+  *     populated by #prepare_multi_stage_generator_pool() in v2 step 2):
+  *     returns the per-stage pool size cache[\p stage].size().
+  *
+  *  2. The single-stage ScenarioGenerator cache (#f_generator_pool_cache,
+  *     populated by #prepare_generator_pool() in v2 step 1): returns
+  *     cache.size(), the same value for every stage (the scenario spans
+  *     the full horizon).
+  *
+  *  3. The legacy ScenarioSet storage: returns scenario_set.size(), the
+  *     same value for every stage.
+  *
+  * The parameter \p stage is only consulted in case 1.
+  *
+  * @param stage A stage in [0, get_time_horizon()); defaults to 0, which
+  *        is the right value in cases 2 and 3 (uniform across stages). */
+
+ Index size( Index stage = 0 ) const {
+  if( ! f_multi_stage_pool_cache.empty() ) {
+   assert( stage < f_multi_stage_pool_cache.size() );
+   return( f_multi_stage_pool_cache[ stage ].size() );
+   }
+  if( f_scenario_generator )
+   return( f_generator_pool_cache.size() );
+  return( scenario_set.size() );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the size of each random data group
+ /** Forwards to ScenarioSet::get_size_random_data_groups(), as this is
+  * structural metadata that lives in #scenario_set in all paths
+  * (legacy, single-stage generator, and multi-stage generator). */
+
+ const std::vector< Index > & get_size_random_data_groups() const {
+  return( scenario_set.get_size_random_data_groups() );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns an iterator to the first element of the sub-scenario (i, t)
+ /** Dispatches between three possible scenario sources, in order of
+  * precedence (see #size()):
+  *
+  *  1. The MultiStageScenarioGenerator cache: returns
+  *     cache[stage][scenario_id].cbegin(). Each row of cache[stage] is
+  *     a flat vector of length scenario_set.get_sub_scenario_size(stage).
+  *
+  *  2. The single-stage ScenarioGenerator cache: returns an iterator
+  *     into cache[scenario_id], advanced to the offset of stage \p
+  *     stage as dictated by the structural metadata in #scenario_set.
+  *
+  *  3. The legacy ScenarioSet storage: delegates to
+  *     ScenarioSet::sub_scenario_begin().
+  *
+  * @param scenario_id The index of a scenario, which must be in
+  *        [0, size(stage)).
+  *
+  * @param stage A stage in [0, get_time_horizon()). */
+
+ std::vector< double >::const_iterator
+ sub_scenario_begin( Index scenario_id , Index stage ) const {
+  if( ! f_multi_stage_pool_cache.empty() ) {
+   assert( stage < f_multi_stage_pool_cache.size() );
+   if( scenario_id >= f_multi_stage_pool_cache[ stage ].size() )
+    throw( std::invalid_argument
+           ( "SDDPBlock::sub_scenario_begin: invalid scenario index "
+             + std::to_string( scenario_id ) + " at stage "
+             + std::to_string( stage ) + "." ) );
+   return( f_multi_stage_pool_cache[ stage ][ scenario_id ].cbegin() );
+   }
+  if( f_scenario_generator ) {
+   if( scenario_id >= f_generator_pool_cache.size() )
+    throw( std::invalid_argument
+           ( "SDDPBlock::sub_scenario_begin: invalid scenario index "
+             + std::to_string( scenario_id ) + "." ) );
+   assert( stage < scenario_set.get_time_horizon() );
+   return( std::next( f_generator_pool_cache[ scenario_id ].cbegin() ,
+                      scenario_set.sub_scenario_begin_offset( stage ) ) );
+   }
+  return( scenario_set.sub_scenario_begin( scenario_id , stage ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns an iterator to the element following the last in sub-scenario (i,t)
+
+ std::vector< double >::const_iterator
+ sub_scenario_end( Index scenario_id , Index stage ) const {
+  if( ! f_multi_stage_pool_cache.empty() ) {
+   assert( stage < f_multi_stage_pool_cache.size() );
+   if( scenario_id >= f_multi_stage_pool_cache[ stage ].size() )
+    throw( std::invalid_argument
+           ( "SDDPBlock::sub_scenario_end: invalid scenario index "
+             + std::to_string( scenario_id ) + " at stage "
+             + std::to_string( stage ) + "." ) );
+   return( f_multi_stage_pool_cache[ stage ][ scenario_id ].cend() );
+   }
+  if( f_scenario_generator ) {
+   if( scenario_id >= f_generator_pool_cache.size() )
+    throw( std::invalid_argument
+           ( "SDDPBlock::sub_scenario_end: invalid scenario index "
+             + std::to_string( scenario_id ) + "." ) );
+   assert( stage < scenario_set.get_time_horizon() );
+   return( std::next( f_generator_pool_cache[ scenario_id ].cbegin() ,
+                      scenario_set.sub_scenario_begin_offset( stage + 1 ) ) );
+   }
+  return( scenario_set.sub_scenario_end( scenario_id , stage ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// returns the initial state for the first stage problem
  /** This function returns the initial state for the first stage problem. */
  const std::vector< double > & get_initial_state() const {
@@ -773,7 +1164,7 @@ public:
 
  int get_objective_sense() const override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods for handling Modification
@@ -781,7 +1172,7 @@ public:
 
  void add_Modification( sp_Mod mod , ChnlName chnl = 0 ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------ METHODS DESCRIBING THE BEHAVIOR OF AN SDDPBlock -------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods describing the behavior of an SDDPBlock
@@ -1051,11 +1442,10 @@ public:
 
  void set_scenario( Index scenario_id , Index stage ,
                     Index sub_block_index = 0 ) {
-  auto sub_scenario_begin = scenario_set.
-   sub_scenario_begin( scenario_id , stage );
+  auto begin = sub_scenario_begin( scenario_id , stage );
 
   try {
-   get_sub_Block( stage , sub_block_index )->set_data( sub_scenario_begin );
+   get_sub_Block( stage , sub_block_index )->set_data( begin );
   }
   catch( const std::exception & e ) {
    std::cout << "SDDPBlock::set_scenario: exception while setting scenario "
@@ -1065,7 +1455,7 @@ public:
   }
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -1101,6 +1491,52 @@ protected:
 
  /// The set of scenarios
  ScenarioSet scenario_set;
+
+ /// The (optional) ScenarioGenerator owned by this SDDPBlock
+ /** Owned pointer (deleted in the destructor). Non-null if and only if the
+  * SDDPBlock was deserialized with a "ScenarioGenerator" sub-group; in that
+  * case, scenario_set retains only the structural metadata and the actual
+  * scenario data is snapshotted into #f_generator_pool_cache by
+  * prepare_generator_pool(). Null in the legacy path, where the scenarios
+  * live entirely inside scenario_set. */
+
+ ScenarioGenerator * f_scenario_generator = nullptr;
+
+ /// Per-scenario snapshot of the ScenarioGenerator's current pool
+ /** Filled by prepare_generator_pool() from the ScenarioGenerator's pool
+  * after the attached Solver has called init_*_pool() on the generator.
+  * Each row is a flat scenario of length scenario_set.get_scenario_size(),
+  * spanning all stages (the per-stage decomposition is taken from
+  * #scenario_set's structural metadata). Empty in the legacy path, where
+  * scenario_set.scenarios is the data home instead.
+  *
+  * Mutually exclusive with #f_multi_stage_pool_cache: at most one of the
+  * two is non-empty after a successful prepare_* call.
+  *
+  * The snapshot is necessary because the ScenarioGenerator API is
+  * forward-iterator-only (next_scenario() / reset_pool() / get_current_
+  * scenario()) and SDDP needs O(1) random access to any scenario at any
+  * time during the backward/forward sweeps. */
+
+ std::vector< std::vector< double > > f_generator_pool_cache;
+
+ /// Per-stage snapshot of a MultiStageScenarioGenerator's pools (v2 step 2)
+ /** Filled by prepare_multi_stage_generator_pool() when the attached
+  * generator is a MultiStageScenarioGenerator. The outer dimension is
+  * time_horizon; the middle dimension is the per-stage pool size (can
+  * differ across stages); the inner dimension is the size of a single
+  * sub-scenario for that stage, matching
+  * scenario_set.get_sub_scenario_size(t).
+  *
+  * Mutually exclusive with #f_generator_pool_cache.
+  *
+  * In v2 step 2 we only have the framework: the only concrete subclass
+  * we can plausibly point at — the planned MultiStageScenarioSet —
+  * does not exist yet, so no run-time validation has been performed.
+  * The walking logic in prepare_multi_stage_generator_pool() assumes
+  * stage independence; see the comment there. */
+
+ std::vector< std::vector< std::vector< double > > > f_multi_stage_pool_cache;
 
  /// The start index of each admissible state
  /** For each t in {0, ..., TimeHorizon - 1}, admissible_state_begin[ t ] is

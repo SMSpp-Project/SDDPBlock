@@ -12,7 +12,14 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Claude Opus 4.7 \n
+ *         Antrophic \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -201,8 +208,7 @@ public:
   * - kLowPrecision is returned when every subproblem is "solved" and
   *   terminated with either a kOK or kLowPrecision status. In this case, the
   *   solution found is feasible for the deterministic (single-scenario)
-  *   multistage problem but there is no guarantee that it is optimal.
-  */
+  *   multistage problem but there is no guarantee that it is optimal. */
 
  enum sddp_greedy_sol_type {
  kSubproblemInfeasible = kInfeasible + 1 ,
@@ -227,7 +233,6 @@ public:
  };  // end( sddp_greedy_sol_type )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the int algorithmic parameters
  /** Public enum describing the different types of algorithmic parameters of
   * "int" type that the SDDPGreedySolver has, besides those defined in
@@ -360,6 +365,27 @@ public:
    * By default, #intLoadCutsOnce is 1, which means that cuts are loaded only
    * once. */
 
+  intRandomPoolSize ,
+  ///< Pool size for the random scenario sample
+  /**< If positive, set_Block() calls init_random_pool(value) on the
+   * attached ScenarioGenerator: for a single-stage generator this
+   * shuffles \p value scenarios out of the current universe; for a
+   * :MultiStageScenarioGenerator (necessarily stage-independent) the
+   * same \p value is applied to every stage by looping
+   * init_random_pool() + next_stage() through all stages.
+   *
+   * If non-positive (the default, -1), set_Block() instead calls
+   * init_random_pool() with the default INFScenario argument, which
+   * means "shuffle the full current universe at each stage". This
+   * matches the original "always shuffle" behaviour of
+   * SDDPGreedySolver, which is a Monte-Carlo evaluator of the policy
+   * over the full universe of scenarios.
+   *
+   * To set per-stage sizes for a multi-stage generator (different
+   * \p s_t per stage), use #vintRandomPoolSize instead; if both are
+   * non-default, #vintRandomPoolSize takes precedence. The default
+   * value for this parameter is -1. */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -368,7 +394,6 @@ public:
  };  // end( int_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the string algorithmic parameters
  /** Public enum describing the different types of algorithmic parameters of
   * "string" type that the SDDPGreedySolver has, besides those defined in
@@ -500,7 +525,6 @@ public:
  };  // end( str_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the vector-of-int parameters
  /** Public enum describing the different algorithmic parameters of
   * vector-of-int type that SDDPGreedySolver has in addition to these of
@@ -537,6 +561,20 @@ public:
    * Each element of this vector must be between 0 and get_time_horizon() -
    * 1. By default, this vector is empty. */
 
+  vintRandomPoolSize ,
+  ///< Per-stage pool sizes for the random scenario sample
+  /**< Per-stage refinement of #intRandomPoolSize for a
+   * :MultiStageScenarioGenerator attached to the SDDPBlock. If
+   * non-empty, the vector must have size get_stage_number() and the
+   * t-th component is used as the random-pool size for stage t:
+   * set_Block() loops init_random_pool( sizes[t] ) + next_stage()
+   * through all stages.
+   *
+   * If empty (the default), this parameter is ignored and
+   * #intRandomPoolSize is consulted instead. If the attached
+   * generator is single-stage, this parameter must be empty
+   * (otherwise set_Block() throws). */
+
   vintLastAlgPar
   ///< first allowed new vector-of-int parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -545,7 +583,6 @@ public:
  };  // end( vint_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the vector-of-double parameters
  /** Public enum describing the different algorithmic parameters of
   * vector-of-double type that SDDPGreedySolver has in addition to these of
@@ -571,7 +608,7 @@ public:
 
  };  // end( vdbl_par_type_SDDP_Greedy_S )
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Constructing and destructing SDDPGreedySolver
@@ -585,7 +622,7 @@ public:
  /// destructor
  virtual ~SDDPGreedySolver();
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Other initializations
@@ -650,6 +687,7 @@ public:
    case( intOutputScenario ): f_output_scenario = value; return;
    case( intEarlyConfig ): f_early_config = value; return;
    case( intLoadCutsOnce ): f_load_cuts_once = value; return;
+   case( intRandomPoolSize ): random_pool_size = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -740,6 +778,7 @@ public:
  void set_par( idx_type par , std::vector< int > && value ) override {
   switch( par ) {
    case( vintStagesSample ): v_stages_to_sample = value; return;
+   case( vintRandomPoolSize ): random_pool_size_vec = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -894,6 +933,7 @@ public:
    case( intOutputScenario ): return -1;
    case( intEarlyConfig ): return 0;
    case( intLoadCutsOnce ): return 1;
+   case( intRandomPoolSize ): return -1;
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -938,6 +978,8 @@ public:
   const static std::vector< int > empty;
 
   if( par == vintStagesSample )
+   return( empty );
+  if( par == vintRandomPoolSize )
    return( empty );
 
   return( Solver::get_dflt_vint_par( par ) );
@@ -991,6 +1033,7 @@ public:
    case( intOutputScenario ): return f_output_scenario;
    case( intEarlyConfig ): return f_early_config;
    case( intLoadCutsOnce ): return f_load_cuts_once;
+   case( intRandomPoolSize ): return random_pool_size;
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1030,6 +1073,7 @@ public:
   const override {
   switch( par ) {
    case( vintStagesSample ): return( v_stages_to_sample );
+   case( vintRandomPoolSize ): return( random_pool_size_vec );
    }
   return( Solver::get_vint_par( par ) );
   }
@@ -1076,6 +1120,7 @@ public:
   if( name == "intOutputScenario" ) return intOutputScenario;
   if( name == "intEarlyConfig" ) return intEarlyConfig;
   if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
+  if( name == "intRandomPoolSize" ) return intRandomPoolSize;
   return Solver::int_par_str2idx( name );
   }
 
@@ -1110,6 +1155,7 @@ public:
 
  idx_type vint_par_str2idx( const std::string & name ) const override {
   if( name == "vintStagesSample" ) return vintStagesSample;
+  if( name == "vintRandomPoolSize" ) return vintRandomPoolSize;
   return( Solver::vint_par_str2idx( name ) );
   }
 
@@ -1143,7 +1189,7 @@ public:
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
      "intSimulationDataOutputPrecision" , "intOutputScenario" ,
-     "intEarlyConfig" , "intLoadCutsOnce" };
+     "intEarlyConfig" , "intLoadCutsOnce" , "intRandomPoolSize" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return( parameter_names[ idx - int_par_type_S::intLastAlgPar ] );
@@ -1184,7 +1230,7 @@ public:
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
-   { "vintStagesSample" };
+   { "vintStagesSample" , "vintRandomPoolSize" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
    return( parameter_names[ idx - vint_par_type_S::vintLastAlgPar ] );
   return( Solver::vint_par_idx2str( idx ) );
@@ -1247,7 +1293,7 @@ public:
 
  int compute( bool changedvars = true ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------- METHODS FOR CHANGING THE DATA OF THE SDDPGreedySolver ----------*/
 /*--------------------------------------------------------------------------*/
 /** @name Changing the data of the SDDPGreedySolver
@@ -1330,7 +1376,7 @@ public:
   this->random_number_engine = random_number_engine;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Accessing the found solutions (if any)
@@ -1406,7 +1452,7 @@ public:
   return fault_stage;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------- METHODS FOR READING THE DATA OF THE SDDPGreedySolver -----------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the state of the SDDPGreedySolver
@@ -1486,7 +1532,7 @@ public:
   return random_number_engine;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -1639,7 +1685,7 @@ private:
     const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
     this->scenario_width =
      std::max( std::string::size_type( 9 ) ,
-               std::to_string( sddp_block->get_scenario_set().size() ).size() );
+               std::to_string( sddp_block->size() ).size() );
    }
   }
 
@@ -1957,6 +2003,18 @@ private:
 
  /// Stages at which scenarios must be sampled
  std::vector< int > v_stages_to_sample;
+
+ /// Pool size for the random scenario sample
+ /** Storage for the #intRandomPoolSize algorithmic parameter. See the
+  * comments on that parameter for the dispatch rules applied in
+  * set_Block(). */
+ int random_pool_size = -1;
+
+ /// Per-stage pool sizes for the random scenario sample
+ /** Storage for the #vintRandomPoolSize algorithmic parameter. See the
+  * comments on that parameter for the per-stage dispatch applied in
+  * set_Block(). */
+ std::vector< int > random_pool_size_vec;
 
  /// Distribution for selecting the scenarios at each stage
  std::uniform_int_distribution< Index > scenario_distribution;
