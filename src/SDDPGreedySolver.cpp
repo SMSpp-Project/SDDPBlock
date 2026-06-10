@@ -15,7 +15,12 @@
  * \author Claude Opus 4.7 \n
  *         Antrophic \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -29,6 +34,7 @@
 #include "FRealObjective.h"
 #include "SDDPBlock.h"
 #include "SDDPGreedySolver.h"
+#include "SDDPSolver.h"
 #include "StochasticBlock.h"
 
 #include <iomanip>
@@ -162,7 +168,7 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
     block_solver_config = bsc;
    else
     throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
-				  "extra Configuration is invalid" ) );
+                                  "extra Configuration is invalid" ) );
   }
 
  // Now, replace the old Configurations if new ones have been provided.
@@ -529,6 +535,46 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
  else {
   solver->get_var_solution( f_get_var_solution_config );
  }
+}
+
+/*--------------------------------------------------------------------------*/
+/*--------- METHODS FOR HANDLING THE State OF THE SDDPGreedySolver ---------*/
+/*--------------------------------------------------------------------------*/
+
+State * SDDPGreedySolver::get_State( void ) const {
+
+ auto state = new SDDPSolverState;
+
+ if( f_Block )
+  state->read( static_cast< SDDPBlock * >( f_Block ) );
+
+ return( state );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::put_State( const State & state ) {
+
+ // If this SDDPGreedySolver is not currently attached to an SDDPBlock,
+ // nothing is done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ dynamic_cast< const SDDPSolverState & >( state ).write( sddp_block );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::put_State( State && state ) {
+
+ // If this SDDPGreedySolver is not currently attached to an SDDPBlock,
+ // nothing is done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ dynamic_cast< const SDDPSolverState & >( state ).write( sddp_block );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -977,89 +1023,15 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
   throw( std::logic_error( "SDDPGreedySolver::load_cuts: invalid stage: " +
                            std::to_string( stage ) + "." ) );
 
- std::ifstream cuts_file( f_load_cuts_filename );
-
- // Make sure the file is open.
- if( ! cuts_file.is_open() )
+ netCDF::NcFile cuts_file;
+ try {
+  cuts_file.open( f_load_cuts_filename , netCDF::NcFile::read );
+  }
+ catch( netCDF::exceptions::NcException & e ) {
   throw( std::runtime_error( "SDDPGreedySolver::load_cuts: It was not possible "
                              "to open the file \"" + f_load_cuts_filename +
                              "\"." ) );
-
- PolyhedralFunction::MultiVector A;
- PolyhedralFunction::RealVector b;
-
- std::string line;
-
- if( cuts_file.good() )
-  // Skip the first line containing the header.
-  std::getline( cuts_file , line );
-
- auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
- const auto num_active_var = polyhedral_function->get_num_active_var();
-
- int line_number = 0;
-
- // Read the cuts.
-
- while( std::getline( cuts_file , line ) ) {
-  ++line_number;
-
-  std::stringstream line_stream( line );
-
-  // Try to read the stage.
-  Index current_stage;
-  if( ! ( line_stream >> current_stage ) )
-   break;
-
-  if( current_stage >= time_horizon )
-   throw( std::logic_error
-          ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename + "\""
-            " contains an invalid stage: " + std::to_string( current_stage ) +
-            "." ) );
-
-  if( current_stage != stage )
-   continue;
-
-  if( line_stream.peek() != ',' )
-   throw( std::logic_error( "SDDPGreedySolver::load_cuts: File \"" +
-                            f_load_cuts_filename + "\" has an invalid "
-                            "format." ) );
-  line_stream.ignore();
-
-  // Read the cut.
-
-  PolyhedralFunction::RealVector a( num_active_var );
-
-  Index i = 0;
-  double value;
-  while( line_stream >> value ) {
-   if( i > num_active_var )
-    throw( std::logic_error
-           ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
-             "\" contains an invalid cut at line " +
-             std::to_string( line_number ) + "." ) );
-
-   if( i < num_active_var )
-    a[ i ] = value;
-   else
-    b.push_back( value );
-
-   ++i;
-
-   if( line_stream.peek() == ',' )
-    line_stream.ignore();
   }
-
-  if( i < num_active_var )
-   throw( std::logic_error
-          ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
-            "\" contains an invalid cut at line " +
-            std::to_string( line_number ) + "." ) );
-
-  A.push_back( a );
- }
-
- cuts_file.close();
 
  // Now, add the cuts to the PolyhedralFunction. Notice that, even if the
  // SDDPBlock has multiple sub-Blocks per stage, we only add cuts to the first
@@ -1071,7 +1043,30 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
  assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
 
- polyhedral_function->add_rows( std::move( A ) , b );
+ auto group = cuts_file.getGroup( "PolyhedralFunction_" +
+                                  std::to_string( stage ) );
+
+ if( ! group.isNull() ) {
+
+  auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
+
+  // Deserialize the cuts into a temporary PolyhedralFunction sharing the
+  // active Variables of the PolyhedralFunction at the given stage
+  PolyhedralFunction::VarVector active_variables
+   ( polyhedral_function->get_num_active_var() );
+  for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( polyhedral_function->get_active_var( i ) );
+
+  PolyhedralFunction function;
+  function.set_variables( std::move( active_variables ) );
+  function.deserialize( group );
+
+  if( ! function.get_b().empty() ) {
+   auto A = function.get_A();  // copy, so that it can be moved
+   polyhedral_function->add_rows( std::move( A ) , function.get_b() );
+   }
+  }
 
  // Mark that cuts have been loaded to this stage.
 

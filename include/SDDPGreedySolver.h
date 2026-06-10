@@ -19,7 +19,12 @@
  * \author Claude Opus 4.7 \n
  *         Antrophic \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -416,21 +421,11 @@ public:
   ///< name of the file out of which cuts will be loaded
   /**< This parameter indicates the path to the file out of which cuts will be
    * loaded. By default, the path to this file is empty, which means that no
-   * cut is loaded. If provided, the file must have the format the following
-   * format. The first line contains the header, which will be simply
-   * ignored. Each of the following lines must contain a cut described as
-   * follows:
-   *
-   *     s, a_0, a_1, ..., a_{k-1}, b
-   *
-   * where s is a stage between 0 and get_time_horizon() - 1, which indicates
-   * the stage with which the cut is associated, a_0, ..., a_{k-1} are the
-   * coefficients of the cut (a_i being the coefficient associated with the
-   * i-th state variable), and b is the constant (independent) term of the
-   * cut. Cuts associated with a a particular stage are loaded within
-   * compute() right before the subproblem associated with that stage is
-   * solved. See the parameter #intLoadCutsOnce to control when cuts are
-   * loaded. */
+   * cut is loaded. If provided, the file must have the netCDF format
+   * specified by SDDPBlock::serialize_cuts(). Cuts associated with a
+   * particular stage are loaded within compute() right before the subproblem
+   * associated with that stage is solved. See the parameter #intLoadCutsOnce
+   * to control when cuts are loaded. */
 
   strRandomCutsFile ,
   ///< name of the file out of which the random cuts will be retrieved
@@ -716,8 +711,9 @@ public:
   *   set_ComputeConfig()).
   *
   * - #strLoadCuts [""]: the filename of (path to) the file out of which cuts
-  *   will be loaded. By default, the path to this file is empty, which means
-  *   that no cut is loaded.
+  *   will be loaded. The file must have the netCDF format specified by
+  *   SDDPBlock::serialize_cuts(). By default, the path to this file is
+  *   empty, which means that no cut is loaded.
   *
   * - #strRandomCutsFile [""]: the filename of (path to) the file containing
   *   the random cuts (cuts associated with a particular scenario). By
@@ -1389,6 +1385,31 @@ public:
 /*--------------------------------------------------------------------------*/
 
  void get_var_solution( Configuration *solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+ /// returns the State of this SDDPGreedySolver
+ /** Returns the State of this SDDPGreedySolver, i.e., a SDDPSolverState
+  * containing the cuts (the PolyhedralFunction of each stage) of the
+  * SDDPBlock this SDDPGreedySolver is attached to; see SDDPSolverState for
+  * details. Being the cuts the (only) algorithmic state that SDDPSolver and
+  * SDDPGreedySolver share, the State produced by one can be put_State() into
+  * the other, e.g., to simulate upon the cuts produced by an optimization. */
+
+ State * get_State( void ) const override;
+
+/*--------------------------------------------------------------------------*/
+ /// puts the given State (the cuts) into this SDDPGreedySolver
+ /** Puts the given State into this SDDPGreedySolver, i.e., writes the cuts
+  * contained in the given SDDPSolverState (if \p state is not a
+  * SDDPSolverState, exception is thrown) into the PolyhedralFunction of
+  * every sub-Block of every stage of the SDDPBlock this SDDPGreedySolver is
+  * attached to, replacing the current ones. */
+
+ void put_State( const State & state ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void put_State( State && state ) override;
 
 /*--------------------------------------------------------------------------*/
 

@@ -15,7 +15,12 @@
  * \author Claude Opus 4.7 \n
  *         Antrophic \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -38,6 +43,7 @@ using namespace SMSpp_di_unipi_it;
 /*--------------------------------------------------------------------------*/
 
 SMSpp_insert_in_factory_cpp_1( SDDPBlock );
+SMSpp_insert_in_factory_cpp_0( SDDPBlockSolution );
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- METHODS of SDDPBlock -------------------------*/
@@ -124,8 +130,63 @@ void SDDPBlock::add_Modification( sp_Mod mod , Observer::ChnlName chnl )
  // TODO
  if( anyone_there() )
   Block::add_Modification( std::make_shared< NBModification >( this ) ,
-			   chnl );
+                           chnl );
  }
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- Methods for handling Solution --------------------*/
+/*--------------------------------------------------------------------------*/
+
+/// returns the inner Block of the BendersBFunction at the given stage
+static Block * stage_inner_Block( const SDDPBlock * sddp_block ,
+                                  Block::Index stage )
+{
+ auto benders_block = static_cast< BendersBlock * >
+  ( sddp_block->get_sub_Block( stage )->get_nested_Block( 0 ) );
+
+ auto objective = static_cast< FRealObjective * >
+  ( benders_block->get_objective() );
+
+ auto benders_function = static_cast< BendersBFunction * >
+  ( objective->get_function() );
+
+ return( benders_function->get_inner_block() );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+Solution * SDDPBlock::get_Solution( Configuration * solc , bool emptys )
+{
+ int wsol = 1;
+ auto * sol = new SDDPBlockSolution;
+
+ if( ( ! solc ) && f_BlockConfig )
+  solc = f_BlockConfig->f_solution_Configuration;
+
+ if( auto config = dynamic_cast< SimpleConfiguration< int > * >( solc ) ) {
+  wsol = config->f_value & 1;        // only save the first bit
+  int wssol = config->f_value >> 1;  // shift right clearing it
+  if( wssol )
+   sol->set_inner_Config( new SimpleConfiguration< int >( wssol ) );
+  }
+ else
+  if( auto config =
+      dynamic_cast< SimpleConfiguration< std::pair< int , Configuration * >
+                                         > * >( solc ) ) {
+   wsol = config->f_value.first & 1;
+   if( config->f_value.second )
+    sol->set_inner_Config( config->f_value.second->clone() );
+   }
+
+ if( wsol & 1 )
+  sol->v_stage_solutions.resize( get_time_horizon() , nullptr );
+
+ if( ! emptys )
+  sol->read( this );
+
+ return( sol );
+
+ }  // end( SDDPBlock::get_Solution )
 
 /*--------------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
@@ -145,15 +206,15 @@ int SDDPBlock::get_objective_sense( void ) const
 /*--------------------------------------------------------------------------*/
 
 StochasticBlock * SDDPBlock::get_sub_Block( Index stage ,
-					    Index sub_block_index ) const
+                                            Index sub_block_index ) const
 {
  if( stage >= get_time_horizon() )
   throw( std::invalid_argument( "SDDPBlock::get_sub_Block: invalid stage " +
                                 std::to_string( stage ) ) );
  if( sub_block_index >= num_sub_blocks_per_stage )
   throw( std::invalid_argument(
-			"SDDPBlock::get_sub_Block: invalid sub-Block index "
-			+ std::to_string( sub_block_index ) ) );
+                        "SDDPBlock::get_sub_Block: invalid sub-Block index "
+                        + std::to_string( sub_block_index ) ) );
  const auto index = stage * num_sub_blocks_per_stage + sub_block_index;
  return( static_cast< StochasticBlock * >( v_Block[ index ] ) );
  }
@@ -270,7 +331,7 @@ void SDDPBlock::set_state( const Eigen::ArrayXd & values , Index stage ,
 /*--------------------------------------------------------------------------*/
 
 void SDDPBlock::set_state( const std::vector< double > & values ,
-			   Index stage , Index sub_block_index )
+                           Index stage , Index sub_block_index )
 {
  assert( stage < get_time_horizon() );
  assert( sub_block_index < get_num_sub_blocks_per_stage() );
@@ -287,7 +348,7 @@ std::vector< double > SDDPBlock::get_state( Index stage ,
  assert( stage < get_time_horizon() );
  assert( sub_block_index < get_num_sub_blocks_per_stage() );
  auto benders_block = static_cast< BendersBlock * >(
-	  get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
+          get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
  return( benders_block->get_variable_values() );
  }
 
@@ -299,7 +360,7 @@ void SDDPBlock::set_admissible_state( Index stage , Index sub_block_index )
  assert( sub_block_index < get_num_sub_blocks_per_stage() );
 
  auto benders_block = static_cast< BendersBlock * >(
-	   get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
+           get_sub_Block( stage , sub_block_index )->get_nested_Block( 0 ) );
 
  auto admissible_state = get_admissible_state( stage );
  benders_block->set_variable_values( admissible_state );
@@ -690,6 +751,231 @@ void SDDPBlock::serialize_random_cuts( const std::string & filename ) const
    random_cuts[ t ][ s ].serialize( group );
    }
  }
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::serialize_cuts( const std::string & filename ) const
+{
+ if( filename.empty() || v_polyhedral_functions.empty() )
+  return;
+
+ netCDF::NcFile file( filename , netCDF::NcFile::replace );
+
+ const auto time_horizon = get_time_horizon();
+ file.addDim( "TimeHorizon" , time_horizon );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  auto group = file.addGroup( "PolyhedralFunction_" + std::to_string( t ) );
+  get_polyhedral_function( t )->serialize( group );
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlock::deserialize_cuts( const std::string & filename )
+{
+ if( filename.empty() )
+  return;
+
+ netCDF::NcFile file( filename.c_str() , netCDF::NcFile::read );
+
+ const auto TimeHorizon = file.getDim( "TimeHorizon" );
+ if( TimeHorizon.isNull() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_cuts: the dimension TimeHorizon was not "
+           "provided." ) );
+
+ const auto time_horizon = TimeHorizon.getSize();
+
+ if( time_horizon != get_time_horizon() )
+  throw( std::invalid_argument
+         ( "SDDPBlock::deserialize_cuts: the expected TimeHorizon dimension "
+           "is " + std::to_string( get_time_horizon() ) + ", but " +
+           std::to_string( time_horizon ) + " was given." ) );
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  auto group = file.getGroup( "PolyhedralFunction_" + std::to_string( t ) );
+  if( group.isNull() )
+   continue;
+
+  // Deserialize the cuts into a temporary PolyhedralFunction sharing the
+  // active Variables of the PolyhedralFunction at stage t
+  const auto reference_function = get_polyhedral_function( t );
+  PolyhedralFunction::VarVector active_variables
+   ( reference_function->get_num_active_var() );
+  for( Index i = 0 ; i < reference_function->get_num_active_var() ; ++i )
+   active_variables[ i ] = static_cast< ColVariable * >
+    ( reference_function->get_active_var( i ) );
+
+  PolyhedralFunction function;
+  function.set_variables( std::move( active_variables ) );
+  function.deserialize( group );
+
+  if( function.get_b().empty() )
+   continue;  // no cut for this stage
+
+  // Add the cuts to the PolyhedralFunction of every sub-Block of stage t
+  for( Index i = 0 ; i < get_num_sub_blocks_per_stage() ; ++i ) {
+   auto A = function.get_A();  // copy, so that it can be moved
+   get_polyhedral_function( t , 0 , i )->add_rows( std::move( A ) ,
+                                                   function.get_b() );
+   }
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+/*--------------------- METHODS of SDDPBlockSolution -----------------------*/
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlockSolution::deserialize( const netCDF::NcGroup & group )
+{
+ for( auto si : v_stage_solutions )
+  delete( si );
+ v_stage_solutions.clear();
+
+ int time_horizon = 0;
+ deserialize_dim( group , "TimeHorizon" , time_horizon , true );
+
+ if( ! time_horizon )
+  return;
+
+ for( int t = 0 ; t < time_horizon ; ++t ) {
+  std::string sgn = "StageSolution_" + std::to_string( t );
+  auto sg = group.getGroup( sgn );
+  if( sg.isNull() ) {
+   if( ! t )
+    break;
+   else
+    throw( std::invalid_argument( "SDDPBlockSolution::deserialize: group " +
+                                  sgn + " not present" ) );
+   }
+  if( ! t )
+   v_stage_solutions.resize( time_horizon , nullptr );
+  if( auto si = Solution::new_Solution( sg ) )
+   v_stage_solutions[ t ] = si;
+  else
+   throw( std::invalid_argument( "SDDPBlockSolution::deserialize: "
+                                 "deserialize from group " + sgn +
+                                 " failed" ) );
+  }
+ }  // end( SDDPBlockSolution::deserialize )
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlockSolution::read( const Block * block )
+{
+ auto sddp_block = dynamic_cast< const SDDPBlock * >( block );
+ if( ! sddp_block )
+  throw( std::invalid_argument( "SDDPBlockSolution::read: block is not a "
+                                "SDDPBlock" ) );
+
+ if( v_stage_solutions.empty() )
+  return;
+
+ auto time_horizon = sddp_block->get_time_horizon();
+ v_stage_solutions.resize( time_horizon , nullptr );
+
+ for( Block::Index t = 0 ; t < time_horizon ; ++t ) {
+  delete v_stage_solutions[ t ];
+  v_stage_solutions[ t ] =
+   stage_inner_Block( sddp_block , t )->get_Solution( f_inner_Config ,
+                                                      false );
+  }
+ }  // end( SDDPBlockSolution::read )
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlockSolution::write( Block * block )
+{
+ auto sddp_block = dynamic_cast< SDDPBlock * >( block );
+ if( ! sddp_block )
+  throw( std::invalid_argument( "SDDPBlockSolution::write: block is not a "
+                                "SDDPBlock" ) );
+
+ if( v_stage_solutions.empty() )
+  return;
+
+ if( v_stage_solutions.size() != sddp_block->get_time_horizon() )
+  throw( std::invalid_argument( "SDDPBlockSolution::write: inconsistent "
+                                "number of stages" ) );
+
+ for( Block::Index t = 0 ; t < v_stage_solutions.size() ; ++t )
+  if( v_stage_solutions[ t ] )
+   v_stage_solutions[ t ]->write( stage_inner_Block( sddp_block , t ) );
+
+ }  // end( SDDPBlockSolution::write )
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlockSolution::serialize( netCDF::NcGroup & group ) const
+{
+ // call the method of the base class
+ Solution::serialize( group );
+
+ if( v_stage_solutions.empty() )
+  return;
+
+ group.addDim( "TimeHorizon" , v_stage_solutions.size() );
+
+ for( std::size_t t = 0 ; t < v_stage_solutions.size() ; ++t ) {
+  std::string sgn = "StageSolution_" + std::to_string( t );
+  auto sg = group.addGroup( sgn );
+  v_stage_solutions[ t ]->serialize( sg );
+  }
+ }  // end( SDDPBlockSolution::serialize )
+
+/*--------------------------------------------------------------------------*/
+
+SDDPBlockSolution * SDDPBlockSolution::scale( double factor ) const
+{
+ auto sol = clone();  // create a copy of this SDDPBlockSolution
+
+ if( factor == 1 )
+  return( sol );
+
+ for( auto ssi : sol->v_stage_solutions )
+  ssi->scale( factor );
+
+ return( sol );
+
+ }  // end( SDDPBlockSolution::scale )
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPBlockSolution::sum( const Solution * solution , double multiplier )
+{
+ auto sddp_sol = dynamic_cast< const SDDPBlockSolution * >( solution );
+ if( ! sddp_sol )
+  throw( std::invalid_argument( "SDDPBlockSolution::sum: solution is not a "
+                                "SDDPBlockSolution" ) );
+
+ if( v_stage_solutions.size() != sddp_sol->v_stage_solutions.size() )
+  throw( std::invalid_argument( "SDDPBlockSolution::sum: inconsistent "
+                                "number of stages" ) );
+
+ for( std::size_t t = 0 ; t < v_stage_solutions.size() ; ++t )
+  v_stage_solutions[ t ]->sum( sddp_sol->v_stage_solutions[ t ] ,
+                               multiplier );
+
+ }  // end( SDDPBlockSolution::sum )
+
+/*--------------------------------------------------------------------------*/
+
+SDDPBlockSolution * SDDPBlockSolution::clone( bool empty ) const
+{
+ auto sol = new SDDPBlockSolution();
+
+ if( ! empty ) {
+  sol->v_stage_solutions.resize( v_stage_solutions.size() , nullptr );
+  for( std::size_t t = 0 ; t < v_stage_solutions.size() ; ++t )
+   if( v_stage_solutions[ t ] )
+    sol->v_stage_solutions[ t ] = v_stage_solutions[ t ]->clone();
+  }
+
+ return( sol );
+
+ }  // end( SDDPBlockSolution::clone )
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- End File SDDPBlock.cpp ---------------------------*/

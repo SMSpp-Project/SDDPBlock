@@ -198,7 +198,7 @@ class ScenarioSet
 
   // NumberRandomDataGroups and SizeRandomDataGroups
   if( std::adjacent_find( sub_scenario_size.begin() ,
-			  sub_scenario_size.end() ,
+                          sub_scenario_size.end() ,
                           std::not_equal_to<>() ) != sub_scenario_size.end()
       ) {
    // Not all sub-scenarios have the same size. In this case, we consider a
@@ -210,7 +210,7 @@ class ScenarioSet
    // NumberRandomDataGroups and SizeRandomDataGroups.
 
    if( ! ::SMSpp_di_unipi_it::deserialize_dim( group ,
-	       "NumberRandomDataGroups" , num_random_data_groups , true ) ) {
+               "NumberRandomDataGroups" , num_random_data_groups , true ) ) {
     // NumberRandomDataGroups was not provided. Hence, there must be a single
     // random data group.
     num_random_data_groups = 1;
@@ -218,9 +218,9 @@ class ScenarioSet
    else {
     // NumberRandomDataGroups provided, check SizeRandomDataGroups.
     if( ::SMSpp_di_unipi_it::deserialize( group , "SizeRandomDataGroups" ,
-					  num_random_data_groups ,
-					  size_random_data_groups , true ,
-					  false ) ) {
+                                          num_random_data_groups ,
+                                          size_random_data_groups , true ,
+                                          false ) ) {
      // SizeRandomDataGroups was provided.
 
      if( ( scenario_size / time_horizon ) != std::accumulate
@@ -280,7 +280,7 @@ class ScenarioSet
   // Scenarios
 
   auto scenarios_var = group.addVar( "Scenarios" , netCDF::NcDouble() ,
-			       { NumberScenarios_dim , ScenarioSize_dim } );
+                               { NumberScenarios_dim , ScenarioSize_dim } );
 
   for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
    scenarios_var.putVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
@@ -330,7 +330,7 @@ class ScenarioSet
                                std::vector< Index > sub_scenario_size ,
                                Index num_random_data_groups = 1 ,
                                std::vector< Index > size_random_data_groups
-			       = {} ) {
+                               = {} ) {
   this->time_horizon = time_horizon;
   this->sub_scenario_size = std::move( sub_scenario_size );
   this->num_random_data_groups = num_random_data_groups;
@@ -339,7 +339,7 @@ class ScenarioSet
   if( this->sub_scenario_size.size() != time_horizon )
    throw( std::logic_error( "ScenarioSet::set_structural_metadata: "
                             "'sub_scenario_size' must have length "
-			    "'time_horizon'" ) );
+                            "'time_horizon'" ) );
 
   scenario_size = std::accumulate( this->sub_scenario_size.begin() ,
                                    this->sub_scenario_size.end() ,
@@ -446,7 +446,7 @@ class ScenarioSet
  const double * scenario( Index i ) const {
   if( i >= size() )
    throw( std::invalid_argument(
-	    "ScenarioSet::scenario: Invalid scenario index " +
+            "ScenarioSet::scenario: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
 
@@ -525,7 +525,7 @@ class ScenarioSet
  sub_scenario_end( Index i , Index t ) const {
   if( i >= size() )
    throw( std::invalid_argument(
-	    "ScenarioSet::sub_scenario_end: Invalid scenario index " +
+            "ScenarioSet::sub_scenario_end: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
 
@@ -648,8 +648,8 @@ protected:
 
   if( scenarios_var.isNull() )
    throw( std::invalid_argument(
-		          "ScenarioSet::deserialize_scenarios: 'Scenarios' "
-			  "variable has not been provided." ) );
+                          "ScenarioSet::deserialize_scenarios: 'Scenarios' "
+                          "variable has not been provided." ) );
 
   auto dims = scenarios_var.getDims();
 

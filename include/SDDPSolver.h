@@ -20,7 +20,12 @@
  * \author Claude Opus 4.7 \n
  *         Antrophic \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -407,9 +412,11 @@ public:
   strOutputFile ,
   ///< name of the file to which the future cost functions will be output
   /**< Name of the file to which the approximations to the future cost
-   * functions are output. See #intOutputFrequency for controlling if and when
-   * these approximations are output. By default, the name of this file is
-   * empty, which means that the future cost functions will not be output. */
+   * functions are output, in the netCDF format described in
+   * SDDPBlock::serialize_cuts(). See #intOutputFrequency for controlling if
+   * and when these approximations are output. By default, the name of this
+   * file is empty, which means that the future cost functions will not be
+   * output. */
 
   strStateFile ,
   ///< name of the file in which the SDDPSolverState will be serialized
@@ -1403,7 +1410,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  void serialize_State( netCDF::NcGroup & group ,
-		       const std::string & sub_group_name = "" )
+                       const std::string & sub_group_name = "" )
   const override;
 
 /*--------------------------------------------------------------------------*/
@@ -1576,7 +1583,7 @@ protected:
   * @param stage An index between 0 and get_time_horizon() - 1. */
 
  BendersBFunction * get_benders_function( SDDPBlock::Index stage ,
-					  SDDPBlock::Index sub_block_index )
+                                          SDDPBlock::Index sub_block_index )
   const;
 
 /*--------------------------------------------------------------------------*/
@@ -1637,21 +1644,21 @@ protected:
 /*--------------------------------------------------------------------------*/
 
   double oneStepForward( const Eigen::ArrayXd & particle ,
-			 Eigen::ArrayXd & state ,
-			 Eigen::ArrayXd & state_to_store ,
-			 const StOpt::SDDPCutOptBase & sddp_cut ,
-			 const int & simulation_id ,
-			 const Index scenario_index ,
-			 const bool scenario_must_be_set ,
-			 const Index sub_block_index ) const;
+                         Eigen::ArrayXd & state ,
+                         Eigen::ArrayXd & state_to_store ,
+                         const StOpt::SDDPCutOptBase & sddp_cut ,
+                         const int & simulation_id ,
+                         const Index scenario_index ,
+                         const bool scenario_must_be_set ,
+                         const Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
   double oneStepForward( const Eigen::ArrayXd &p_aParticle ,
-			 Eigen::ArrayXd &p_state ,
-			 Eigen::ArrayXd &p_stateToStore ,
-			 const StOpt::SDDPCutOptBase &p_linCut ,
-			 const int &p_isimu ) const override;
+                         Eigen::ArrayXd &p_state ,
+                         Eigen::ArrayXd &p_stateToStore ,
+                         const StOpt::SDDPCutOptBase &p_linCut ,
+                         const int &p_isimu ) const override;
 
 /*--------------------------------------------------------------------------*/
   /// updates this SDDPOptimizer for a new stage
@@ -1905,11 +1912,11 @@ protected:
    * @return A pointer to the i-th PolyhedralFunction of the given \p stage. */
 
   PolyhedralFunction * get_polyhedral_function( Index stage , Index i = 0 ,
-						Index sub_block_index = 0 )
+                                                Index sub_block_index = 0 )
    const {
    return static_cast< SDDPBlock * >( sddp_solver->f_Block
-				      )->get_polyhedral_function( stage , i ,
-							    sub_block_index );
+                                      )->get_polyhedral_function( stage , i ,
+                                                            sub_block_index );
    }
 
 /*--------------------------------------------------------------------------*/
@@ -2282,45 +2289,34 @@ public:
 
 /*---------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPSolverState ----------*/
 
+ /// read this SDDPSolverState out of the given SDDPBlock
+ /** Fills this SDDPSolverState with the cuts of the given SDDPBlock, i.e.,
+  * the rows (besides the global bound and the "verse") of the
+  * PolyhedralFunction of (the first sub-Block of) each stage. */
+
+ void read( const SDDPBlock * sddp_block );
+
+/*--------------------------------------------------------------------------*/
+ /// write this SDDPSolverState into the given SDDPBlock
+ /** Writes the cuts contained in this SDDPSolverState into the
+  * PolyhedralFunction of every sub-Block of every stage of the given
+  * SDDPBlock, replacing the current ones. */
+
+ void write( SDDPBlock * sddp_block ) const;
+
+/*--------------------------------------------------------------------------*/
  /// serialize an SDDPSolverState into a netCDF::NcGroup
  /** This method serializes this SDDPSolverState into the provided
   * netCDF::NcGroup, so that it can later be read back by deserialize().
   *
-  * After this SDDPSolverState is serialized, \p group will have the dimension
-  * "TimeHorizon", containing the time horizon, and, for each t in {0, ...,
-  * TimeHorizon - 1}, the following data of the PolyhedralFunction associated
-  * with stage t:
-  *
-  * - The dimension "PolyFunction_sign_t" (actually a bool), which contains
-  *   the "verse" of the PolyhedralFunction, i.e., true for a convex
-  *   max-function and false for a concave min-function (encoded in the
-  *   obvious way, i.e., zero for false, nonzero for true). This dimension is
-  *   optional: if it is not provided, true is assumed.
-  *
-  * - The dimension "PolyFunction_NumRow_t", containing the number of rows of
-  *   the A matrix. This dimension is optional: if it is not provided, then 0
-  *   (no rows) is assumed.
-  *
-  * - The dimension "PolyFunction_NumVar_t", containing the number of columns
-  *   of the A matrix, i.e., the number of active variables.
-  *
-  * - The variable "PolyFunction_A_t", of type netCDF::NcDouble() and indexed
-  *   over both the dimensions "PolyFunction_NumRow_t" and
-  *   "PolyFunction_NumVar_t" (in this order); it contains the (row-major)
-  *   representation of the matrix A. This variable is only optional if
-  *   "PolyFunction_NumRow_t" == 0.
-  *
-  * - The variable "PolyFunction_b_t", of type netCDF::NcDouble() and indexed
-  *   over the dimension "PolyFunction_NumRow_t", which contains the vector
-  *   b. This variable is only optional if "PolyFunction_NumRow_t" == 0.
-  *
-  * - The scalar variable "PolyFunction_lb_t", of type netCDF::NcDouble() and
-  *   not indexed over any dimension, which contains the global lower (if
-  *   PolyFunction_sign_t == true, upper otherwise) bound on the value of the
-  *   PolyhedralFunction over all the space. This variable is optional: if it
-  *   is not provided, it means that no finite lower (upper) bound exist,
-  *   i.e., the lower (upper) bound is -(+)
-  *   Inf< PolyhedralFunction::FunctionValue >(). */
+  * After this SDDPSolverState is serialized, \p group will have the
+  * dimension "TimeHorizon", containing the time horizon, and, for each t in
+  * {0, ..., TimeHorizon - 1}, the group "PolyhedralFunction_t" containing
+  * the serialization of the PolyhedralFunction associated with stage t, in
+  * the standard PolyhedralFunction netCDF format. This is the same format
+  * produced by SDDPBlock::serialize_cuts(), so that the cuts have one
+  * canonical representation no matter whether they travel in a cuts file or
+  * within the State of a Solver. */
 
  void serialize( netCDF::NcGroup & group ) const override;
 
@@ -2365,14 +2361,6 @@ protected:
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 
 private:
-
-/*--------------------------- PRIVATE METHODS ------------------------------*/
-
- static void serialize( netCDF::NcGroup & group , Index t , Index num_var ,
-			bool is_convex ,
-			PolyhedralFunction::FunctionValue bound ,
-			const PolyhedralFunction::MultiVector & A ,
-			const PolyhedralFunction::RealVector & b );
 
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
 

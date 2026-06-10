@@ -204,7 +204,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
     if( particle_length == 1 )
      all_particles[ t ]( 0 , i ) =
       std::accumulate( sub_scenario_begin , sub_scenario_end ,
-		       double( 0.0 ) ) /
+                       double( 0.0 ) ) /
       std::distance( sub_scenario_begin , sub_scenario_end );
     else {
      Index start = 0;
@@ -273,7 +273,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 
  Eigen::VectorXd getOneParticle( const int & index ) const override {
   return all_particles[ current_date_index ].col(
-				       indices_selected_particles[ index ] );
+                                       indices_selected_particles[ index ] );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -286,7 +286,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 
  Eigen::MatrixXd getParticles() const override {
   assert( decltype( indices_selected_particles )::size_type(
-						       number_simulations )
+                                                       number_simulations )
           == indices_selected_particles.size() );
 
   Eigen::MatrixXd particles( all_particles[ current_date_index ].rows() ,
@@ -294,7 +294,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 
   for( int i = 0 ; i < number_simulations ; ++i )
    particles.col( i ) = all_particles[ current_date_index ].col(
-					   indices_selected_particles[ i ] );
+                                           indices_selected_particles[ i ] );
 
   return particles;
   }
@@ -322,7 +322,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
   * @param number_simulations The new number of simulations. */
 
  virtual void updateSimulationNumberAndResetTime(
-				 const int & number_simulations ) override {
+                                 const int & number_simulations ) override {
   assert( ! backward_simulator );
   set_number_simulations( number_simulations );
   resetTime();

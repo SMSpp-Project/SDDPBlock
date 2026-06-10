@@ -16,7 +16,12 @@
  * \author Claude Opus 4.7 \n
  *         Antrophic \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -700,6 +705,22 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// deserialize cuts from the given file and add them to this SDDPBlock
+ /** This function deserializes the cuts contained in the file with the given
+  * name (path) and adds them to the PolyhedralFunction of every sub-Block of
+  * the corresponding stage. If \p filename is empty, then no operation is
+  * performed. The file must have the format described in the comments of
+  * serialize_cuts(). For each stage t whose group "PolyhedralFunction_t" is
+  * present, the rows there described are added to (rather than replacing)
+  * the current ones of the PolyhedralFunction of each sub-Block of stage t.
+  *
+  * @param filename The path to the file containing the netCDF description of
+  *        the cuts. */
+
+ void deserialize_cuts( const std::string & filename );
+
+/*--------------------------------------------------------------------------*/
+
  /// sets the number of sub-Blocks for each stage
  /** This function sets the number of sub-Blocks that must be constructed at
   * each stage. If this function is invoked after the sub-Blocks of this
@@ -753,6 +774,25 @@ public:
   *        serialized. */
 
  void serialize_random_cuts( const std::string & filename ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// serialize the cuts
+ /** This function serializes the cuts of this SDDPBlock, i.e., the rows of
+  * the PolyhedralFunction of (the first sub-Block of) each stage, in the
+  * file with the given name (path). If \p filename is empty, then no
+  * operation is performed. The file will have the following netCDF format:
+  *
+  * - The dimension "TimeHorizon" containing the number of stages.
+  *
+  * - The group "PolyhedralFunction_t", for each t in {0, ..., TimeHorizon -
+  *   1}, containing the serialization of the PolyhedralFunction associated
+  *   with stage t.
+  *
+  * @param filename The name of the file in which the cuts will be
+  *        serialized. */
+
+ void serialize_cuts( const std::string & filename ) const;
 
 /** @} ---------------------------------------------------------------------*/
 /*------------- METHODS FOR READING THE DATA OF THE SDDPBlock --------------*/
@@ -1163,6 +1203,42 @@ public:
   *         Objective::eUndef. */
 
  int get_objective_sense() const override;
+
+/** @} ---------------------------------------------------------------------*/
+/*----------------------- Methods for handling Solution --------------------*/
+/*--------------------------------------------------------------------------*/
+/** @name Methods for handling Solution
+ *  @{ */
+
+ /// returns a SDDPBlockSolution representing the current solution
+ /** Returns a SDDPBlockSolution representing the current solution status of
+  * this SDDPBlock, i.e., the Solution of the inner Block of the
+  * BendersBFunction at each stage (the first sub-Block of each stage if
+  * there are more than one); see SDDPBlockSolution for details. This is
+  * meant to be used after a simulation (see SDDPGreedySolver) has solved
+  * the stage sub-problems for some scenario and the solutions have been
+  * retrieved (get_var_solution()), so that one SDDPBlockSolution describes
+  * the complete trajectory of one scenario.
+  *
+  * What the Solution contains is "configured" by \p solc, which can be:
+  *
+  * - a SimpleConfiguration< int >, whose f_value is bit-wise coded as
+  *   follows: bit 0 tells that the Solution of the inner Block of each
+  *   stage is saved; the remaining bits (f_value >> 1), if nonzero, are
+  *   passed as a SimpleConfiguration< int > to get_Solution() of the inner
+  *   Block (say, a UCBlock, see UCBlock::get_Solution() for the meaning of
+  *   the bits);
+  *
+  * - a SimpleConfiguration< std::pair< int , Configuration * > >, in which
+  *   case f_value.first is used as the bit 0 above and f_value.second is
+  *   passed (cloned) to get_Solution() of the inner Block of each stage.
+  *
+  * If \p solc is nullptr, the f_solution_Configuration of the BlockConfig
+  * is used if present, otherwise everything (bit 0 == 1, no inner
+  * Configuration) is saved. */
+
+ Solution * get_Solution( Configuration * solc = nullptr ,
+                          bool emptys = true ) override;
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
@@ -1684,6 +1760,124 @@ private:
 /*--------------------------------------------------------------------------*/
 
 };   // end( class SDDPBlock )
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- CLASS SDDPBlockSolution --------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a Solution of a SDDPBlock describing the trajectory of one scenario
+/** The SDDPBlockSolution class, derived from Solution, represents a solution
+ * of a SDDPBlock, i.e., the Solution of the inner Block of the
+ * BendersBFunction at each stage (the first sub-Block of the stage if there
+ * are more than one). Since a simulation (see SDDPGreedySolver) solves the
+ * stage sub-problems in sequence for one given scenario, one
+ * SDDPBlockSolution describes the complete trajectory of one scenario. */
+
+class SDDPBlockSolution : public Solution {
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ public:
+
+/*------------------------------- FRIENDS ----------------------------------*/
+
+ friend SDDPBlock;  ///< make SDDPBlock friend
+
+/*------------- CONSTRUCTING AND DESTRUCTING SDDPBlockSolution -------------*/
+
+ /// constructor
+
+ explicit SDDPBlockSolution( void ) : Solution() ,
+  f_inner_Config( nullptr ) {}
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// deserialize a SDDPBlockSolution from a netCDF::NcGroup
+
+ void deserialize( const netCDF::NcGroup & group ) override;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// destructor
+
+ ~SDDPBlockSolution() override {
+  for( auto si : v_stage_solutions )
+   delete( si );
+  delete( f_inner_Config );
+  }
+
+/*--------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPBlockSolution ----------*/
+
+ void read( const Block * block ) override final;
+
+ void write( Block * block ) override final;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// serialize a SDDPBlockSolution into a netCDF::NcGroup
+ /** Serialize a SDDPBlockSolution into a netCDF::NcGroup. The format is the
+  * following:
+  *
+  * - The dimension "TimeHorizon" containing the number of stages. The
+  *   dimension is mandatory if "StageSolution_0" is there and optional
+  *   otherwise.
+  *
+  * - If "TimeHorizon" is defined, the groups "StageSolution_T" for T = 0,
+  *   ..., TimeHorizon - 1, each containing the Solution object of the inner
+  *   Block of the BendersBFunction at stage T. The groups are optional but
+  *   either they are all there or none is, hence one can just check the
+  *   existence of StageSolution_0: if it exists then all other ones, and
+  *   the dimension "TimeHorizon", must exist. */
+
+ void serialize( netCDF::NcGroup & group ) const override;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ SDDPBlockSolution * scale( double factor ) const override;
+
+ void sum( const Solution * solution , double multiplier ) override;
+
+ SDDPBlockSolution * clone( bool empty = false ) const override;
+
+/*--------------------------------------------------------------------------*/
+ /// set the inner Config
+ /** Sets the f_inner_Config field, which is used in read() to Config-ure the
+  * Solution of the inner Block of each stage; ownership of \p cfg is taken
+  * by the SDDPBlockSolution. */
+
+ void set_inner_Config( Configuration * cfg ) {
+  delete( f_inner_Config );
+  f_inner_Config = cfg;
+  }
+
+/*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
+
+ protected:
+
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+
+ void print( std::ostream & output ) const override {
+  output << "SDDPBlockSolution [" << this << "]: "
+         << v_stage_solutions.size() << " stage solutions" << std::endl;
+  }
+
+/*---------------------- PRIVATE PART OF THE CLASS -------------------------*/
+
+ private:
+
+/*---------------------------- PRIVATE FIELDS ------------------------------*/
+
+ Configuration * f_inner_Config;
+ ///< the Configuration for the Solution of the inner Block of each stage
+
+ std::vector< Solution * > v_stage_solutions;
+ ///< the Solution of the inner Block of each stage
+
+/*--------------------------------------------------------------------------*/
+
+ SMSpp_insert_in_factory_h;
+
+/*--------------------------------------------------------------------------*/
+
+ };  // end( class( SDDPBlockSolution ) )
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/

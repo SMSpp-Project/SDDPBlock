@@ -15,7 +15,12 @@
  * \author Claude Opus 4.7 \n
  *         Antrophic \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -140,7 +145,7 @@ void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
     block_solver_config = bsc;
    else
     throw( std::invalid_argument( "SDDPSolver::set_ComputeConfig: The extra "
-				  "Configuration is invalid" ) );
+                                  "Configuration is invalid" ) );
   }
 
  // Now, replace the old Configurations if new ones have been provided.
@@ -755,34 +760,7 @@ void SDDPSolver::put_State( const State & state ) {
  if( ! sddp_block )
   return;
 
- auto s = dynamic_cast< const SDDPSolverState & >( state );
-
- const auto time_horizon = get_time_horizon();
-
- const auto num_polyhedral_per_sub_block =
-  sddp_block->get_num_polyhedral_function_per_sub_block();
-
- const auto num_sub_blocks_per_stage =
-  sddp_block->get_num_sub_blocks_per_stage();
-
- for( Index t = 0 ; t < time_horizon ; ++t ) {
-  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
-   for( Index sub_block_index = 0 ;
-        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
-
-    auto polyhedral_function =
-     sddp_block->get_polyhedral_function( t , i , sub_block_index );
-
-    assert( polyhedral_function );
-
-    auto A = s.v_A[ t ];
-    auto b = s.v_b[ t ];
-
-    polyhedral_function->set_PolyhedralFunction
-     ( std::move( A ) , std::move( b ) , s.v_bound[ t ] , s.v_is_convex[ t ] );
-   }
-  }
- }
+ dynamic_cast< const SDDPSolverState & >( state ).write( sddp_block );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -795,32 +773,7 @@ void SDDPSolver::put_State( State && state ) {
  if( ! sddp_block )
   return;
 
- auto s = dynamic_cast< SDDPSolverState && >( state );
-
- const auto time_horizon = get_time_horizon();
-
- const auto num_polyhedral_per_sub_block =
-  sddp_block->get_num_polyhedral_function_per_sub_block();
-
- const auto num_sub_blocks_per_stage =
-  sddp_block->get_num_sub_blocks_per_stage();
-
- for( Index t = 0 ; t < time_horizon ; ++t ) {
-  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
-   for( Index sub_block_index = 0 ;
-        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
-
-    auto polyhedral_function =
-     sddp_block->get_polyhedral_function( t , i , sub_block_index );
-
-    assert( polyhedral_function );
-
-    polyhedral_function->set_PolyhedralFunction
-     ( std::move( s.v_A[ t ] ) , std::move( s.v_b[ t ] ) , s.v_bound[ t ] ,
-       s.v_is_convex[ t ] );
-   }
-  }
- }
+ dynamic_cast< const SDDPSolverState & >( state ).write( sddp_block );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -841,21 +794,8 @@ void SDDPSolver::serialize_State
   return;
  }
 
- group.putAtt( "type" , "SDDPSolverState" );
+ SDDPSolverState( this ).serialize( group );
 
- const auto time_horizon = get_time_horizon();
- group.addDim( "TimeHorizon" , get_time_horizon() );
-
- for( Index t = 0 ; t < time_horizon ; ++t ) {
-  const auto polyhedral_function = sddp_block->get_polyhedral_function( t );
-  assert( polyhedral_function );
-  auto num_var = polyhedral_function->get_num_active_var();
-  auto is_convex = polyhedral_function->is_convex();
-  auto bound = polyhedral_function->get_global_bound();
-  const auto & A = polyhedral_function->get_A();
-  const auto & b = polyhedral_function->get_b();
-  SDDPSolverState::serialize( group , t , num_var , is_convex , bound , A , b );
- }
 }  // end( SDDPSolver::serialize_State )
 
 /*--------------------------------------------------------------------------*/
@@ -1109,42 +1049,7 @@ void SDDPSolver::output_future_cost_functions( const std::string & filename )
  if( filename.empty() )
   return;
 
- auto sddp_block = static_cast< SDDPBlock * >( f_Block );
-
- const auto & functions = sddp_block->get_polyhedral_functions();
- if( functions.empty() )
-  return;
-
- std::ofstream output( filename , std::ios::out );
-
- const char separator_character = ',';
- const auto num_var = functions.front()->get_num_active_var();
-
- output << "Timestep";
- for( Index i = 0 ; i < num_var ; ++i ) {
-  output << separator_character << "a_" << std::to_string( i );
- }
- output << separator_character << "b" << std::endl;
-
- for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
-
-  auto function = sddp_block->get_polyhedral_function( stage , 0 , 0 );
-
-  const auto & b = function->get_b();
-  const auto & A = function->get_A();
-
-  assert( b.size() == A.size() );
-
-  for( Index i = 0 ; i < b.size() ; ++i ) {
-   output << stage;
-   for( Index j = 0 ; j < A[ i ].size() ; ++j )
-    output << separator_character << std::setprecision( 20 ) << A[ i ][ j ];
-   output << separator_character << std::setprecision( 20 ) << b[ i ]
-          << std::endl;
-  }
- }
-
- output.close();
+ static_cast< SDDPBlock * >( f_Block )->serialize_cuts( filename );
 
 }
 
@@ -1700,7 +1605,20 @@ SDDPSolverState::SDDPSolverState( const SDDPSolver * solver ) {
  if( ! sddp_block )
   return;
 
- const auto time_horizon = solver->get_time_horizon();
+ read( sddp_block );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolverState::read( const SDDPBlock * sddp_block ) {
+
+ const auto time_horizon = sddp_block->get_time_horizon();
+
+ v_is_convex.clear();
+ v_num_var.clear();
+ v_A.clear();
+ v_b.clear();
+ v_bound.clear();
 
  v_is_convex.reserve( time_horizon );
  v_num_var.reserve( time_horizon );
@@ -1721,39 +1639,33 @@ SDDPSolverState::SDDPSolverState( const SDDPSolver * solver ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPSolverState::serialize
-( netCDF::NcGroup & group , Index t , Index num_var , bool is_convex ,
-  PolyhedralFunction::FunctionValue bound ,
-  const PolyhedralFunction::MultiVector & A ,
-  const PolyhedralFunction::RealVector & b ) {
+void SDDPSolverState::write( SDDPBlock * sddp_block ) const {
 
- if( is_convex )
-  group.addDim( "PolyFunction_sign_" + std::to_string( t ) , 1 );
- else
-  group.addDim( "PolyFunction_sign_" + std::to_string( t ) , 0 );
+ const auto time_horizon = sddp_block->get_time_horizon();
 
- ( group.addVar( "PolyFunction_lb_" + std::to_string( t ) ,
-                 netCDF::NcDouble() ) ).putVar( &bound );
+ const auto num_polyhedral_per_sub_block =
+  sddp_block->get_num_polyhedral_function_per_sub_block();
 
- auto nv = group.addDim( "PolyFunction_NumVar_" + std::to_string( t ) ,
-                         num_var );
+ const auto num_sub_blocks_per_stage =
+  sddp_block->get_num_sub_blocks_per_stage();
 
- auto num_rows = b.size();
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i ) {
+   for( Index sub_block_index = 0 ;
+        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index ) {
 
- if( num_rows ) {
+    auto polyhedral_function =
+     sddp_block->get_polyhedral_function( t , i , sub_block_index );
 
-  auto nr = group.addDim( "PolyFunction_NumRow_" + std::to_string( t ) ,
-                          num_rows );
+    assert( polyhedral_function );
 
-  auto ncdA = group.addVar( "PolyFunction_A_" + std::to_string( t ) ,
-                            netCDF::NcDouble() , { nr , nv } );
+    auto A = v_A[ t ];
+    auto b = v_b[ t ];
 
-  for( Index i = 0 ; i < num_rows ; ++i )
-   ncdA.putVar( { i , 0 } , { 1 , num_var } , A[ i ].data() );
-
-  ( group.addVar( "PolyFunction_b_" + std::to_string( t ) ,
-                  netCDF::NcDouble() , nr ) ).
-   putVar( { 0 } , { num_rows } , b.data() );
+    polyhedral_function->set_PolyhedralFunction
+     ( std::move( A ) , std::move( b ) , v_bound[ t ] , v_is_convex[ t ] );
+   }
+  }
  }
 }
 
@@ -1767,9 +1679,39 @@ void SDDPSolverState::serialize( netCDF::NcGroup & group ) const {
 
  group.addDim( "TimeHorizon" , time_horizon );
 
- for( Index t = 0 ; t < time_horizon ; ++t )
-  serialize( group , t , v_num_var[ t ] , v_is_convex[ t ] , v_bound[ t ] ,
-             v_A[ t ] , v_b[ t ] );
+ /* Each stage is serialized in its own "PolyhedralFunction_t" group, in the
+  * standard PolyhedralFunction netCDF format (see
+  * PolyhedralFunction::serialize()): this is the same format produced by
+  * SDDPBlock::serialize_cuts(), so that the cuts have one canonical
+  * representation. */
+
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+  auto sub_group = group.addGroup( "PolyhedralFunction_" +
+                                   std::to_string( t ) );
+
+  auto nv = sub_group.addDim( "PolyFunction_NumVar" , v_num_var[ t ] );
+
+  if( auto num_rows = v_b[ t ].size() ) {
+   auto nr = sub_group.addDim( "PolyFunction_NumRow" , num_rows );
+
+   auto ncdA = sub_group.addVar( "PolyFunction_A" , netCDF::NcDouble() ,
+                                 { nr , nv } );
+
+   for( Index i = 0 ; i < num_rows ; ++i )
+    ncdA.putVar( { i , 0 } , { 1 , v_num_var[ t ] } , v_A[ t ][ i ].data() );
+
+   ( sub_group.addVar( "PolyFunction_b" , netCDF::NcDouble() , nr )
+     ).putVar( { 0 } , { num_rows } , v_b[ t ].data() );
+   }
+
+  if( ! v_is_convex[ t ] )
+   sub_group.addDim( "PolyFunction_sign" , 0 );
+
+  if( std::isfinite( v_bound[ t ] ) )
+   ( sub_group.addVar( "PolyFunction_lb" , netCDF::NcDouble() )
+     ).putVar( & v_bound[ t ] );
+  }
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1792,27 +1734,38 @@ void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
 
  for( decltype( time_horizon ) t = 0 ; t < time_horizon ; ++t ) {
 
-  auto nv = group.getDim( "PolyFunction_NumVar_" + std::to_string( t ) );
+  auto sub_group = group.getGroup( "PolyhedralFunction_" +
+                                   std::to_string( t ) );
+  if( sub_group.isNull() )
+   throw( std::logic_error( "SDDPSolverState::deserialize: group "
+                            "PolyhedralFunction_" + std::to_string( t ) +
+                            " is required, but it is not in the given "
+                            "group." ) );
+
+  auto nv = sub_group.getDim( "PolyFunction_NumVar" );
   if( nv.isNull() )
-   throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_NumVar_"
-                            + std::to_string( t ) + " dimension is required,"
-                            " but it is not in the given group.") );
+   throw( std::logic_error( "SDDPSolverState::deserialize: "
+                            "PolyFunction_NumVar dimension is required, but "
+                            "it is not in group PolyhedralFunction_" +
+                            std::to_string( t ) + "." ) );
 
   v_num_var[ t ] = nv.getSize();
 
-  auto nr = group.getDim( "PolyFunction_NumRow_" + std::to_string( t ) );
+  auto nr = sub_group.getDim( "PolyFunction_NumRow" );
   if( ( ! nr.isNull() ) && ( nr.getSize() ) ) {
-   auto ncdA = group.getVar( "PolyFunction_A_" + std::to_string( t ) );
+   auto ncdA = sub_group.getVar( "PolyFunction_A" );
    if( ncdA.isNull() )
-    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_A_"
-                             + std::to_string( t ) + " dimension is required,"
-                             " but it is not in the given group.") );
+    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_A "
+                             "variable is required, but it is not in group "
+                             "PolyhedralFunction_" + std::to_string( t ) +
+                             "." ) );
 
-   auto ncdb = group.getVar( "PolyFunction_b_" + std::to_string( t ) );
+   auto ncdb = sub_group.getVar( "PolyFunction_b" );
    if( ncdb.isNull() )
-    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_b_"
-                             + std::to_string( t ) + " dimension is required,"
-                             " but it is not in the given group.") );
+    throw( std::logic_error( "SDDPSolverState::deserialize: PolyFunction_b "
+                             "variable is required, but it is not in group "
+                             "PolyhedralFunction_" + std::to_string( t ) +
+                             "." ) );
 
    v_A[ t ].resize( nr.getSize() );
    for( Index i = 0 ; i < v_A[ t ].size() ; ++i ) {
@@ -1825,11 +1778,11 @@ void SDDPSolverState::deserialize( const netCDF::NcGroup & group ) {
   }
 
   v_is_convex[ t ] = true;
-  auto sgn = group.getDim( "PolyFunction_sign_" + std::to_string( t ) );
+  auto sgn = sub_group.getDim( "PolyFunction_sign" );
   if( ! sgn.isNull() )
    v_is_convex[ t ] = sgn.getSize() > 0 ? true : false;
 
-  auto nclb = group.getVar( "PolyFunction_lb_" + std::to_string( t ) );
+  auto nclb = sub_group.getVar( "PolyFunction_lb" );
   if( nclb.isNull() ) {
    if( v_is_convex[ t ] )
     v_bound[ t ] = -Inf< PolyhedralFunction::FunctionValue >();
