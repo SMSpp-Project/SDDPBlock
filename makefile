@@ -35,7 +35,9 @@ SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
 	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o \
 	$(SDDPBkSDR)/obj/CutProcessing.o
 
-SDDPBkINC = -I$(SDDPBkSDR)/include
+# note: USE_MPI mirrors the (default ON) CMake option of the same name: StOpt
+# is built with MPI, so whoever drives an SDDP solve must initialize MPI
+SDDPBkINC = -I$(SDDPBkSDR)/include -DUSE_MPI
 
 SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/ScenarioSet.h \
