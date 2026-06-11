@@ -424,11 +424,13 @@ public:
   strOutputFile ,
   ///< name of the file to which the future cost functions will be output
   /**< Name of the file to which the approximations to the future cost
-   * functions are output, in the netCDF format described in
-   * SDDPBlock::serialize_cuts(). See #intOutputFrequency for controlling if
-   * and when these approximations are output. By default, the name of this
-   * file is empty, which means that the future cost functions will not be
-   * output. */
+   * functions are output, in one of the two formats described in
+   * SDDPBlock::serialize_cuts(): netCDF if the filename has a ".nc4" or
+   * ".nc" extension, the historical CSV one otherwise (so that, e.g., the
+   * customary "cuts.txt" keeps producing the same CSV as it always has).
+   * See #intOutputFrequency for controlling if and when these
+   * approximations are output. By default, the name of this file is empty,
+   * which means that the future cost functions will not be output. */
 
   strStateFile ,
   ///< name of the file in which the SDDPSolverState will be serialized

@@ -28,6 +28,12 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <cassert>
+#include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+
 #include "AbstractPath.h"
 #include "BendersBlock.h"
 #include "SDDPBlock.h"
@@ -754,10 +760,60 @@ void SDDPBlock::serialize_random_cuts( const std::string & filename ) const
 
 /*--------------------------------------------------------------------------*/
 
+bool SDDPBlock::is_netCDF_file( const std::string & filename )
+{
+ std::ifstream file( filename , std::ifstream::binary );
+ char magic[ 4 ] = {};
+ if( ! file.read( magic , 4 ) )
+  return( false );
+ return( ( std::memcmp( magic , "CDF" , 3 ) == 0 ) ||
+         ( std::memcmp( magic , "\x89HDF" , 4 ) == 0 ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPBlock::serialize_cuts( const std::string & filename ) const
 {
  if( filename.empty() || v_polyhedral_functions.empty() )
   return;
+
+ // the historical CSV format is kept for any extension other than the
+ // netCDF ones, so that existing consumers keep working unchanged
+ const auto dot = filename.find_last_of( '.' );
+ const auto extension = dot == std::string::npos ?
+                        std::string {} : filename.substr( dot );
+ if( ( extension != ".nc4" ) && ( extension != ".nc" ) ) {
+
+  std::ofstream output( filename , std::ios::out );
+
+  const char separator_character = ',';
+  const auto num_var = v_polyhedral_functions.front()->get_num_active_var();
+
+  output << "Timestep";
+  for( Index i = 0 ; i < num_var ; ++i )
+   output << separator_character << "a_" << std::to_string( i );
+  output << separator_character << "b" << std::endl;
+
+  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
+
+   auto function = get_polyhedral_function( stage );
+
+   const auto & b = function->get_b();
+   const auto & A = function->get_A();
+
+   assert( b.size() == A.size() );
+
+   for( Index i = 0 ; i < b.size() ; ++i ) {
+    output << stage;
+    for( Index j = 0 ; j < A[ i ].size() ; ++j )
+     output << separator_character << std::setprecision( 20 ) << A[ i ][ j ];
+    output << separator_character << std::setprecision( 20 ) << b[ i ]
+           << std::endl;
+    }
+   }
+
+  return;
+  }
 
  netCDF::NcFile file( filename , netCDF::NcFile::replace );
 
@@ -776,6 +832,84 @@ void SDDPBlock::deserialize_cuts( const std::string & filename )
 {
  if( filename.empty() )
   return;
+
+ if( ! is_netCDF_file( filename ) ) {
+  // the file is in the historical CSV format (see serialize_cuts())
+
+  std::ifstream cuts_file( filename );
+  if( ! cuts_file.is_open() )
+   throw( std::runtime_error( "SDDPBlock::deserialize_cuts: it was not "
+                              "possible to open the file \"" + filename +
+                              "\"." ) );
+
+  const auto time_horizon = get_time_horizon();
+
+  // the cuts of each stage, collected so that add_rows() is invoked once
+  std::vector< PolyhedralFunction::MultiVector > A( time_horizon );
+  std::vector< PolyhedralFunction::RealVector > b( time_horizon );
+
+  std::string line;
+  std::getline( cuts_file , line );  // skip the header line
+
+  int line_number = 1;
+  while( std::getline( cuts_file , line ) ) {
+   ++line_number;
+
+   std::stringstream line_stream( line );
+
+   Index stage;
+   if( ! ( line_stream >> stage ) )
+    break;
+
+   if( stage >= time_horizon )
+    throw( std::logic_error
+           ( "SDDPBlock::deserialize_cuts: file \"" + filename + "\" "
+             "contains an invalid stage: " + std::to_string( stage ) +
+             "." ) );
+
+   const auto num_active_var =
+    get_polyhedral_function( stage )->get_num_active_var();
+
+   PolyhedralFunction::RealVector a( num_active_var );
+
+   Index i = 0;
+   double value;
+   while( ( line_stream.peek() == ',' ) && ( line_stream.ignore() ) &&
+          ( line_stream >> value ) ) {
+    if( i > num_active_var )
+     throw( std::logic_error
+            ( "SDDPBlock::deserialize_cuts: file \"" + filename + "\" "
+              "contains an invalid cut at line " +
+              std::to_string( line_number ) + "." ) );
+    if( i < num_active_var )
+     a[ i ] = value;
+    else
+     b[ stage ].push_back( value );
+    ++i;
+    }
+
+   if( i != num_active_var + 1 )
+    throw( std::logic_error
+           ( "SDDPBlock::deserialize_cuts: file \"" + filename + "\" "
+             "contains an invalid cut at line " +
+             std::to_string( line_number ) + "." ) );
+
+   A[ stage ].push_back( std::move( a ) );
+   }
+
+  // add the cuts to the PolyhedralFunction of every sub-Block of each stage
+  for( Index t = 0 ; t < time_horizon ; ++t ) {
+   if( b[ t ].empty() )
+    continue;
+   for( Index i = 0 ; i < get_num_sub_blocks_per_stage() ; ++i ) {
+    auto At = A[ t ];  // copy, so that it can be moved
+    get_polyhedral_function( t , 0 , i )->add_rows( std::move( At ) ,
+                                                    b[ t ] );
+    }
+   }
+
+  return;
+  }
 
  netCDF::NcFile file( filename.c_str() , netCDF::NcFile::read );
 

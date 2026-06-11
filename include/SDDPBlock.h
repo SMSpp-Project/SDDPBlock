@@ -709,15 +709,26 @@ public:
  /** This function deserializes the cuts contained in the file with the given
   * name (path) and adds them to the PolyhedralFunction of every sub-Block of
   * the corresponding stage. If \p filename is empty, then no operation is
-  * performed. The file must have the format described in the comments of
-  * serialize_cuts(). For each stage t whose group "PolyhedralFunction_t" is
-  * present, the rows there described are added to (rather than replacing)
-  * the current ones of the PolyhedralFunction of each sub-Block of stage t.
+  * performed. The file must have one of the two formats described in the
+  * comments of serialize_cuts(), which is automatically detected by looking
+  * at the leading magic bytes: a netCDF file is dispatched to the netCDF
+  * reader, anything else to the CSV one. In both cases the cuts there
+  * described are added to (rather than replacing) the current ones of the
+  * PolyhedralFunction of each sub-Block of the corresponding stage.
   *
-  * @param filename The path to the file containing the netCDF description of
+  * @param filename The path to the file containing the description of
   *        the cuts. */
 
  void deserialize_cuts( const std::string & filename );
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns true if the file has the netCDF (classic or HDF5) magic bytes
+ /** Helper telling whether the file with the given name (path) is a netCDF
+  * one, so that the format of a cuts file can be automatically detected;
+  * see deserialize_cuts(). */
+
+ static bool is_netCDF_file( const std::string & filename );
 
 /*--------------------------------------------------------------------------*/
 
@@ -781,13 +792,23 @@ public:
  /** This function serializes the cuts of this SDDPBlock, i.e., the rows of
   * the PolyhedralFunction of (the first sub-Block of) each stage, in the
   * file with the given name (path). If \p filename is empty, then no
-  * operation is performed. The file will have the following netCDF format:
+  * operation is performed. The format is selected by the extension of
+  * \p filename: with ".nc4" or ".nc" the file will have the following
+  * netCDF format:
   *
   * - The dimension "TimeHorizon" containing the number of stages.
   *
   * - The group "PolyhedralFunction_t", for each t in {0, ..., TimeHorizon -
   *   1}, containing the serialization of the PolyhedralFunction associated
   *   with stage t.
+  *
+  * With any other extension the file will be a CSV with a header line
+  *
+  *     Timestep,a_0,...,a_{n-1},b
+  *
+  * followed by one line per cut of the form "t,A[i][0],...,A[i][n-1],b[i]",
+  * where t is the stage the cut belongs to; this is the historical format
+  * of this module, kept so that existing consumers keep working unchanged.
   *
   * @param filename The name of the file in which the cuts will be
   *        serialized. */

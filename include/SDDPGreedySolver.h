@@ -429,8 +429,9 @@ public:
   ///< name of the file out of which cuts will be loaded
   /**< This parameter indicates the path to the file out of which cuts will be
    * loaded. By default, the path to this file is empty, which means that no
-   * cut is loaded. If provided, the file must have the netCDF format
-   * specified by SDDPBlock::serialize_cuts(). Cuts associated with a
+   * cut is loaded. If provided, the file must have one of the two formats
+   * specified by SDDPBlock::serialize_cuts() (netCDF or the historical
+   * CSV), which is automatically detected. Cuts associated with a
    * particular stage are loaded within compute() right before the subproblem
    * associated with that stage is solved. See the parameter #intLoadCutsOnce
    * to control when cuts are loaded. */
