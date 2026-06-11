@@ -427,8 +427,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
   configure_inner_block( stage );
 
-  if( ( ! f_load_cuts_once ) ||
-      ( stage >= v_cuts_loaded.size() ) || ( ! v_cuts_loaded[ stage ] ) )
+  if( ( ! f_load_cuts_once ) || ( stage >= v_cuts_loaded.size() ) ||
+      ( ! v_cuts_loaded[ stage ][ f_sub_block_index ] ) )
    load_cuts( stage );
 
   auto sub_status = solve( stage , true );
@@ -790,8 +790,8 @@ std::vector< double > SDDPGreedySolver::get_solution
  Index solution_size = 0;
  for( Index i = 0 ;
       i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i ) {
-  solution_size +=
-   sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
+  solution_size += sddp_block->get_polyhedral_function
+   ( stage , i , f_sub_block_index )->get_num_active_var();
  }
 
  std::vector< double > solution;
@@ -800,7 +800,7 @@ std::vector< double > SDDPGreedySolver::get_solution
  for( Index i = 0 ;
       i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i ) {
   const auto polyhedral_function =
-   sddp_block->get_polyhedral_function( stage , i );
+   sddp_block->get_polyhedral_function( stage , i , f_sub_block_index );
 
   for( const auto & variable : * polyhedral_function ) {
    solution.push_back
@@ -818,22 +818,21 @@ void SDDPGreedySolver::set_state( const std::vector< double > & state ,
   throw( std::invalid_argument( "SDDPGreedySolver::set_state: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- static_cast< SDDPBlock * >( f_Block )->set_state( state , stage , 0 );
+ static_cast< SDDPBlock * >( f_Block )->set_state( state , stage ,
+                                                   f_sub_block_index );
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::process_outstanding_Modification() {
- while( ! v_mod.empty() ) {
-  auto mod = v_mod.front();  // pick (a reference to) the first Modification
-  v_mod.pop_front();
- }
+ v_mod.clear();
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::set_scenario( Index scenario_id , Index stage ) {
- static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage );
+ static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage ,
+                                                      f_sub_block_index );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -943,7 +942,7 @@ void SDDPGreedySolver::store_subgradient_initial_state
   // representing the future cost function at the given stage and make them
   // active Variables of the random cut.
   const auto future_cost_function =
-   sddp_block->get_polyhedral_function( stage );
+   sddp_block->get_polyhedral_function( stage , 0 , f_sub_block_index );
   PolyhedralFunction::VarVector active_variables
    ( future_cost_function->get_num_active_var() );
   for( Index i = 0 ; i < future_cost_function->get_num_active_var() ; ++i )
@@ -1070,9 +1069,14 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
 
  // Mark that cuts have been loaded to this stage.
 
- if( stage >= v_cuts_loaded.size() )
-  v_cuts_loaded.resize( get_time_horizon() , false );
- v_cuts_loaded[ stage ] = true;
+ if( stage >= v_cuts_loaded.size() ) {
+  const auto num_sub_blocks_per_stage =
+   sddp_block->get_num_sub_blocks_per_stage();
+  v_cuts_loaded.resize( time_horizon );
+  for( Index t = 0 ; t < time_horizon ; ++t )
+   v_cuts_loaded[ t ].resize( num_sub_blocks_per_stage , false );
+  }
+ v_cuts_loaded[ stage ][ f_sub_block_index ] = true;
 }
 
 /*--------------------------------------------------------------------------*/

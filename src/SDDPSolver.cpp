@@ -397,8 +397,14 @@ int SDDPSolver::compute( bool changedvars ) {
      ( std::ofstream{ filename , std::ofstream::out | std::ofstream::app } );
 
     auto benders_function = get_benders_function( t , i );
-    auto solver = benders_function->get_solver();
-    solver->set_log( & sub_solvers_logfiles.back() );
+    benders_function->set_par( BendersBFunction::intSolverIndex ,
+                               f_forward_Solver_index );
+    benders_function->get_solver()->set_log( & sub_solvers_logfiles.back() );
+    if( f_backward_Solver_index != f_forward_Solver_index ) {
+     benders_function->set_par( BendersBFunction::intSolverIndex ,
+                                f_backward_Solver_index );
+     benders_function->get_solver()->set_log( & sub_solvers_logfiles.back() );
+     }
    }
   }
  }
@@ -636,17 +642,14 @@ int SDDPSolver::compute( bool changedvars ) {
 
  // Compute the accuracy achieved
 
- if( forward_value != 0.0 )
-  accuracy_achieved = std::abs( ( backward_value - forward_value ) /
-                                forward_value );
- else
-  accuracy_achieved = std::abs( backward_value );
+ accuracy_achieved = std::abs( ( backward_value - forward_value ) /
+                               std::max( 1.0 , backward_value ) );
 
  // Determine the status of SDDPSolver
 
- if( accuracy_achieved_stopt == 0.0 && accuracy_achieved != 0.0 )
+ if( accuracy_achieved_stopt == 0.0 && accuracy_achieved > accuracy )
   status = kCurveCross;
- else if( accuracy_achieved_stopt <= accuracy )
+ else if( accuracy_achieved <= accuracy || accuracy_achieved_stopt <= accuracy )
   status = kOK;
  else if( number_iterations_performed == maximum_number_iterations )
   status = kStopIter;
@@ -928,7 +931,8 @@ SDDPSolver::get_benders_function( SDDPBlock::Index stage ,
 /*--------------------------------------------------------------------------*/
 
 double SDDPSolver::solve( SDDPBlock::Index stage ,
-                          SDDPBlock::Index sub_block_index ) {
+                          SDDPBlock::Index sub_block_index ,
+                          bool is_forward ) {
 
  /* Solving the subproblem consists in evaluating the Objective of the
   * BendersBFunction associated with the subproblem of the given stage. */
@@ -946,6 +950,11 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
 
  auto benders_function = static_cast< BendersBFunction * >
   ( objective->get_function() );
+
+ // select the Solver of the inner Block to be used in this step
+ benders_function->set_par( BendersBFunction::intSolverIndex ,
+                            is_forward ? f_forward_Solver_index
+                                       : f_backward_Solver_index );
 
  auto status = benders_function->compute();
 
@@ -1186,7 +1195,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* SOLVING THE SUBPROBLEM */
  /**************************/
 
- auto objective_value = sddp_solver->solve( current_stage , sub_block_index );
+ auto objective_value =
+  sddp_solver->solve( current_stage , sub_block_index , false );
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   *( sddp_solver->f_log ) << "  Objective:      " << objective_value
@@ -1444,7 +1454,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* SOLVING THE SUBPROBLEM */
  /**************************/
 
- auto objective_value = sddp_solver->solve( current_stage , sub_block_index );
+ auto objective_value =
+  sddp_solver->solve( current_stage , sub_block_index , true );
 
  /* The objective_value takes into account the value of the future cost
   * function. For all stages other than the last one, we subtract the value of

@@ -51,7 +51,8 @@ SDDPBkOBJ := $(SDDPBkOBJ) $(StcBlkOBJ)
 SDDPBkH := $(SDDPBkH) $(StcBlkH)
 SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
-# external libraries for SDDPBlock
-SDDPBkLIB = $(StcBlkLIB) $(libStOptLIB) -lmpi -lboost_mpi
+# external libraries for SDDPBlock; -fopenmp brings in the OpenMP runtime
+# (cf. the OpenMP::OpenMP_CXX PUBLIC link of the CMake build)
+SDDPBkLIB = $(StcBlkLIB) $(libStOptLIB) -lmpi -lboost_mpi -fopenmp
 
 ########################### End of makefile-c ################################

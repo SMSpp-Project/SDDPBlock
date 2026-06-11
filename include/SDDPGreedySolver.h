@@ -370,6 +370,14 @@ public:
    * By default, #intLoadCutsOnce is 1, which means that cuts are loaded only
    * once. */
 
+  intSubBlockIndex ,
+  ///< The index of the sub-Block of the SDDPBlock that must be considered
+  /**< The SDDPBlock may have multiple sub-Blocks for each stage. This
+   * parameter defines the index of the sub-Block at each stage that must be
+   * considered. The value of this parameter must be an integer between 0 and
+   * SDDPBlock::get_num_sub_blocks_per_stage() - 1. The default value for
+   * this parameter is 0. */
+
   intRandomPoolSize ,
   ///< Pool size for the random scenario sample
   /**< If positive, set_Block() calls init_random_pool(value) on the
@@ -650,6 +658,8 @@ public:
   *
   * - #intLoadCutsOnce [1]
   *
+  * - #intSubBlockIndex [0]
+  *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
   *
@@ -682,6 +692,7 @@ public:
    case( intOutputScenario ): f_output_scenario = value; return;
    case( intEarlyConfig ): f_early_config = value; return;
    case( intLoadCutsOnce ): f_load_cuts_once = value; return;
+   case( intSubBlockIndex ): f_sub_block_index = value; return;
    case( intRandomPoolSize ): random_pool_size = value; return;
   }
   Solver::set_par( par , value );
@@ -929,6 +940,7 @@ public:
    case( intOutputScenario ): return -1;
    case( intEarlyConfig ): return 0;
    case( intLoadCutsOnce ): return 1;
+   case( intSubBlockIndex ): return 0;
    case( intRandomPoolSize ): return -1;
    }
   return( Solver::get_dflt_int_par( par ) );
@@ -1029,6 +1041,7 @@ public:
    case( intOutputScenario ): return f_output_scenario;
    case( intEarlyConfig ): return f_early_config;
    case( intLoadCutsOnce ): return f_load_cuts_once;
+   case( intSubBlockIndex ): return f_sub_block_index;
    case( intRandomPoolSize ): return random_pool_size;
    }
   return( Solver::get_dflt_int_par( par ) );
@@ -1116,6 +1129,7 @@ public:
   if( name == "intOutputScenario" ) return intOutputScenario;
   if( name == "intEarlyConfig" ) return intEarlyConfig;
   if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
+  if( name == "intSubBlockIndex" ) return intSubBlockIndex;
   if( name == "intRandomPoolSize" ) return intRandomPoolSize;
   return Solver::int_par_str2idx( name );
   }
@@ -1185,7 +1199,8 @@ public:
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
      "intSimulationDataOutputPrecision" , "intOutputScenario" ,
-     "intEarlyConfig" , "intLoadCutsOnce" , "intRandomPoolSize" };
+     "intEarlyConfig" , "intLoadCutsOnce" , "intSubBlockIndex" ,
+     "intRandomPoolSize" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return( parameter_names[ idx - int_par_type_S::intLastAlgPar ] );
@@ -1583,6 +1598,9 @@ protected:
  /// It indicates whether cuts should be loaded only once (see #intLoadCutsOnce)
  int f_load_cuts_once = 1;
 
+ /// The index of the sub-Block of the SDDPBlock that must be considered
+ int f_sub_block_index = 0;
+
  /// Indicates whether the Solver of the inner Block must be unregister
  bool f_unregister_solver = false;
 
@@ -1626,8 +1644,8 @@ protected:
  /// has been configured
  std::vector< bool > v_inner_solver_configured;
 
- /// It indicates whether cuts for each stage have been loaded
- std::vector< bool > v_cuts_loaded;
+ /// It indicates whether cuts for each stage and sub-Block have been loaded
+ std::vector< std::vector< bool > > v_cuts_loaded;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -1781,7 +1799,7 @@ private:
 
   auto benders_block = static_cast< BendersBlock * >
    ( static_cast< SDDPBlock * >( f_Block )->
-     get_sub_Block( stage )->get_inner_block() );
+     get_sub_Block( stage , f_sub_block_index )->get_inner_block() );
 
   auto objective = static_cast< FRealObjective * >
    ( benders_block->get_objective() );
@@ -1837,7 +1855,8 @@ private:
 
  double get_future_value( Index stage ) const {
   assert( stage < get_time_horizon() );
-  return static_cast< SDDPBlock * >( f_Block )->get_future_cost( stage , 0 );
+  return static_cast< SDDPBlock * >( f_Block )->
+   get_future_cost( stage , f_sub_block_index );
  }
 
 /*--------------------------------------------------------------------------*/

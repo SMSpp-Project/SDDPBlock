@@ -388,11 +388,11 @@ public:
                                         time_horizon , false );
 
   // NumSubBlocksPerStage
+  // if the dimension is not in the file, the current value (as possibly set
+  // beforehand by set_num_sub_blocks_per_stage(), 1 by default) is kept
 
-  if( ! ::SMSpp_di_unipi_it::deserialize_dim
-      ( group , "NumSubBlocksPerStage" , num_sub_blocks_per_stage ) ) {
-   num_sub_blocks_per_stage = 1;
-  }
+  ::SMSpp_di_unipi_it::deserialize_dim
+   ( group , "NumSubBlocksPerStage" , num_sub_blocks_per_stage );
 
   // StochasticBlock
 
@@ -1328,10 +1328,12 @@ public:
 
 /*--------------------------------------------------------------------------*/
   /// removes all cuts from each PolyhedralFunction
-  /** This function removes all cuts from each PolyhedralFunction. */
+  /** This function removes all cuts from each PolyhedralFunction, except
+   * the ones associated with the last stage: those are data of the problem
+   * (the final cuts), only set once at the beginning of compute(). */
 
  void remove_cuts() {
-  for( Index stage = 0 ; stage < get_time_horizon() ; ++stage )
+  for( Index stage = 0 ; stage < get_time_horizon() - 1 ; ++stage )
    for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i )
     for( Index sub_block_index = 0 ;
          sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index )

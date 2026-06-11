@@ -343,6 +343,18 @@ public:
    * both are non-default, #vintRepresentativePoolSize takes
    * precedence. The default value for this parameter is -1. */
 
+  intForwardSolverIndex ,
+  ///< The index of the Solver to be used in the forward step
+  /**< This parameter determines the index of the Solver of the inner Block
+   * of each BendersBFunction that must be used in the forward step. Its
+   * default value is 0. */
+
+  intBackwardSolverIndex ,
+  ///< The index of the Solver to be used in the backward step
+  /**< This parameter determines the index of the Solver of the inner Block
+   * of each BendersBFunction that must be used in the backward step. Its
+   * default value is 0. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -617,6 +629,10 @@ public:
   *
   * - #intForwardSimulatorSeed
   *
+  * - #intForwardSolverIndex
+  *
+  * - #intBackwardSolverIndex
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -644,6 +660,10 @@ public:
     sddp_optimizer->set_forward_seed( value ); return;
    case( intRepresentativePoolSize ):
     representative_pool_size = value; return;
+   case( intForwardSolverIndex ):
+    f_forward_Solver_index = value; return;
+   case( intBackwardSolverIndex ):
+    f_backward_Solver_index = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -936,6 +956,8 @@ public:
    case( intFirstStageScenarioId ): return 0;
    case( intForwardSimulatorSeed ): return 93645;
    case( intRepresentativePoolSize ): return -1;
+   case( intForwardSolverIndex ): return 0;
+   case( intBackwardSolverIndex ): return 0;
    }
   return Solver::get_dflt_int_par( par );
   }
@@ -1054,6 +1076,8 @@ public:
    case( intForwardSimulatorSeed ):
     return sddp_optimizer->get_forward_seed();
    case( intRepresentativePoolSize ): return representative_pool_size;
+   case( intForwardSolverIndex ): return f_forward_Solver_index;
+   case( intBackwardSolverIndex ): return f_backward_Solver_index;
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1162,6 +1186,8 @@ public:
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intForwardSimulatorSeed" ) return intForwardSimulatorSeed;
   if( name == "intRepresentativePoolSize" ) return intRepresentativePoolSize;
+  if( name == "intForwardSolverIndex" ) return intForwardSolverIndex;
+  if( name == "intBackwardSolverIndex" ) return intBackwardSolverIndex;
   return Solver::int_par_str2idx( name );
   }
 
@@ -1253,7 +1279,8 @@ public:
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
      "intFirstStageScenarioId" , "intForwardSimulatorSeed" ,
-     "intRepresentativePoolSize" };
+     "intRepresentativePoolSize" , "intForwardSolverIndex" ,
+     "intBackwardSolverIndex" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
@@ -2019,6 +2046,12 @@ protected:
  /// Index of the scenario to be considered at the first stage
  int first_stage_scenario_index;
 
+ /// Index of the Solver of the inner Blocks used in the forward step
+ int f_forward_Solver_index = 0;
+
+ /// Index of the Solver of the inner Blocks used in the backward step
+ int f_backward_Solver_index = 0;
+
  /// Name of the file in which regressors will be stored
  std::string regressors_filename;
 
@@ -2166,7 +2199,8 @@ private:
   * @param sub_block_index The index of the sub-Block, which must be an
   *        integer between 0 and get_num_sub_blocks_per_stage() - 1. */
 
- double solve( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index );
+ double solve( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index ,
+               bool is_forward );
 
 /*--------------------------------------------------------------------------*/
  /// sets the parameters of the SDDPSolver to their default values
