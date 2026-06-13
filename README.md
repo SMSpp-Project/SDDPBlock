@@ -154,6 +154,8 @@ conduct, and the process for submitting merge requests to us.
   Dipartimento di Informatica  
   Università di Pisa
 
+### Contributors
+
 
 ## License
 
