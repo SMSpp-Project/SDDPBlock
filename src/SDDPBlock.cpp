@@ -656,7 +656,8 @@ void SDDPBlock::serialize( netCDF::NcGroup & group ) const
   }
  }
 
- AbstractPath::serialize( paths , group );
+ auto path_group = group.addGroup( "AbstractPath" );
+ AbstractPath::serialize( paths , path_group );
 
  if( num_polyhedral_per_sub_block != 1 )
   group.addDim( "NumPolyhedralFunctionsPerSubBlock" ,
