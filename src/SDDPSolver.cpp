@@ -522,9 +522,18 @@ int SDDPSolver::compute( bool changedvars ) {
             << "been provided and\nthe PolyhedralFunction at the last stage "
             << "has no bound and no row (cut). By\ndefault, the all-zero cut"
             << " will then be used for the last stage." << std::endl;
-   b.resize( 1 , 0 );
-   A.resize( 1 );
-   A.front().resize( number_state_variables , 0 );
+
+   /* An all-zero cut can only be added if the PolyhedralFunction has active
+    * Variables; a cut has one coefficient per active Variable. When the
+    * last-stage PolyhedralFunction has none (a constant future cost), the
+    * zero future cost is represented by its (constant) bound instead. */
+   if( polyhedral_function->get_num_active_var() == 0 )
+    polyhedral_function->modify_bound( 0 );
+   else {
+    b.resize( 1 , 0 );
+    A.resize( 1 );
+    A.front().resize( polyhedral_function->get_num_active_var() , 0 );
+   }
   }
  }
 
