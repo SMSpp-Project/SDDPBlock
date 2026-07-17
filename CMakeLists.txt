@@ -91,8 +91,7 @@ target_sources(${modName} PRIVATE
         src/SDDPBlock.cpp
         src/SDDPGreedySolver.cpp
         src/SDDPSolver.cpp
-        src/ParallelSDDPSolver.cpp
-        src/CutProcessing.cpp)
+        src/ParallelSDDPSolver.cpp)
 
 # When using target_include_directories(), PUBLIC means that any targets
 # that link to this target also need that include directory.
