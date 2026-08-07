@@ -512,19 +512,18 @@ void SDDPBlock::prepare_multi_stage_generator_pool( void )
                            ") does not match the SDDPBlock's time horizon ("
                            + std::to_string( T ) + ")." ) );
 
- // Reset the stage cursor (and the iteration of stage 0) and prepare
- // the cache. reset_pool() would only rewind the current stage's
- // iteration; to also rewind the stage cursor we use the
- // previous_stage( INFStage ) idiom — see the comments on
- // MultiStageScenarioGenerator in ScenarioGenerator.h.
- mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+ // Take a View pinned at the root and prepare the cache. The View is the
+ // position in the scenario tree: it is walked one stage at a time with
+ // View::descend() — see the comments on MultiStageScenarioGenerator in
+ // ScenarioGenerator.h.
+ auto view = mgen->root_view();
  f_multi_stage_pool_cache.assign( T , {} );
 
  // Walk strategy (v2 step 2 framework, stage-independent assumption):
  //
- // For each stage t in 0..T-1, navigate from a freshly-reset pool down
- // to stage t (taking the default-history descent), then enumerate
- // next_scenario() until exhausted to collect every x_t at this node.
+ // For each stage t in 0..T-1, descend one stage (taking the
+ // default-history descent), then enumerate next_scenario() until
+ // exhausted to collect every x_t at this node.
  //
  // This is correct under the assumption that the per-stage pool does
  // not depend on the path history H_t — exactly the case the planned
@@ -541,37 +540,33 @@ void SDDPBlock::prepare_multi_stage_generator_pool( void )
  // differ across stages.
 
  for( Index t = 0 ; t < T ; ++t ) {
-  // Navigate to stage t from the start: previous_stage( INFStage )
-  // rewinds the cursor to stage 0 (and resets stage 0's iteration);
-  // a plain reset_pool() would only touch the current stage.
-  mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
-  for( Index u = 0 ; u < t ; ++u ) {
-   if( ! mgen->next_stage() )
-    throw( std::logic_error(
-     "SDDPBlock::prepare_multi_stage_generator_pool: "
-     "MultiStageScenarioGenerator refused to advance to stage "
-     + std::to_string( u + 1 ) + " while preparing stage "
-     + std::to_string( t ) + "." ) );
-   }
+  // Move the View to stage t; the stages being independent, which
+  // realization has been selected at stage t - 1 is immaterial.
+  if( ( t > 0 ) && ( ! view->descend() ) )
+   throw( std::logic_error(
+    "SDDPBlock::prepare_multi_stage_generator_pool: "
+    "MultiStageScenarioGenerator refused to advance to stage "
+    + std::to_string( t ) + "." ) );
+  view->reset_pool();
 
   // Sanity-check the per-stage scenario_size matches sub_scenario_size[t].
   const auto expected_sz = scenario_set.get_sub_scenario_size( t );
-  if( mgen->get_scenario_size() != expected_sz )
+  if( view->get_scenario_size() != expected_sz )
    throw( std::logic_error(
     "SDDPBlock::prepare_multi_stage_generator_pool: "
     "MultiStageScenarioGenerator's scenario_size at stage "
     + std::to_string( t ) + " ("
-    + std::to_string( mgen->get_scenario_size() )
+    + std::to_string( view->get_scenario_size() )
     + ") does not match the SDDPBlock-side sub_scenario_size ("
     + std::to_string( expected_sz ) + ")." ) );
 
   // Enumerate x_t at this node.
   std::vector< double > probabilities;
   while( true ) {
-   const auto s = mgen->get_current_scenario();
+   const auto s = view->get_current_scenario();
    f_multi_stage_pool_cache[ t ].emplace_back( s.begin() , s.end() );
-   probabilities.push_back( mgen->get_current_scenario_probability() );
-   if( ! mgen->next_scenario() )
+   probabilities.push_back( view->get_current_scenario_probability() );
+   if( ! view->next_scenario() )
     break;
    }
 
@@ -610,10 +605,9 @@ void SDDPBlock::prepare_multi_stage_generator_pool( void )
              static_cast< Index >( f_multi_stage_pool_cache[ 0 ].size() ) );
 
  // leave the generator at the beginning of the pool (stage 0, scenario
- // 0): previous_stage( INFStage ) rewinds both the stage cursor and
- // stage 0's iteration; reset_pool() alone would only rewind the
- // iteration of whatever stage we ended up on.
- mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+ // 0); the View walked above is a position of its own and is discarded
+ // here, while the generator's own face is the one pinned at the root.
+ mgen->reset_pool();
 
  }  // end( SDDPBlock::prepare_multi_stage_generator_pool )
 

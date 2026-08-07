@@ -203,14 +203,14 @@ void SDDPSolver::set_Block( Block * block )
  // Pool-size dispatch:
  //
  //  - vintRepresentativePoolSize non-empty: per-stage sizes for a
- //    multi-stage generator. We loop init_representative_pool() +
- //    next_stage() across all stages, then rewind the cursor with
- //    previous_stage( INFStage ).
+ //    multi-stage generator. We walk the stages with a View, from
+ //    root_view() down with View::descend(), calling
+ //    init_representative_pool() at each.
  //
  //  - intRepresentativePoolSize > 0: scalar size. For a single-stage
  //    generator, a plain init_representative_pool( K ) call. For a
- //    multi-stage generator, we loop init_representative_pool( K ) +
- //    next_stage() across all stages (the same K everywhere).
+ //    multi-stage generator, the same View walk with the same K at
+ //    every stage.
  //
  //  - otherwise: no call. The generator was left walkable on the
  //    canonical full-universe pool by the deserialize() lazy-init
@@ -239,34 +239,32 @@ void SDDPSolver::set_Block( Block * block )
      std::to_string( representative_pool_size_vec.size() ) +
      ") does not match the generator's stage number (" +
      std::to_string( T ) + ")." ) );
-   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+   auto view = mgen->root_view();
    for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
-    mgen->init_representative_pool(
+    view->init_representative_pool(
      static_cast< ScenarioGenerator::ScenarioIndex >(
       representative_pool_size_vec[ t ] ) );
-    if( t + 1 < T && ! mgen->next_stage() )
+    if( ( t + 1 < T ) && ( ! view->descend() ) )
      throw( std::logic_error(
-      "SDDPSolver::set_Block: next_stage() failed at stage " +
+      "SDDPSolver::set_Block: descend() failed at stage " +
       std::to_string( t ) + " while applying "
       "vintRepresentativePoolSize." ) );
     }
-   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
    }
   else if( representative_pool_size > 0 ) {
    const auto K = static_cast< ScenarioGenerator::ScenarioIndex >(
                                               representative_pool_size );
    if( mgen ) {
     const auto T = mgen->get_stage_number();
-    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+    auto view = mgen->root_view();
     for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
-     mgen->init_representative_pool( K );
-     if( t + 1 < T && ! mgen->next_stage() )
+     view->init_representative_pool( K );
+     if( ( t + 1 < T ) && ( ! view->descend() ) )
       throw( std::logic_error(
-       "SDDPSolver::set_Block: next_stage() failed at stage " +
+       "SDDPSolver::set_Block: descend() failed at stage " +
        std::to_string( t ) +
        " while applying intRepresentativePoolSize." ) );
      }
-    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
     }
    else
     gen->init_representative_pool( K );
