@@ -720,18 +720,22 @@ void SDDPGreedySolver::unregister_solver_inner_block( Index stage )
  auto inner_block = benders_function->get_inner_block();
 
  // BlockSolverConfig
- // note: the Solver were registered through throwaway clones of the stored
- // configurations, whose registration record died with them, so a cleared
- // apply() could not remove them [see BlockSolverConfig::apply()]: since
- // every Solver on the inner Block was put there by this object anyway,
- // its Block tree is swept directly
 
- std::function< void( Block * ) > wipe = [ & wipe ]( Block * b ) {
-  b->unregister_Solvers( true );
-  for( Block::Index i = 0 ; i < b->get_number_nested_Blocks() ; ++i )
-   wipe( b->get_nested_Block( i ) );
-  };
- wipe( inner_block );
+ BlockSolverConfig * inner_block_solver_config = nullptr;
+
+ if( v_BSC.size() > stage && v_BSC[ stage ] )
+  inner_block_solver_config = v_BSC[ stage ]->clone();
+ else
+  if( f_inner_block_solver_config )
+   inner_block_solver_config = f_inner_block_solver_config->clone();
+
+ if( inner_block_solver_config ) {
+  inner_block_solver_config->clear();
+  inner_block_solver_config->apply( inner_block );
+  delete inner_block_solver_config;
+  }
+ else
+  inner_block->unregister_Solvers();
 
  v_inner_solver_configured[ stage ] = false;
  }
