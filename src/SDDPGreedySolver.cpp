@@ -60,6 +60,9 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 
 SDDPGreedySolver::~SDDPGreedySolver()
 {
+ for( auto BSC : v_aBSC )
+  delete BSC;
+
  delete f_inner_block_config;
  delete f_inner_block_solver_config;
  delete f_get_var_solution_config;
@@ -200,19 +203,15 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
   // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
   // and clone the given one.
 
-  if( f_inner_block_solver_config &&
-      std::any_of( v_inner_solver_configured.cbegin() ,
+  // un-do the previous configuration, i.e., remove from each inner Block the
+  // Solver that this SDDPGreedySolver has registered there
+  if( std::any_of( v_inner_solver_configured.cbegin() ,
                    v_inner_solver_configured.cend() ,
                    []( auto b ) { return b; } ) ) {
-
-   f_inner_block_solver_config->clear();
-
    const auto time_horizon = get_time_horizon();
-   for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
-    auto benders_function = get_benders_function( stage );
-    auto inner_block = benders_function->get_inner_block();
-    f_inner_block_solver_config->apply( inner_block );
-    }
+   for( Index stage = 0 ; stage < time_horizon ; ++stage )
+    if( v_inner_solver_configured[ stage ] )
+     unregister_solver_inner_block( stage );
    }
 
   delete f_inner_block_solver_config;
@@ -706,7 +705,16 @@ void SDDPGreedySolver::configure_inner_block( Index stage ) {
   }
 
   if( f_inner_block_solver_config ) {
-   f_inner_block_solver_config->apply( inner_block );
+   // the same BlockSolverConfig is apply()-ed to the inner Block of every
+   // stage, so a clone per stage is kept, clear()-ed, as the object that
+   // un-does this very configuration [see v_aBSC]
+   if( v_aBSC.size() < get_time_horizon() )
+    v_aBSC.resize( get_time_horizon() , nullptr );
+   auto cBSC = f_inner_block_solver_config->clone();
+   cBSC->apply( inner_block );
+   cBSC->clear();
+   delete v_aBSC[ stage ];
+   v_aBSC[ stage ] = cBSC;
    v_inner_solver_configured[ stage ] = true;
   }
  }
@@ -720,22 +728,15 @@ void SDDPGreedySolver::unregister_solver_inner_block( Index stage )
  auto inner_block = benders_function->get_inner_block();
 
  // BlockSolverConfig
+ // the inner Block is un-configured by the very object that configured it
+ // [see v_aBSC], so that all and only the Solver registered by this
+ // SDDPGreedySolver are removed [see BlockSolverConfig::apply()]
 
- BlockSolverConfig * inner_block_solver_config = nullptr;
-
- if( v_BSC.size() > stage && v_BSC[ stage ] )
-  inner_block_solver_config = v_BSC[ stage ]->clone();
- else
-  if( f_inner_block_solver_config )
-   inner_block_solver_config = f_inner_block_solver_config->clone();
-
- if( inner_block_solver_config ) {
-  inner_block_solver_config->clear();
-  inner_block_solver_config->apply( inner_block );
-  delete inner_block_solver_config;
+ if( ( stage < v_aBSC.size() ) && v_aBSC[ stage ] ) {
+  v_aBSC[ stage ]->apply( inner_block );
+  delete v_aBSC[ stage ];
+  v_aBSC[ stage ] = nullptr;
   }
- else
-  inner_block->unregister_Solvers();
 
  v_inner_solver_configured[ stage ] = false;
  }

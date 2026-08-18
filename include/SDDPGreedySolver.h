@@ -1635,6 +1635,17 @@ protected:
  /// BlockSolverConfig for the inner Blocks
  std::vector< BlockSolverConfig * > v_BSC;
 
+ /// the clear()-ed BlockSolverConfig that configured each inner Block
+ /**< For each stage, the clone of the BlockSolverConfig that has actually
+  * been apply()-ed to the inner Block of the corresponding BendersBFunction,
+  * kept clear()-ed: apply()-ing it removes all and only the Solver that it
+  * has registered there [see BlockSolverConfig::apply()], which is how the
+  * configuration is un-done [see unregister_solver_inner_block()]. A clone
+  * per stage is necessary because the same BlockSolverConfig is apply()-ed
+  * to the inner Block of every stage, while the record of the registered
+  * Solver that its cleared apply() uses is per-Block. */
+ std::vector< BlockSolverConfig * > v_aBSC;
+
  /// Indicates whether the inner Block of each BendersBFunction was configured
  std::vector< bool > v_inner_block_configured;
 
