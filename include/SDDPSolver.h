@@ -328,7 +328,7 @@ public:
    * this restricts the universe to \p value representatives; for a
    * :MultiStageScenarioGenerator (necessarily stage-independent) the
    * same \p value is applied to *every* stage by looping
-   * init_representative_pool() + next_stage() through all stages.
+   * init_representative_pool() + View::descend() through all stages.
    *
    * If non-positive (the default, -1), set_Block() does *not* call
    * init_representative_pool(): the generator is left in its
@@ -507,7 +507,7 @@ public:
    * non-empty, the vector must have size get_stage_number() and the
    * t-th component is used as the representative-pool size for
    * stage t: set_Block() loops init_representative_pool( sizes[t] )
-   * + next_stage() through all stages.
+   * + View::descend() through all stages.
    *
    * If empty (the default), this parameter is ignored and
    * #intRepresentativePoolSize is consulted instead. If the attached

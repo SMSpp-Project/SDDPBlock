@@ -382,7 +382,7 @@ public:
    * shuffles \p value scenarios out of the current universe; for a
    * :MultiStageScenarioGenerator (necessarily stage-independent) the
    * same \p value is applied to every stage by looping
-   * init_random_pool() + next_stage() through all stages.
+   * init_random_pool() + View::descend() through all stages.
    *
    * If non-positive (the default, -1), set_Block() instead calls
    * init_random_pool() with the default INFScenario argument, which
@@ -568,7 +568,7 @@ public:
    * :MultiStageScenarioGenerator attached to the SDDPBlock. If
    * non-empty, the vector must have size get_stage_number() and the
    * t-th component is used as the random-pool size for stage t:
-   * set_Block() loops init_random_pool( sizes[t] ) + next_stage()
+   * set_Block() loops init_random_pool( sizes[ t ] ) + View::descend()
    * through all stages.
    *
    * If empty (the default), this parameter is ignored and

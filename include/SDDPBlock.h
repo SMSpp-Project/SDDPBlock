@@ -525,12 +525,12 @@ public:
    // vector is derived differently depending on the generator kind:
    //
    //  - multi-stage generator: derive from the generator itself by
-   //    walking next_stage() and reading get_scenario_size() at each
-   //    stage. The 'SubScenarioSize' netCDF attribute is ignored if
-   //    present (it would be meaningful only on the SDDPBlock side
-   //    if it were authoritative, which it isn't here — the generator
-   //    owns the per-stage sizes). Requires the generator to be
-   //    walkable right after deserialize() (lazy-init contract).
+   //    walking a View with descend() and reading get_scenario_size()
+   //    at each stage. The 'SubScenarioSize' netCDF attribute is
+   //    ignored if present (it would be meaningful only on the
+   //    SDDPBlock side if it were authoritative, which it isn't here —
+   //    the generator owns the per-stage sizes). Requires the generator
+   //    to be walkable right after deserialize() (lazy-init contract).
    //
    //  - single-stage generator: read 'SubScenarioSize' from the netCDF
    //    group (optional — if absent, all sub-scenarios share the same
@@ -548,17 +548,17 @@ public:
                               "SDDPBlock's TimeHorizon (" +
                               std::to_string( time_horizon ) + ")." ) );
     sub_scenario_size.reserve( time_horizon );
-    sub_scenario_size.push_back( mgen->get_scenario_size() );
+    auto view = mgen->root_view();
+    sub_scenario_size.push_back( view->get_scenario_size() );
     for( Index t = 1 ; t < time_horizon ; ++t ) {
-     if( ! mgen->next_stage() )
+     if( ! view->descend() )
       throw( std::logic_error( "SDDPBlock::deserialize: multi-stage "
                                "generator failed to advance to stage " +
                                std::to_string( t ) + "." ) );
-     sub_scenario_size.push_back( mgen->get_scenario_size() );
+     sub_scenario_size.push_back( view->get_scenario_size() );
      }
-    // restore the generator to its canonical "at first stage" state so
-    // that downstream consumers see the same post-deserialize layout
-    mgen->previous_stage( time_horizon - 1 );
+    // the View is a position of its own, so the generator is left in the
+    // canonical "at first stage" state downstream consumers expect
     }
    else if( ! ::SMSpp_di_unipi_it::deserialize( group , "SubScenarioSize" ,
                                                 time_horizon ,

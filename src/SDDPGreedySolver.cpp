@@ -265,13 +265,13 @@ void SDDPGreedySolver::set_Block( Block * block )
  // at each stage. Pool-size dispatch:
  //
  //  - vintRandomPoolSize non-empty: per-stage sizes for a multi-stage
- //    generator. We loop init_random_pool( sizes[t] ) + next_stage()
- //    across all stages, then rewind the cursor with
- //    previous_stage( INFStage ).
+ //    generator. We walk the stages with a View, from root_view() down
+ //    with View::descend(), calling init_random_pool( sizes[t] ) at
+ //    each.
  //
  //  - intRandomPoolSize > 0: scalar size. For a single-stage
  //    generator, init_random_pool( K ). For a multi-stage generator,
- //    loop init_random_pool( K ) + next_stage() across all stages.
+ //    the same View walk with the same K at every stage.
  //
  //  - otherwise: default INFScenario, which means "shuffle the whole
  //    current universe". For a multi-stage generator this is still
@@ -303,17 +303,16 @@ void SDDPGreedySolver::set_Block( Block * block )
      std::to_string( random_pool_size_vec.size() ) +
      ") does not match the generator's stage number (" +
      std::to_string( T ) + ")." ) );
-   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+   auto view = mgen->root_view();
    for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
-    mgen->init_random_pool(
+    view->init_random_pool(
      static_cast< ScenarioGenerator::ScenarioIndex >(
       random_pool_size_vec[ t ] ) );
-    if( t + 1 < T && ! mgen->next_stage() )
+    if( ( t + 1 < T ) && ( ! view->descend() ) )
      throw( std::logic_error(
-      "SDDPGreedySolver::set_Block: next_stage() failed at stage " +
+      "SDDPGreedySolver::set_Block: descend() failed at stage " +
       std::to_string( t ) + " while applying vintRandomPoolSize." ) );
     }
-   mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
    }
   else {
    const auto K = ( random_pool_size > 0 )
@@ -321,16 +320,15 @@ void SDDPGreedySolver::set_Block( Block * block )
     : ScenarioGenerator::INFScenario;
    if( mgen ) {
     const auto T = mgen->get_stage_number();
-    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
+    auto view = mgen->root_view();
     for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
-     mgen->init_random_pool( K );
-     if( t + 1 < T && ! mgen->next_stage() )
+     view->init_random_pool( K );
+     if( ( t + 1 < T ) && ( ! view->descend() ) )
       throw( std::logic_error(
-       "SDDPGreedySolver::set_Block: next_stage() failed at stage " +
+       "SDDPGreedySolver::set_Block: descend() failed at stage " +
        std::to_string( t ) +
        " while applying intRandomPoolSize." ) );
      }
-    mgen->previous_stage( MultiStageScenarioGenerator::INFStage );
     }
    else
     gen->init_random_pool( K );
