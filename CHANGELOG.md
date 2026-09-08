@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed 
 
+- `CutProcessing` is gone: removing the redundant rows of a
+  `PolyhedralFunction` is done by the `PolyhedralFunctionBlock` that owns it,
+  through `PolyhedralFunctionBlock::remove_redundant_rows()`
+
 ### Fixed 
 
 ## [0.5.4] - 2025-12-12

@@ -32,8 +32,7 @@
 
 SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
 	$(SDDPBkSDR)/obj/SDDPGreedySolver.o \
-	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o \
-	$(SDDPBkSDR)/obj/CutProcessing.o
+	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o
 
 # note: USE_MPI mirrors the (default ON) CMake option of the same name: StOpt
 # is built with MPI, so whoever drives an SDDP solve must initialize MPI.
@@ -48,8 +47,7 @@ SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/ScenarioSimulator.h \
 	$(SDDPBkSDR)/include/SDDPSolver.h \
 	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
-	$(SDDPBkSDR)/include/ParallelSDDPSolver.h \
-	$(SDDPBkSDR)/include/CutProcessing.h
+	$(SDDPBkSDR)/include/ParallelSDDPSolver.h
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -88,13 +86,5 @@ $(SDDPBkSDR)/obj/ParallelSDDPSolver.o: \
 	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
 	$(CC) -c $(SDDPBkSDR)/src/ParallelSDDPSolver.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(libStOptINC) $(SMS++INC) $(SW)
-
-$(SDDPBkSDR)/obj/CutProcessing.o: $(SDDPBkSDR)/src/CutProcessing.cpp \
-	$(SDDPBkSDR)/include/CutProcessing.h \
-	$(SDDPBkSDR)/include/SDDPBlock.h \
-	$(SDDPBkSDR)/include/ScenarioSet.h \
-	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(SDDPBkSDR)/src/CutProcessing.cpp -o $@ $(SDDPBkINC) \
-	$(StcBlkINC) $(SMS++INC) $(SW)
 
 ########################## End of makefile ###################################
