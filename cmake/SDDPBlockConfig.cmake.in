@@ -17,7 +17,7 @@ get_filename_component(@modName@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
 # ----- Settings ------------------------------------------------------------ #
-set(StOpt_ROOT @Eigen3_ROOT@)
+set(StOpt_ROOT @StOpt_ROOT@)
 set(SDDPBlock_USE_MPI @SDDPBlock_USE_MPI@)
 
 # ----- Requirements -------------------------------------------------------- #
@@ -27,6 +27,14 @@ find_dependency(StochasticBlock)
 list(APPEND CMAKE_MODULE_PATH ${SDDPBlock_CMAKE_DIR})
 find_dependency(StOpt)
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
+
+if (@OpenMP_CXX_FOUND@)
+    find_dependency(OpenMP)
+endif ()
+if (SDDPBlock_USE_MPI)
+    find_dependency(MPI)
+    find_dependency(Boost COMPONENTS mpi)
+endif ()
 
 # ----- Import target ------------------------------------------------------- #
 if (NOT TARGET @modNamespace@::@modName@)
