@@ -8,7 +8,16 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
@@ -22,8 +31,11 @@
 #include "FRealObjective.h"
 #include "SDDPBlock.h"
 #include "SDDPGreedySolver.h"
+#include "SDDPSolver.h"
 #include "StochasticBlock.h"
 
+#include <fstream>
+#include <sstream>
 #include <iomanip>
 
 /*--------------------------------------------------------------------------*/
@@ -48,6 +60,9 @@ SMSpp_insert_in_factory_cpp_0( SDDPGreedySolver );
 
 SDDPGreedySolver::~SDDPGreedySolver()
 {
+ for( auto BSC : v_aBSC )
+  delete BSC;
+
  delete f_inner_block_config;
  delete f_inner_block_solver_config;
  delete f_get_var_solution_config;
@@ -88,7 +103,7 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
    const auto time_horizon = get_time_horizon();
    for( Index stage = 0 ; stage < time_horizon ; ++stage )
     configure_inner_block( stage );
-  }
+   }
 
   // There is nothing else to do.
   return;
@@ -155,7 +170,7 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
     block_solver_config = bsc;
    else
     throw( std::invalid_argument( "SDDPGreedySolver::set_ComputeConfig: The "
-				  "extra Configuration is invalid" ) );
+                                  "extra Configuration is invalid" ) );
   }
 
  // Now, replace the old Configurations if new ones have been provided.
@@ -188,19 +203,15 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
   // A BlockSolverConfig has been provided. Delete the old BlockSolverConfig
   // and clone the given one.
 
-  if( f_inner_block_solver_config &&
-      std::any_of( v_inner_solver_configured.cbegin() ,
+  // un-do the previous configuration, i.e., remove from each inner Block the
+  // Solver that this SDDPGreedySolver has registered there
+  if( std::any_of( v_inner_solver_configured.cbegin() ,
                    v_inner_solver_configured.cend() ,
                    []( auto b ) { return b; } ) ) {
-
-   f_inner_block_solver_config->clear();
-
    const auto time_horizon = get_time_horizon();
-   for( Index stage = 0 ; stage < time_horizon ; ++stage ) {
-    auto benders_function = get_benders_function( stage );
-    auto inner_block = benders_function->get_inner_block();
-    f_inner_block_solver_config->apply( inner_block );
-    }
+   for( Index stage = 0 ; stage < time_horizon ; ++stage )
+    if( v_inner_solver_configured[ stage ] )
+     unregister_solver_inner_block( stage );
    }
 
   delete f_inner_block_solver_config;
@@ -241,6 +252,93 @@ void SDDPGreedySolver::set_Block( Block * block )
 
  v_inner_block_configured.assign( sddp_block->get_time_horizon() , false );
  v_inner_solver_configured.assign( sddp_block->get_time_horizon() , false );
+
+ // If the SDDPBlock carries a ScenarioGenerator, build the random pool
+ // and snapshot it into the SDDPBlock-side cache so that the data-
+ // access helpers route through the generator path. The actual scenario
+ // picking logic of SDDPGreedySolver (intScenarioId / intScenarioSeed /
+ // intScenarioSampleFrequency / ...) then operates on top of this
+ // random pool.
+ //
+ // Shuffling is the essence of the Greedy solver, so we *always* call
+ // init_random_pool(): the question is just with which size argument
+ // at each stage. Pool-size dispatch:
+ //
+ //  - vintRandomPoolSize non-empty: per-stage sizes for a multi-stage
+ //    generator. We walk the stages with a View, from root_view() down
+ //    with View::descend(), calling init_random_pool( sizes[t] ) at
+ //    each.
+ //
+ //  - intRandomPoolSize > 0: scalar size. For a single-stage
+ //    generator, init_random_pool( K ). For a multi-stage generator,
+ //    the same View walk with the same K at every stage.
+ //
+ //  - otherwise: default INFScenario, which means "shuffle the whole
+ //    current universe". For a multi-stage generator this is still
+ //    looped across stages.
+ //
+ // The dispatch on MultiStageScenarioGenerator mirrors the one in
+ // SDDPSolver::set_Block: stage-independence is required because
+ // prepare_multi_stage_generator_pool() walks each stage on its own.
+ if( auto gen = sddp_block->get_scenario_generator() ) {
+  auto * mgen = dynamic_cast< MultiStageScenarioGenerator * >( gen );
+
+  if( mgen && ! mgen->is_stage_independent() )
+   throw( std::logic_error( "SDDPGreedySolver::set_Block: the attached "
+                            "MultiStageScenarioGenerator is not "
+                            "stage-independent; SDDPBlock currently "
+                            "supports stage-independent multi-stage "
+                            "generators only." ) );
+
+  if( ! random_pool_size_vec.empty() ) {
+   if( ! mgen )
+    throw( std::logic_error( "SDDPGreedySolver::set_Block: "
+                             "vintRandomPoolSize is set but the "
+                             "attached ScenarioGenerator is not a "
+                             "MultiStageScenarioGenerator." ) );
+   const auto T = mgen->get_stage_number();
+   if( random_pool_size_vec.size() != T )
+    throw( std::invalid_argument(
+     "SDDPGreedySolver::set_Block: vintRandomPoolSize size (" +
+     std::to_string( random_pool_size_vec.size() ) +
+     ") does not match the generator's stage number (" +
+     std::to_string( T ) + ")." ) );
+   auto view = mgen->root_view();
+   for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
+    view->init_random_pool(
+     static_cast< ScenarioGenerator::ScenarioIndex >(
+      random_pool_size_vec[ t ] ) );
+    if( ( t + 1 < T ) && ( ! view->descend() ) )
+     throw( std::logic_error(
+      "SDDPGreedySolver::set_Block: descend() failed at stage " +
+      std::to_string( t ) + " while applying vintRandomPoolSize." ) );
+    }
+   }
+  else {
+   const auto K = ( random_pool_size > 0 )
+    ? static_cast< ScenarioGenerator::ScenarioIndex >( random_pool_size )
+    : ScenarioGenerator::INFScenario;
+   if( mgen ) {
+    const auto T = mgen->get_stage_number();
+    auto view = mgen->root_view();
+    for( MultiStageScenarioGenerator::StageIndex t = 0 ; t < T ; ++t ) {
+     view->init_random_pool( K );
+     if( ( t + 1 < T ) && ( ! view->descend() ) )
+      throw( std::logic_error(
+       "SDDPGreedySolver::set_Block: descend() failed at stage " +
+       std::to_string( t ) +
+       " while applying intRandomPoolSize." ) );
+     }
+    }
+   else
+    gen->init_random_pool( K );
+   }
+
+  if( mgen )
+   sddp_block->prepare_multi_stage_generator_pool();
+  else
+   sddp_block->prepare_generator_pool();
+  }
 
 }  // end( SDDPGreedySolver::set_Block )
 
@@ -325,8 +423,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
   configure_inner_block( stage );
 
-  if( ( ! f_load_cuts_once ) ||
-      ( stage >= v_cuts_loaded.size() ) || ( ! v_cuts_loaded[ stage ] ) )
+  if( ( ! f_load_cuts_once ) || ( stage >= v_cuts_loaded.size() ) ||
+      ( ! v_cuts_loaded[ stage ][ f_sub_block_index ] ) )
    load_cuts( stage );
 
   auto sub_status = solve( stage , true );
@@ -436,6 +534,46 @@ void SDDPGreedySolver::get_var_solution( Configuration *solc ) {
 }
 
 /*--------------------------------------------------------------------------*/
+/*--------- METHODS FOR HANDLING THE State OF THE SDDPGreedySolver ---------*/
+/*--------------------------------------------------------------------------*/
+
+State * SDDPGreedySolver::get_State( void ) const {
+
+ auto state = new SDDPSolverState;
+
+ if( f_Block )
+  state->read( static_cast< SDDPBlock * >( f_Block ) );
+
+ return( state );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::put_State( const State & state ) {
+
+ // If this SDDPGreedySolver is not currently attached to an SDDPBlock,
+ // nothing is done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ dynamic_cast< const SDDPSolverState & >( state ).write( sddp_block );
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPGreedySolver::put_State( State && state ) {
+
+ // If this SDDPGreedySolver is not currently attached to an SDDPBlock,
+ // nothing is done
+ auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ if( ! sddp_block )
+  return;
+
+ dynamic_cast< const SDDPSolverState & >( state ).write( sddp_block );
+}
+
+/*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::has_dual_solution() {
  return f_has_dual_solution;
@@ -519,7 +657,8 @@ bool SDDPGreedySolver::new_dual_direction() {
 
 void SDDPGreedySolver::configure_inner_block( Index stage ) {
 
- if( v_inner_block_configured[ stage ] && v_inner_solver_configured[ stage ] )
+ if( v_inner_block_configured[ stage ] &&
+     v_inner_solver_configured[ stage ] )
   return;
 
  auto benders_function = get_benders_function( stage );
@@ -564,7 +703,16 @@ void SDDPGreedySolver::configure_inner_block( Index stage ) {
   }
 
   if( f_inner_block_solver_config ) {
-   f_inner_block_solver_config->apply( inner_block );
+   // the same BlockSolverConfig is apply()-ed to the inner Block of every
+   // stage, so a clone per stage is kept, clear()-ed, as the object that
+   // un-does this very configuration [see v_aBSC]
+   if( v_aBSC.size() < get_time_horizon() )
+    v_aBSC.resize( get_time_horizon() , nullptr );
+   auto cBSC = f_inner_block_solver_config->clone();
+   cBSC->apply( inner_block );
+   cBSC->clear();
+   delete v_aBSC[ stage ];
+   v_aBSC[ stage ] = cBSC;
    v_inner_solver_configured[ stage ] = true;
   }
  }
@@ -572,36 +720,29 @@ void SDDPGreedySolver::configure_inner_block( Index stage ) {
 
 /*--------------------------------------------------------------------------*/
 
-void SDDPGreedySolver::unregister_solver_inner_block( Index stage ) {
-
+void SDDPGreedySolver::unregister_solver_inner_block( Index stage )
+{
  auto benders_function = get_benders_function( stage );
  auto inner_block = benders_function->get_inner_block();
 
  // BlockSolverConfig
+ // the inner Block is un-configured by the very object that configured it
+ // [see v_aBSC], so that all and only the Solver registered by this
+ // SDDPGreedySolver are removed [see BlockSolverConfig::apply()]
 
- BlockSolverConfig * inner_block_solver_config = nullptr;
-
- if( v_BSC.size() > stage && v_BSC[ stage ] )
-  inner_block_solver_config = v_BSC[ stage ]->clone();
- else if( f_inner_block_solver_config )
-  inner_block_solver_config = f_inner_block_solver_config->clone();
-
- if( inner_block_solver_config ) {
-  inner_block_solver_config->clear();
-  inner_block_solver_config->apply( inner_block );
-  delete inner_block_solver_config;
- }
- else {
-  inner_block->unregister_Solvers();
- }
+ if( ( stage < v_aBSC.size() ) && v_aBSC[ stage ] ) {
+  v_aBSC[ stage ]->apply( inner_block );
+  delete v_aBSC[ stage ];
+  v_aBSC[ stage ] = nullptr;
+  }
 
  v_inner_solver_configured[ stage ] = false;
-}
+ }
 
 /*--------------------------------------------------------------------------*/
 
-int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
-
+int SDDPGreedySolver::solve( Index stage , bool write_solution )
+{
  auto benders_function = get_benders_function( stage );
 
  auto status = benders_function->compute();
@@ -617,21 +758,21 @@ int SDDPGreedySolver::solve( Index stage , bool write_solution ) {
    if( cda_solver->has_dual_solution() ) {
     cda_solver->get_dual_solution( f_get_dual_solution_config );
     solver_has_dual_solution = true;
+    }
    }
   }
- }
 
  f_has_dual_solution = f_has_dual_solution && solver_has_dual_solution;
 
- return status;
-}
+ return( status );
+ }
 
 /*--------------------------------------------------------------------------*/
 
 Solver * SDDPGreedySolver::get_sub_solver( Index stage ) const {
  auto benders_function = get_benders_function( stage );
- return benders_function->get_solver();
-}
+ return( benders_function->get_solver() );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -647,8 +788,8 @@ std::vector< double > SDDPGreedySolver::get_solution
  Index solution_size = 0;
  for( Index i = 0 ;
       i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i ) {
-  solution_size +=
-   sddp_block->get_polyhedral_function( stage , i )->get_num_active_var();
+  solution_size += sddp_block->get_polyhedral_function
+   ( stage , i , f_sub_block_index )->get_num_active_var();
  }
 
  std::vector< double > solution;
@@ -657,7 +798,7 @@ std::vector< double > SDDPGreedySolver::get_solution
  for( Index i = 0 ;
       i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i ) {
   const auto polyhedral_function =
-   sddp_block->get_polyhedral_function( stage , i );
+   sddp_block->get_polyhedral_function( stage , i , f_sub_block_index );
 
   for( const auto & variable : * polyhedral_function ) {
    solution.push_back
@@ -675,22 +816,21 @@ void SDDPGreedySolver::set_state( const std::vector< double > & state ,
   throw( std::invalid_argument( "SDDPGreedySolver::set_state: invalid "
                                 "stage index: " + std::to_string( stage ) ) );
 
- static_cast< SDDPBlock * >( f_Block )->set_state( state , stage , 0 );
+ static_cast< SDDPBlock * >( f_Block )->set_state( state , stage ,
+                                                   f_sub_block_index );
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::process_outstanding_Modification() {
- while( ! v_mod.empty() ) {
-  auto mod = v_mod.front();  // pick (a reference to) the first Modification
-  v_mod.pop_front();
- }
+ v_mod.clear();
 }
 
 /*--------------------------------------------------------------------------*/
 
 void SDDPGreedySolver::set_scenario( Index scenario_id , Index stage ) {
- static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage );
+ static_cast< SDDPBlock * >( f_Block )->set_scenario( scenario_id , stage ,
+                                                      f_sub_block_index );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -800,7 +940,7 @@ void SDDPGreedySolver::store_subgradient_initial_state
   // representing the future cost function at the given stage and make them
   // active Variables of the random cut.
   const auto future_cost_function =
-   sddp_block->get_polyhedral_function( stage );
+   sddp_block->get_polyhedral_function( stage , 0 , f_sub_block_index );
   PolyhedralFunction::VarVector active_variables
    ( future_cost_function->get_num_active_var() );
   for( Index i = 0 ; i < future_cost_function->get_num_active_var() ; ++i )
@@ -880,107 +1020,130 @@ void SDDPGreedySolver::load_cuts( Index stage ) {
   throw( std::logic_error( "SDDPGreedySolver::load_cuts: invalid stage: " +
                            std::to_string( stage ) + "." ) );
 
- std::ifstream cuts_file( f_load_cuts_filename );
-
- // Make sure the file is open.
- if( ! cuts_file.is_open() )
-  throw( std::runtime_error( "SDDPGreedySolver::load_cuts: It was not possible "
-                             "to open the file \"" + f_load_cuts_filename +
-                             "\"." ) );
-
- PolyhedralFunction::MultiVector A;
- PolyhedralFunction::RealVector b;
-
- std::string line;
-
- if( cuts_file.good() )
-  // Skip the first line containing the header.
-  std::getline( cuts_file , line );
-
- auto polyhedral_function = sddp_block->get_polyhedral_function( stage );
- const auto num_active_var = polyhedral_function->get_num_active_var();
-
- int line_number = 0;
-
- // Read the cuts.
-
- while( std::getline( cuts_file , line ) ) {
-  ++line_number;
-
-  std::stringstream line_stream( line );
-
-  // Try to read the stage.
-  Index current_stage;
-  if( ! ( line_stream >> current_stage ) )
-   break;
-
-  if( current_stage >= time_horizon )
-   throw( std::logic_error
-          ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename + "\""
-            " contains an invalid stage: " + std::to_string( current_stage ) +
-            "." ) );
-
-  if( current_stage != stage )
-   continue;
-
-  if( line_stream.peek() != ',' )
-   throw( std::logic_error( "SDDPGreedySolver::load_cuts: File \"" +
-                            f_load_cuts_filename + "\" has an invalid "
-                            "format." ) );
-  line_stream.ignore();
-
-  // Read the cut.
-
-  PolyhedralFunction::RealVector a( num_active_var );
-
-  Index i = 0;
-  double value;
-  while( line_stream >> value ) {
-   if( i > num_active_var )
-    throw( std::logic_error
-           ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
-             "\" contains an invalid cut at line " +
-             std::to_string( line_number ) + "." ) );
-
-   if( i < num_active_var )
-    a[ i ] = value;
-   else
-    b.push_back( value );
-
-   ++i;
-
-   if( line_stream.peek() == ',' )
-    line_stream.ignore();
-  }
-
-  if( i < num_active_var )
-   throw( std::logic_error
-          ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
-            "\" contains an invalid cut at line " +
-            std::to_string( line_number ) + "." ) );
-
-  A.push_back( a );
- }
-
- cuts_file.close();
-
- // Now, add the cuts to the PolyhedralFunction. Notice that, even if the
- // SDDPBlock has multiple sub-Blocks per stage, we only add cuts to the first
- // sub-Block of a given stage. This is so because only the first sub-Block
- // associated with each stage is used during the simulation, and it may also
- // be the only sub-Block that has been configured.
+ // Now, add the cuts to the PolyhedralFunction of the sub-Block of the
+ // given stage the simulation works on (see #intSubBlockIndex), which may
+ // also be the only sub-Block that has been configured.
 
  // We also assume that there is only one PolyhedralFunction per sub-Block.
 
  assert( sddp_block->get_num_polyhedral_function_per_sub_block() == 1 );
 
- polyhedral_function->add_rows( std::move( A ) , b );
+ auto polyhedral_function =
+  sddp_block->get_polyhedral_function( stage , 0 , f_sub_block_index );
+
+ if( ! SDDPBlock::is_netCDF_file( f_load_cuts_filename ) ) {
+  // the file is in the historical CSV format (see
+  // SDDPBlock::serialize_cuts())
+
+  std::ifstream cuts_file( f_load_cuts_filename );
+  if( ! cuts_file.is_open() )
+   throw( std::runtime_error( "SDDPGreedySolver::load_cuts: It was not "
+                              "possible to open the file \"" +
+                              f_load_cuts_filename + "\"." ) );
+
+  PolyhedralFunction::MultiVector A;
+  PolyhedralFunction::RealVector b;
+
+  const auto num_active_var = polyhedral_function->get_num_active_var();
+
+  std::string line;
+  std::getline( cuts_file , line );  // skip the header line
+
+  int line_number = 1;
+  while( std::getline( cuts_file , line ) ) {
+   ++line_number;
+
+   std::stringstream line_stream( line );
+
+   Index current_stage;
+   if( ! ( line_stream >> current_stage ) )
+    break;
+
+   if( current_stage >= time_horizon )
+    throw( std::logic_error
+           ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
+             "\" contains an invalid stage: " +
+             std::to_string( current_stage ) + "." ) );
+
+   if( current_stage != stage )
+    continue;
+
+   PolyhedralFunction::RealVector a( num_active_var );
+
+   Index i = 0;
+   double value;
+   while( ( line_stream.peek() == ',' ) && ( line_stream.ignore() ) &&
+          ( line_stream >> value ) ) {
+    if( i > num_active_var )
+     throw( std::logic_error
+            ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
+              "\" contains an invalid cut at line " +
+              std::to_string( line_number ) + "." ) );
+    if( i < num_active_var )
+     a[ i ] = value;
+    else
+     b.push_back( value );
+    ++i;
+    }
+
+   if( i != num_active_var + 1 )
+    throw( std::logic_error
+           ( "SDDPGreedySolver::load_cuts: File \"" + f_load_cuts_filename +
+             "\" contains an invalid cut at line " +
+             std::to_string( line_number ) + "." ) );
+
+   A.push_back( std::move( a ) );
+   }
+
+  if( ! b.empty() )
+   polyhedral_function->add_rows( std::move( A ) , b );
+  }
+ else {
+
+  netCDF::NcFile cuts_file;
+  try {
+   cuts_file.open( f_load_cuts_filename , netCDF::NcFile::read );
+   }
+  catch( netCDF::exceptions::NcException & e ) {
+   throw( std::runtime_error( "SDDPGreedySolver::load_cuts: It was not "
+                              "possible to open the file \"" +
+                              f_load_cuts_filename + "\"." ) );
+   }
+
+  auto group = cuts_file.getGroup( "PolyhedralFunction_" +
+                                   std::to_string( stage ) );
+
+  if( ! group.isNull() ) {
+
+   // Deserialize the cuts into a temporary PolyhedralFunction sharing the
+   // active Variables of the PolyhedralFunction at the given stage
+   PolyhedralFunction::VarVector active_variables
+    ( polyhedral_function->get_num_active_var() );
+   for( Index i = 0 ; i < polyhedral_function->get_num_active_var() ; ++i )
+    active_variables[ i ] = static_cast< ColVariable * >
+     ( polyhedral_function->get_active_var( i ) );
+
+   PolyhedralFunction function;
+   function.set_variables( std::move( active_variables ) );
+   function.deserialize( group );
+
+   if( ! function.get_b().empty() ) {
+    auto A = function.get_A();  // copy, so that it can be moved
+    polyhedral_function->add_rows( std::move( A ) , function.get_b() );
+    }
+   }
+  }
 
  // Mark that cuts have been loaded to this stage.
 
- if( stage >= v_cuts_loaded.size() )
-  v_cuts_loaded.resize( get_time_horizon() , false );
- v_cuts_loaded[ stage ] = true;
+ if( stage >= v_cuts_loaded.size() ) {
+  const auto num_sub_blocks_per_stage =
+   sddp_block->get_num_sub_blocks_per_stage();
+  v_cuts_loaded.resize( time_horizon );
+  for( Index t = 0 ; t < time_horizon ; ++t )
+   v_cuts_loaded[ t ].resize( num_sub_blocks_per_stage , false );
+  }
+ v_cuts_loaded[ stage ][ f_sub_block_index ] = true;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1053,15 +1216,16 @@ void SDDPGreedySolver::output_simulation_data
   }
  }
  else if( f_output_scenario > 0 ) {
-  // Output the full scenario
+  // Output the full scenario. Route through SDDPBlock-side helpers so
+  // that we transparently get either the legacy scenario_set storage
+  // or the ScenarioGenerator-backed cache.
   const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
-  const auto & scenario_set = sddp_block->get_scenario_set();
 
   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
    auto scenario_id = get_scenario_id( stage );
-   auto scenario_begin = scenario_set.sub_scenario_begin( scenario_id , stage );
-   auto scenario_end = scenario_set.sub_scenario_end( scenario_id , stage );
+   auto scenario_begin = sddp_block->sub_scenario_begin( scenario_id , stage );
+   auto scenario_end   = sddp_block->sub_scenario_end  ( scenario_id , stage );
 
    file << stage;
 
@@ -1121,7 +1285,7 @@ void SDDPGreedySolver::sample_scenario( Index stage ) {
  if( should_sample( stage ) ) {
   using param_type = std::uniform_int_distribution< Index >::param_type;
   const auto num_scenarios =
-   static_cast< SDDPBlock * >( f_Block )->get_scenario_set().size();
+   static_cast< SDDPBlock * >( f_Block )->size();
   v_random_scenario_id[ stage ] = scenario_distribution
    ( random_number_engine , param_type( 0 , num_scenarios - 1 ) );
  }

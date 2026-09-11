@@ -34,7 +34,13 @@ SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
 	$(SDDPBkSDR)/obj/SDDPGreedySolver.o \
 	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o
 
-SDDPBkINC = -I$(SDDPBkSDR)/include
+# note: USE_MPI mirrors the (default ON) CMake option of the same name: StOpt
+# is built with MPI, so whoever drives an SDDP solve must initialize MPI.
+# -fopenmp mirrors the OpenMP::OpenMP_CXX PUBLIC link of the CMake build: the
+# StOpt SDDP drivers are header-only templates, hence they parallelize (and
+# the omp critical sections of ParallelSDDPSolver exist at all) only if the
+# code that includes them is compiled with OpenMP enabled
+SDDPBkINC = -I$(SDDPBkSDR)/include -DUSE_MPI -fopenmp
 
 SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/ScenarioSet.h \

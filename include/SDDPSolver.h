@@ -1,4 +1,3 @@
-
 /*--------------------------------------------------------------------------*/
 /*------------------------- File SDDPSolver.h ------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -14,7 +13,16 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -313,6 +321,37 @@ public:
    * the sequence of scenarios selected. By default, its value is
    * 93645. */
 
+  intRepresentativePoolSize ,
+  ///< Pool size for the representative scenario subset
+  /**< If positive, set_Block() calls init_representative_pool(value)
+   * on the attached ScenarioGenerator: for a single-stage generator
+   * this restricts the universe to \p value representatives; for a
+   * :MultiStageScenarioGenerator (necessarily stage-independent) the
+   * same \p value is applied to *every* stage by looping
+   * init_representative_pool() + View::descend() through all stages.
+   *
+   * If non-positive (the default, -1), set_Block() does *not* call
+   * init_representative_pool(): the generator is left in its
+   * post-deserialize canonical state (full universe per stage), which
+   * is what most SDDPSolver runs want.
+   *
+   * To set per-stage sizes for a multi-stage generator (different
+   * \p s_t per stage), use #vintRepresentativePoolSize instead; if
+   * both are non-default, #vintRepresentativePoolSize takes
+   * precedence. The default value for this parameter is -1. */
+
+  intForwardSolverIndex ,
+  ///< The index of the Solver to be used in the forward step
+  /**< This parameter determines the index of the Solver of the inner Block
+   * of each BendersBFunction that must be used in the forward step. Its
+   * default value is 0. */
+
+  intBackwardSolverIndex ,
+  ///< The index of the Solver to be used in the backward step
+  /**< This parameter determines the index of the Solver of the inner Block
+   * of each BendersBFunction that must be used in the backward step. Its
+   * default value is 0. */
+
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes
@@ -382,9 +421,13 @@ public:
   strOutputFile ,
   ///< name of the file to which the future cost functions will be output
   /**< Name of the file to which the approximations to the future cost
-   * functions are output. See #intOutputFrequency for controlling if and when
-   * these approximations are output. By default, the name of this file is
-   * empty, which means that the future cost functions will not be output. */
+   * functions are output, in one of the two formats described in
+   * SDDPBlock::serialize_cuts(): netCDF if the filename has a ".nc4" or
+   * ".nc" extension, the historical CSV one otherwise (so that, e.g., the
+   * customary "cuts.txt" keeps producing the same CSV as it always has).
+   * See #intOutputFrequency for controlling if and when these
+   * approximations are output. By default, the name of this file is empty,
+   * which means that the future cost functions will not be output. */
 
   strStateFile ,
   ///< name of the file in which the SDDPSolverState will be serialized
@@ -457,6 +500,20 @@ public:
    * a simulation particle and its i-th component contains the number of
    * meshes (number of steps) at the i-th direction. */
 
+  vintRepresentativePoolSize ,
+  ///< Per-stage pool sizes for the representative scenario subset
+  /**< Per-stage refinement of #intRepresentativePoolSize for a
+   * :MultiStageScenarioGenerator attached to the SDDPBlock. If
+   * non-empty, the vector must have size get_stage_number() and the
+   * t-th component is used as the representative-pool size for
+   * stage t: set_Block() loops init_representative_pool( sizes[t] )
+   * + View::descend() through all stages.
+   *
+   * If empty (the default), this parameter is ignored and
+   * #intRepresentativePoolSize is consulted instead. If the attached
+   * generator is single-stage, this parameter must be empty
+   * (otherwise set_Block() throws). */
+
   vintLastAlgPar
   ///< first allowed new vector-of-int parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -509,7 +566,7 @@ public:
  friend class SDDPOptimizer;
  friend class SDDPSolverState;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PUBLIC METHODS OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 /*---------------- CONSTRUCTING AND DESTRUCTING SDDPSolver -----------------*/
@@ -544,7 +601,7 @@ public:
 
  void set_Block( Block * block ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Other initializations
@@ -571,6 +628,10 @@ public:
   *
   * - #intForwardSimulatorSeed
   *
+  * - #intForwardSolverIndex
+  *
+  * - #intBackwardSolverIndex
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -596,6 +657,12 @@ public:
     first_stage_scenario_index = value; return;
    case( intForwardSimulatorSeed ):
     sddp_optimizer->set_forward_seed( value ); return;
+   case( intRepresentativePoolSize ):
+    representative_pool_size = value; return;
+   case( intForwardSolverIndex ):
+    f_forward_Solver_index = value; return;
+   case( intBackwardSolverIndex ):
+    f_backward_Solver_index = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -701,6 +768,10 @@ public:
    mesh_discretization = value;
    return;
   }
+  if( par == vintRepresentativePoolSize ) {
+   representative_pool_size_vec = value;
+   return;
+  }
   Solver::set_par( par , value );
  }
 
@@ -784,7 +855,7 @@ public:
 
  void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Handling the parameters of the SDDPSolver
@@ -793,56 +864,51 @@ public:
  /// get the number of int parameters
  /** Get the number of int parameters.
   *
-  * @return The number of int parameters.
-  */
+  * @return The number of int parameters. */
 
  idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get the number of double parameters
  /** Get the number of double parameters.
   *
-  * @return The number of double parameters.
-  */
+  * @return The number of double parameters. */
 
  idx_type get_num_dbl_par( void ) const override {
   return( idx_type( dblLastAlgPar ) );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get the number of string parameters
  /** Get the number of string parameters.
   *
-  * @return The number of string parameters.
-  */
+  * @return The number of string parameters. */
 
  idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get the number of vector-of-int parameters
  /** Get the number of vector-of-int  parameters.
   *
-  * @return The number of vector-of-int parameters.
-  */
+  * @return The number of vector-of-int parameters. */
 
  idx_type get_num_vint_par( void ) const override {
   return( idx_type( vintLastAlgPar ) );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get the number of vector-of-double parameters
  /** Get the number of vector-of-double  parameters.
   *
-  * @return The number of vector-of-double parameters.
-  */
+  * @return The number of vector-of-double parameters. */
 
  idx_type get_num_vdbl_par( void ) const override {
   return( idx_type( vdblLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of an int parameter
@@ -874,8 +940,7 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
@@ -889,9 +954,12 @@ public:
    case( intOutputFrequency ): return 0;
    case( intFirstStageScenarioId ): return 0;
    case( intForwardSimulatorSeed ): return 93645;
-  }
+   case( intRepresentativePoolSize ): return -1;
+   case( intForwardSolverIndex ): return 0;
+   case( intBackwardSolverIndex ): return 0;
+   }
   return Solver::get_dflt_int_par( par );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get the default value of a double parameter
@@ -902,13 +970,12 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  double get_dflt_dbl_par( const idx_type par ) const override {
   if( par == dblAccuracy ) return 1.0e-4;
   return Solver::get_dflt_dbl_par( par );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get the default value of a string parameter
@@ -919,11 +986,9 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
-
   static const std::vector< std::string > default_values =
    { "regressors.sddp" , "cuts.sddp" , "visited_states.sddp" ,
      "", "" , "" , "" , "" , "" , "" ,"" };
@@ -932,7 +997,7 @@ public:
    return default_values[ par - str_par_type_S::strLastAlgPar ];
 
   return Solver::get_dflt_str_par( par );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of a vector-of-int parameter
@@ -947,19 +1012,17 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::vector< int > & get_dflt_vint_par( const idx_type par )
   const override {
   const static std::vector< int > empty;
 
-  if( par == vintMeshDiscretization ) {
-   return empty;
-  }
+  if( par == vintMeshDiscretization ) return empty;
+  if( par == vintRepresentativePoolSize ) return empty;
 
   return Solver::get_dflt_vint_par( par );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of a vector-of-double parameter
@@ -976,19 +1039,15 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
   const override {
   const static std::vector< double > empty;
-
-  if( par == vdblLastStageCuts || par == vdblInitialState ) {
-   return empty;
-  }
+  if( par == vdblLastStageCuts || par == vdblInitialState ) return empty;
 
   return Solver::get_dflt_vdbl_par( par );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get a specific integer (int) numerical parameter
@@ -998,8 +1057,7 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
@@ -1016,9 +1074,12 @@ public:
    case( intFirstStageScenarioId ): return first_stage_scenario_index;
    case( intForwardSimulatorSeed ):
     return sddp_optimizer->get_forward_seed();
-  }
+   case( intRepresentativePoolSize ): return representative_pool_size;
+   case( intForwardSolverIndex ): return f_forward_Solver_index;
+   case( intBackwardSolverIndex ): return f_backward_Solver_index;
+   }
   return( Solver::get_dflt_int_par( par ) );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get a specific float (double) numerical parameter
@@ -1028,14 +1089,13 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  double get_dbl_par( const idx_type par ) const override {
   if( par == dblAccuracy )
    return accuracy;
   return( get_dflt_dbl_par( par ) );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get a specific string numerical parameter
@@ -1045,8 +1105,7 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
@@ -1061,9 +1120,9 @@ public:
    case( strFilenameSuffix ): return f_filename_suffix;
    case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
    case( strDirOUT ): return f_dir_out_pathname;
-  }
+   }
   return Solver::get_str_par( par );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get a specific vector-of-int parameter
@@ -1073,14 +1132,16 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
- const std::vector< int > & get_vint_par( const idx_type par ) const override {
+ const std::vector< int > & get_vint_par( const idx_type par )
+  const override {
   if( par == vintMeshDiscretization )
    return mesh_discretization;
+  if( par == vintRepresentativePoolSize )
+   return representative_pool_size_vec;
   return Solver::get_vint_par( par );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// get a specific vector-of-double parameter
@@ -1090,17 +1151,16 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::vector< double > & get_vdbl_par( const idx_type par )
   const override {
   switch( par ) {
    case( vdblLastStageCuts ): return last_stage_cuts;
    case( vdblInitialState ): return initial_state;
-  }
+   }
   return Solver::get_vdbl_par( par );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// returns the index of the int parameter with given string \p name
@@ -1113,8 +1173,7 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intNStepConv" ) return intNStepConv;
@@ -1125,8 +1184,11 @@ public:
   if( name == "intOutputFrequency" ) return intOutputFrequency;
   if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
   if( name == "intForwardSimulatorSeed" ) return intForwardSimulatorSeed;
+  if( name == "intRepresentativePoolSize" ) return intRepresentativePoolSize;
+  if( name == "intForwardSolverIndex" ) return intForwardSolverIndex;
+  if( name == "intBackwardSolverIndex" ) return intBackwardSolverIndex;
   return Solver::int_par_str2idx( name );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns the index of the double parameter with given string name
@@ -1136,13 +1198,12 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type dbl_par_str2idx( const std::string & name ) const override {
   if( name == "dblAccuracy" ) return dblAccuracy;
   return Solver::dbl_par_str2idx( name );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns the index of the string parameter with given string name
@@ -1152,8 +1213,7 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strRegressorsFilename" ) return strRegressorsFilename;
@@ -1168,7 +1228,7 @@ public:
   if( name == "strSubSolverLogFilePrefix" ) return strSubSolverLogFilePrefix;
   if( name == "strDirOUT" ) return strDirOUT;
   return Solver::str_par_str2idx( name );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns the index of the vector-of-int parameter with given string name
@@ -1178,30 +1238,30 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type vint_par_str2idx( const std::string & name ) const override {
   if( name == "vintMeshDiscretization" ) return vintMeshDiscretization;
+  if( name == "vintRepresentativePoolSize" )
+   return vintRepresentativePoolSize;
   return Solver::vint_par_str2idx( name );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// returns the index of the vector-of-double parameter with given string name
+ /// returns the index of the vector-of-double parameter with given str. name
  /** This method takes a string, which is assumed to be the name of a
   * vector-of-double parameter, and returns its index, i.e., the double value
   * that can be used in [set/get]_par() to set/get it.
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type vdbl_par_str2idx( const std::string & name ) const override {
   if( name == "vdblLastStageCuts" ) return vdblLastStageCuts;
   if( name == "vdblInitialState" ) return vdblInitialState;
   return Solver::vdbl_par_str2idx( name );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// returns the string name of the int parameter with given index
@@ -1211,21 +1271,21 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
-
   static const std::vector< std::string > parameter_names =
    { "intNStepConv", "intPrintTime", "intNbSimulCheckForConv" ,
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
-     "intFirstStageScenarioId" , "intForwardSimulatorSeed" };
+     "intFirstStageScenarioId" , "intForwardSimulatorSeed" ,
+     "intRepresentativePoolSize" , "intForwardSolverIndex" ,
+     "intBackwardSolverIndex" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
 
   return Solver::int_par_idx2str( idx );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns the string name of the double parameter with given index
@@ -1235,14 +1295,13 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & dbl_par_idx2str( const idx_type idx ) const override {
   static const std::string dblAccuracy_name = "dblAccuracy";
   if( idx == dblAccuracy ) return dblAccuracy_name;
   return Solver::dbl_par_idx2str( idx );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns the string name of the string parameter with given index
@@ -1252,11 +1311,9 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & str_par_idx2str( const idx_type idx ) const override {
-
   static const std::vector< std::string > parameter_names =
    { "strRegressorsFilename", "strCutsFilename", "strVisitedStatesFilename" ,
      "strInnerBC" , "strInnerBSC" , "strOutputFile" , "strStateFile" ,
@@ -1267,7 +1324,7 @@ public:
    return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
 
   return Solver::str_par_idx2str( idx );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// returns the string name of the vector-of-int parameter with given index
@@ -1277,27 +1334,25 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
-   { "vintMeshDiscretization" };
+   { "vintMeshDiscretization" , "vintRepresentativePoolSize" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
    return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
   return Solver::vint_par_idx2str( idx );
- }
+  }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
- /// returns the string name of the vector-of-double parameter with given index
+ /// returns the name of the vector-of-double parameter with given index
  /** This method takes a vector-of-double parameter index, i.e., the double
   * value that can be used in [set/get]_par() [see above] to set/get it, and
   * returns its "string name".
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
@@ -1305,9 +1360,9 @@ public:
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
    return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
   return Solver::vdbl_par_idx2str( idx );
- }
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Set event handlers
@@ -1362,7 +1417,7 @@ public:
   return e_last_event_type;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------ METHODS FOR HANDLING THE State OF THE SDDPSolver ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Handling the State of the SDDPSolver
@@ -1381,7 +1436,7 @@ public:
 /*--------------------------------------------------------------------------*/
 
  void serialize_State( netCDF::NcGroup & group ,
-		       const std::string & sub_group_name = "" )
+                       const std::string & sub_group_name = "" )
   const override;
 
 /*--------------------------------------------------------------------------*/
@@ -1395,7 +1450,7 @@ public:
 
  void serialize_State( const std::string & filename ) const;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Solving the model encoded by the current Block
@@ -1407,7 +1462,7 @@ public:
 
  int compute( bool changedvars = true ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Accessing the found solutions (if any)
@@ -1464,7 +1519,7 @@ public:
 
  void file_output() const;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------ METHODS FOR READING THE DATA OF THE SDDPSolver --------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the state of the SDDPSolver
@@ -1525,7 +1580,6 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
-
  /// indicates whether random cuts must be stored
  /** A random cut is a cut associated with a particular scenario. This
   * function indicates whether the random cuts that are produced must be
@@ -1536,9 +1590,9 @@ public:
 
  bool store_random_cuts() const {
   return ! f_random_cuts_filename.empty();
- }
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -1547,7 +1601,6 @@ protected:
 /*--------------------------------------------------------------------------*/
 /*--------------------------- PROTECTED METHODS ----------------------------*/
 /*--------------------------------------------------------------------------*/
-
  /// returns a pointer to the BendersBFunction associated with the given stage
  /** This function returns a pointer to the BendersBFunction associated with
   * the given \p stage, which must be an integer between 0 and
@@ -1555,18 +1608,19 @@ protected:
   *
   * @param stage An index between 0 and get_time_horizon() - 1. */
 
- BendersBFunction * get_benders_function
- ( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index ) const;
+ BendersBFunction * get_benders_function( SDDPBlock::Index stage ,
+                                          SDDPBlock::Index sub_block_index )
+  const;
 
 /*--------------------------------------------------------------------------*/
-
  /// returns true if a valid mesh discretization has been provided
- bool mesh_provided() const {
+
+ bool mesh_provided( void ) const {
   return( ( ! mesh_discretization.empty() ) &&
           std::all_of( mesh_discretization.begin() ,
                        mesh_discretization.end() ,
                        []( auto i ) { return( i > 0 ); } ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------- PROTECTED CLASSES ----------------------------*/
@@ -1586,53 +1640,53 @@ protected:
    sddp_solver = solver;
    simulator_backward = std::make_shared< ScenarioSimulator >( true );
    simulator_forward = std::make_shared< ScenarioSimulator >( false );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
-
   /// prepares this SDDPOptimizer for another call to the StOpt SDDP solver
   /** This function prepares this SDDPOptimizer for another call to the StOpt
    * SDDP solver. This function must be called within SDDPSolver::compute()
    * before StOpt is invoked. */
 
-  virtual void reset() {
+  virtual void reset( void ) {
    current_iteration = 0;
    previous_pass_was_backward = false;
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  Eigen::ArrayXd oneStepBackward
-  ( const StOpt::SDDPCutOptBase & sddp_cut ,
-    const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
-    const Eigen::ArrayXd & particle , const int & simulation_id ,
-    const Index scenario_index , const bool scenario_must_be_set ,
-    const Index sub_block_index ) const;
+  Eigen::ArrayXd oneStepBackward( const StOpt::SDDPCutOptBase & sddp_cut ,
+   const std::tuple< std::shared_ptr< Eigen::ArrayXd > , int , int > & state ,
+   const Eigen::ArrayXd & particle , const int & simulation_id ,
+   const Index scenario_index , const bool scenario_must_be_set ,
+   const Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
-  Eigen::ArrayXd oneStepBackward
-  ( const StOpt::SDDPCutOptBase & p_linCut,
-    const std::tuple< std::shared_ptr< Eigen::ArrayXd >, int, int > & p_aState,
-    const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
+  Eigen::ArrayXd oneStepBackward( const StOpt::SDDPCutOptBase & p_linCut,
+   const std::tuple< std::shared_ptr< Eigen::ArrayXd >, int, int > & p_aState,
+   const Eigen::ArrayXd & p_particle, const int & p_isample) const override;
 
 /*--------------------------------------------------------------------------*/
 
-  double oneStepForward
-  ( const Eigen::ArrayXd & particle , Eigen::ArrayXd & state ,
-    Eigen::ArrayXd & state_to_store , const StOpt::SDDPCutOptBase & sddp_cut ,
-    const int & simulation_id , const Index scenario_index ,
-    const bool scenario_must_be_set , const Index sub_block_index ) const;
+  double oneStepForward( const Eigen::ArrayXd & particle ,
+                         Eigen::ArrayXd & state ,
+                         Eigen::ArrayXd & state_to_store ,
+                         const StOpt::SDDPCutOptBase & sddp_cut ,
+                         const int & simulation_id ,
+                         const Index scenario_index ,
+                         const bool scenario_must_be_set ,
+                         const Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/
 
-  double oneStepForward
-  ( const Eigen::ArrayXd &p_aParticle , Eigen::ArrayXd &p_state ,
-    Eigen::ArrayXd &p_stateToStore , const StOpt::SDDPCutOptBase &p_linCut ,
-    const int &p_isimu ) const override;
+  double oneStepForward( const Eigen::ArrayXd &p_aParticle ,
+                         Eigen::ArrayXd &p_state ,
+                         Eigen::ArrayXd &p_stateToStore ,
+                         const StOpt::SDDPCutOptBase &p_linCut ,
+                         const int &p_isimu ) const override;
 
 /*--------------------------------------------------------------------------*/
-
   /// updates this SDDPOptimizer for a new stage
   /** This function updates this SDDPOptimizer for a new stage. The \p date
    * and \p date_next parameters have different meanings in the backward and
@@ -1662,7 +1716,6 @@ protected:
   void updateDates( const double & date, const double & date_next ) override;
 
 /*--------------------------------------------------------------------------*/
-
   /// returns an initial state for the subproblem at the given stage
   /** This function must return an initial state for the optimization
    * subproblem associated with the given date. If the given date is t, then
@@ -1681,7 +1734,6 @@ protected:
   Eigen::ArrayXd oneAdmissibleState( const double & stage ) override;
 
 /*--------------------------------------------------------------------------*/
-
   /// return the size of the state vector
   /** This function returns the size of the state vector. It assumes
    * that the states of all stages have the same size. If the state
@@ -1690,51 +1742,49 @@ protected:
    *
    * @return The size of the state vector. */
 
-  int getStateSize() const override;
+  int getStateSize( void ) const override;
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the simulator for the backward pass
   /** This function returns the simulator that is used during the
    * backward pass.
    *
    * @return The simulator associated with the backward pass. */
 
-  std::shared_ptr< StOpt::SimulatorSDDPBase >
-  getSimulatorBackward() const override {
-   return simulator_backward;
-  }
+  std::shared_ptr< StOpt::SimulatorSDDPBase >getSimulatorBackward( void )
+   const override { return simulator_backward; }
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the simulator for the forward pass
   /** This function returns the simulator that is used during the forward
    * pass.
    *
    * @return The simulator associated with the forward pass. */
 
-  std::shared_ptr< StOpt::SimulatorSDDPBase >
-  getSimulatorForward() const override {
-   return simulator_forward;
-  }
+  std::shared_ptr< StOpt::SimulatorSDDPBase >getSimulatorForward( void )
+   const override { return simulator_forward; }
 
 /*--------------------------------------------------------------------------*/
-
   /// set the SDDPSolver with which this SDDPOptimizer will be associated
   /** This method is used to set the (pointer to the) SDDPSolver with which
    * this SDDPOptimizer will be associated.
    *
    * @param solver A pointer to an SDDPSolver. */
 
-  void set_solver( SDDPSolver * solver ) {
-   sddp_solver = solver;
-  }
+  void set_solver( SDDPSolver * solver ) { sddp_solver = solver; }
 
 /*--------------------------------------------------------------------------*/
+  /// install scenarios into both backward / forward simulators
+  /** Templated on the source type, so that callers may pass either a
+   * ScenarioSet (legacy SDDPBlock storage) or an SDDPBlock (the v2 path,
+   * where data is sourced from an attached ScenarioGenerator via the
+   * SDDPBlock-side cache). The source must expose the minimal interface
+   * documented on ScenarioSimulator::set_scenarios(). */
 
-  void set_scenarios( const ScenarioSet & scenario_set ) {
-   simulator_backward->set_scenarios( scenario_set );
-   simulator_forward->set_scenarios( scenario_set );
+  template< typename Src >
+  void set_scenarios( const Src & src ) {
+   simulator_backward->set_scenarios( src );
+   simulator_forward->set_scenarios( src );
 
    if( simulator_backward->getNbSimul() == 0 )
     simulator_backward->set_number_simulations
@@ -1742,19 +1792,19 @@ protected:
 
    if( simulator_forward->getNbSimul() == 0 )
     simulator_forward->set_number_simulations( 1 );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  int get_number_simulations_backward() const {
+  int get_number_simulations_backward( void ) const {
    return simulator_backward->getNbSimul();
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  int get_number_simulations_forward() const {
+  int get_number_simulations_forward( void ) const {
    return simulator_forward->getNbSimul();
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1762,37 +1812,35 @@ protected:
    if( backward )
     return get_number_simulations_backward();
    return get_number_simulations_forward();
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
   void set_number_simulations_backward( int number_simulations ) {
    simulator_backward->set_number_simulations( number_simulations );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
   void set_number_simulations_forward( int number_simulations ) {
    simulator_forward->set_number_simulations( number_simulations );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  void set_forward_seed( int seed ) {
-   simulator_forward->set_seed( seed );
-  }
+  void set_forward_seed( int seed ) { simulator_forward->set_seed( seed ); }
 
 /*--------------------------------------------------------------------------*/
 
-  int get_forward_seed() const {
+  int get_forward_seed( void ) const {
    return simulator_forward->get_seed();
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  int get_dflt_number_simulations_backward() const {
+  int get_dflt_number_simulations_backward( void ) const {
    return simulator_backward->get_number_scenarios();
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- PROTECTED PART OF THE CLASS -----------------------*/
@@ -1801,21 +1849,16 @@ protected:
  protected:
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the current stage for a backward pass
-  Index get_current_backward_stage() const {
-   return date_next;
-  }
+
+  Index get_current_backward_stage( void ) const { return date_next; }
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the current stage for a forward pass
-  Index get_current_forward_stage() const {
-   return date;
-  }
+
+  Index get_current_forward_stage( void ) const { return date; }
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the index of the backward scenario associated with simulation_id
   /** This function returns the index of the backward scenario associated with
    * the given \p simulation_id.
@@ -1830,10 +1873,9 @@ protected:
    if( get_current_backward_stage() == 0 )
     return sddp_solver->get_first_stage_scenario_index();
    return simulator_backward->get_scenario_index( simulation_id );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the index of the forward scenario associated with simulation_id
   /** This function returns the index of the forward scenario associated with
    * the given \p simulation_id.
@@ -1848,10 +1890,9 @@ protected:
    if( get_current_forward_stage() == 0 )
     return sddp_solver->get_first_stage_scenario_index();
    return simulator_forward->get_scenario_index( simulation_id );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the index of the scenario associated with simulation_id
   /** This function returns the index of the scenario associated with the
    * given \p simulation_id. If backward is true, then it returns the backward
@@ -1871,17 +1912,16 @@ protected:
    if( backward )
     return get_backward_scenario_index( simulation_id );
    return get_forward_scenario_index( simulation_id );
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  Index get_num_sub_blocks_per_stage() const {
+  Index get_num_sub_blocks_per_stage( void ) const {
    return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
     get_num_sub_blocks_per_stage();
-  }
+   }
 
 /*--------------------------------------------------------------------------*/
-
   /// returns the pointer to a PolyhedralFunction
   /** This function returns a pointer to the i-th PolyhedralFunction of a
    * sub-Block of the given \p stage.
@@ -1897,23 +1937,21 @@ protected:
    *
    * @return A pointer to the i-th PolyhedralFunction of the given \p stage. */
 
-  PolyhedralFunction * get_polyhedral_function
-  ( Index stage , Index i = 0 , Index sub_block_index = 0 ) const {
-   return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
-    get_polyhedral_function( stage , i , sub_block_index );
-  }
+  PolyhedralFunction * get_polyhedral_function( Index stage , Index i = 0 ,
+                                                Index sub_block_index = 0 )
+   const {
+   return static_cast< SDDPBlock * >( sddp_solver->f_Block
+                                      )->get_polyhedral_function( stage , i ,
+                                                            sub_block_index );
+   }
 
 /*--------------------------------------------------------------------------*/
 
-  bool mesh_provided() const {
-   return sddp_solver->mesh_provided();
-  }
+  bool mesh_provided() const { return sddp_solver->mesh_provided(); }
 
 /*--------------------------------------------------------------------------*/
 
-  int get_output_frequency() const {
-   return sddp_solver->output_frequency;
-  }
+  int get_output_frequency() const { return sddp_solver->output_frequency; }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1943,6 +1981,8 @@ protected:
                             const Eigen::ArrayXd & linearization ,
                             Index sub_block_index ) const;
 
+/*--------------------------------------------------------------------------*/
+
  };   // end( class SDDPOptimizer )
 
 /*--------------------------------------------------------------------------*/
@@ -1958,6 +1998,18 @@ protected:
   * component of this vector contains the number of meshes (number of steps)
   * at direction i. */
  std::vector< int > mesh_discretization;
+
+ /// Pool size for the representative scenario subset
+ /** Storage for the #intRepresentativePoolSize algorithmic parameter. See
+  * the comments on that parameter for the meaning and the dispatch rules
+  * applied in set_Block(). */
+ int representative_pool_size;
+
+ /// Per-stage pool sizes for the representative scenario subset
+ /** Storage for the #vintRepresentativePoolSize algorithmic parameter.
+  * Refer to the docstring of that parameter for the per-stage dispatch
+  * applied in set_Block(). */
+ std::vector< int > representative_pool_size_vec;
 
  /// The cuts to be used at the last time instant
  /** This vector stores the cuts to be used at the last time instant. Each cut
@@ -1992,6 +2044,12 @@ protected:
 
  /// Index of the scenario to be considered at the first stage
  int first_stage_scenario_index;
+
+ /// Index of the Solver of the inner Blocks used in the forward step
+ int f_forward_Solver_index = 0;
+
+ /// Index of the Solver of the inner Blocks used in the backward step
+ int f_backward_Solver_index = 0;
 
  /// Name of the file in which regressors will be stored
  std::string regressors_filename;
@@ -2131,7 +2189,6 @@ private:
  void process_outstanding_Modification();
 
 /*--------------------------------------------------------------------------*/
-
  /// solves the sub-Block associated with the given stage
  /** This function solves the sub-Block with index \p sub_block_index at the
   * given \p stage.
@@ -2141,10 +2198,10 @@ private:
   * @param sub_block_index The index of the sub-Block, which must be an
   *        integer between 0 and get_num_sub_blocks_per_stage() - 1. */
 
- double solve( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index );
+ double solve( SDDPBlock::Index stage , SDDPBlock::Index sub_block_index ,
+               bool is_forward );
 
 /*--------------------------------------------------------------------------*/
-
  /// sets the parameters of the SDDPSolver to their default values
  /** This function sets the parameters of the SDDPSolver to their default
   * values. */
@@ -2160,6 +2217,7 @@ private:
    get_dflt_int_par( intNbSimulCheckForConv );
   output_frequency = get_dflt_int_par( intOutputFrequency );
   first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioId );
+  representative_pool_size = get_dflt_int_par( intRepresentativePoolSize );
 
   // double
 
@@ -2183,6 +2241,8 @@ private:
   // vector of int
 
   mesh_discretization = get_dflt_vint_par( vintMeshDiscretization );
+  representative_pool_size_vec =
+   get_dflt_vint_par( vintRepresentativePoolSize );
 
   // vector of double
 
@@ -2207,8 +2267,9 @@ private:
 
  SMSpp_insert_in_factory_h;
 
-};   // end( class SDDPSolver )
+/*--------------------------------------------------------------------------*/
 
+ };   // end( class SDDPSolver )
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- CLASS SDDPSolverState --------------------------*/
@@ -2228,8 +2289,8 @@ private:
  * - the "verse" of the PolyhedralFunction, i.e., if it is convex or
  *   concave. */
 
-class SDDPSolverState : public State {
-
+class SDDPSolverState : public State
+{
 /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
 
 public:
@@ -2245,7 +2306,6 @@ public:
  SDDPSolverState( const SDDPSolver * solver = nullptr );
 
 /*--------------------------------------------------------------------------*/
-
  /// de-serialize an SDDPSolverState out of a netCDF::NcGroup
  /** De-serialize an SDDPSolverState out of the given netCDF::NcGroup; see
   * SDDPSolverState::serialize() for a description of the format.
@@ -2256,52 +2316,40 @@ public:
  void deserialize( const netCDF::NcGroup & group ) override;
 
 /*--------------------------------------------------------------------------*/
-
  ///< destructor
 
  virtual ~SDDPSolverState() { }
 
 /*---------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPSolverState ----------*/
 
+ /// read this SDDPSolverState out of the given SDDPBlock
+ /** Fills this SDDPSolverState with the cuts of the given SDDPBlock, i.e.,
+  * the rows (besides the global bound and the "verse") of the
+  * PolyhedralFunction of (the first sub-Block of) each stage. */
+
+ void read( const SDDPBlock * sddp_block );
+
+/*--------------------------------------------------------------------------*/
+ /// write this SDDPSolverState into the given SDDPBlock
+ /** Writes the cuts contained in this SDDPSolverState into the
+  * PolyhedralFunction of every sub-Block of every stage of the given
+  * SDDPBlock, replacing the current ones. */
+
+ void write( SDDPBlock * sddp_block ) const;
+
+/*--------------------------------------------------------------------------*/
  /// serialize an SDDPSolverState into a netCDF::NcGroup
  /** This method serializes this SDDPSolverState into the provided
   * netCDF::NcGroup, so that it can later be read back by deserialize().
   *
-  * After this SDDPSolverState is serialized, \p group will have the dimension
-  * "TimeHorizon", containing the time horizon, and, for each t in {0, ...,
-  * TimeHorizon - 1}, the following data of the PolyhedralFunction associated
-  * with stage t:
-  *
-  * - The dimension "PolyFunction_sign_t" (actually a bool), which contains
-  *   the "verse" of the PolyhedralFunction, i.e., true for a convex
-  *   max-function and false for a concave min-function (encoded in the
-  *   obvious way, i.e., zero for false, nonzero for true). This dimension is
-  *   optional: if it is not provided, true is assumed.
-  *
-  * - The dimension "PolyFunction_NumRow_t", containing the number of rows of
-  *   the A matrix. This dimension is optional: if it is not provided, then 0
-  *   (no rows) is assumed.
-  *
-  * - The dimension "PolyFunction_NumVar_t", containing the number of columns
-  *   of the A matrix, i.e., the number of active variables.
-  *
-  * - The variable "PolyFunction_A_t", of type netCDF::NcDouble() and indexed
-  *   over both the dimensions "PolyFunction_NumRow_t" and
-  *   "PolyFunction_NumVar_t" (in this order); it contains the (row-major)
-  *   representation of the matrix A. This variable is only optional if
-  *   "PolyFunction_NumRow_t" == 0.
-  *
-  * - The variable "PolyFunction_b_t", of type netCDF::NcDouble() and indexed
-  *   over the dimension "PolyFunction_NumRow_t", which contains the vector
-  *   b. This variable is only optional if "PolyFunction_NumRow_t" == 0.
-  *
-  * - The scalar variable "PolyFunction_lb_t", of type netCDF::NcDouble() and
-  *   not indexed over any dimension, which contains the global lower (if
-  *   PolyFunction_sign_t == true, upper otherwise) bound on the value of the
-  *   PolyhedralFunction over all the space. This variable is optional: if it
-  *   is not provided, it means that no finite lower (upper) bound exist,
-  *   i.e., the lower (upper) bound is -(+)
-  *   Inf< PolyhedralFunction::FunctionValue >(). */
+  * After this SDDPSolverState is serialized, \p group will have the
+  * dimension "TimeHorizon", containing the time horizon, and, for each t in
+  * {0, ..., TimeHorizon - 1}, the group "PolyhedralFunction_t" containing
+  * the serialization of the PolyhedralFunction associated with stage t, in
+  * the standard PolyhedralFunction netCDF format. This is the same format
+  * produced by SDDPBlock::serialize_cuts(), so that the cuts have one
+  * canonical representation no matter whether they travel in a cuts file or
+  * within the State of a Solver. */
 
  void serialize( netCDF::NcGroup & group ) const override;
 
@@ -2323,8 +2371,8 @@ protected:
    output << std::endl;
    for( Index t = 0 ; t < v_b.size() ; ++t )
     output << v_b[ t ].size() << " cuts for stage " << t << std::endl;
+   }
   }
- }
 
 /*--------------------------- PROTECTED FIELDS -----------------------------*/
 
@@ -2347,21 +2395,16 @@ protected:
 
 private:
 
-/*--------------------------- PRIVATE METHODS ------------------------------*/
-
- static void serialize
- ( netCDF::NcGroup & group , Index t , Index num_var , bool is_convex ,
-   PolyhedralFunction::FunctionValue bound ,
-   const PolyhedralFunction::MultiVector & A ,
-   const PolyhedralFunction::RealVector & b );
-
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
 
  SMSpp_insert_in_factory_h;
 
-};  // end( class( SDDPSolverState ) )
+/*--------------------------------------------------------------------------*/
 
-/** @} end( group( SDDPSolver_CLASSES ) ) */
+ };  // end( class( SDDPSolverState ) )
+
+/** @} end( group( SDDPSolver_CLASSES ) ) ----------------------------------*/
+/*--------------------------------------------------------------------------*/
 
 }  // end( namespace SMSpp_di_unipi_it )
 

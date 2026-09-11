@@ -8,7 +8,11 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -33,7 +37,6 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
-
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -46,12 +49,15 @@ namespace SMSpp_di_unipi_it
 /*--------------------------- GENERAL NOTES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// ScenarioSet, a class for representing a set of scenarios
-/** ScenarioSet is a class that represents a set of scenarios
- */
+/** ScenarioSet is a class that represents a set of scenarios */
 
-class ScenarioSet {
+class ScenarioSet
+{
+/*--------------------------------------------------------------------------*/
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
 
-public:
+ public:
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PUBLIC TYPES --------------------------------*/
@@ -61,26 +67,27 @@ public:
 
  using Index = unsigned int;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------- CONSTRUCTING AND DESTRUCTING ScenarioSet -----------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Constructing and destructing ScenarioSet
  *  @{ */
 
  /// Constructs a ScenarioSet
- /** Constructs a ScenarioSet
-  */
+ /** Constructs a ScenarioSet */
 
- ScenarioSet() { }
+ ScenarioSet( void ) {}
 
 /*--------------------------------------------------------------------------*/
-
  /// Destructor
- virtual ~ScenarioSet() { }
+
+ virtual ~ScenarioSet() {}
 
 /*--------------------------------------------------------------------------*/
-
- /**
+ /// deserialize a ScenarioSet out of a netCDF::ncGroup
+ /** deserialize a ScenarioSet out of a netCDF::ncGroup with the following
+  * format:
+  *
   * - The "TimeHorizon" dimension, containing the time horizon.
   *
   * - The "NumberScenarios" dimension specifying the number of
@@ -96,12 +103,11 @@ public:
   *
   *     s_t = ScenarioSize / TimeHorizon
   *
-  *   for all t in {0, ..., "TimeHorizon - 1"}, and "ScenarioSize" is a multiple
-  *   of "TimeHorizon". If this dimension is provided, then SubScenarioSize[t]
-  *   is the size of the sub-scenario associated with stage t, i.e., s_t =
-  *   SubScenarioSize[t], for each t in {0, ..., TimeHorizon - 1}. In the latter
-  *   case, the following must hold:
-  *
+  *   for all t in {0, ..., "TimeHorizon - 1"}, and "ScenarioSize" is a
+  *   multiple of "TimeHorizon". If this dimension is provided, then
+  *   SubScenarioSize[t] is the size of the sub-scenario associated with
+  *   stage t, i.e., s_t = SubScenarioSize[t], for each t in
+  *   {0, ..., TimeHorizon - 1}. In the latter case, the following must hold:
   *   \f[
   *     \text{ScenarioSize} = \sum_{t = 0}^{\text{TimeHorizon} - 1}
   *                           \text{SubScenarioSize}[t].
@@ -122,17 +128,16 @@ public:
   * - The "SizeRandomDataGroups" variable, of type netCDF::Uint and indexed
   *   over the "NumberRandomDataGroups" dimension, containing the size of each
   *   group of related random data in each sub-scenario. For each i in {0,
-  *   ..., "NumberRandomDataGroups - 1"}, NumberRandomDataGroups[i] is the size
-  *   of the i-th group of a sub-scenario. This variable is optional. It is
-  *   required only if "NumberRandomDataGroups" is provided and
+  *   ..., "NumberRandomDataGroups - 1"}, NumberRandomDataGroups[i] is the
+  *   size of the i-th group of a sub-scenario. This variable is optional. It
+  *   is required only if "NumberRandomDataGroups" is provided and
   *   "NumberRandomDataGroups" > 1.
   *
   * @param group A netCDF::NcGroup holding the data describing this
-  *        ScenarioSet.
-  */
+  *        ScenarioSet. */
 
- void deserialize( const netCDF::NcGroup & group ) {
-
+ void deserialize( const netCDF::NcGroup & group )
+ {
   // TimeHorizon
 
   ::SMSpp_di_unipi_it::deserialize_dim( group , "TimeHorizon" ,
@@ -169,12 +174,12 @@ public:
    // SubScenarioSize was not provided
 
    if( scenario_size % time_horizon != 0 )
-    throw( std::logic_error( "ScenarioSet::deserialize: 'SubScenarioSize' was "
-                             "not provided. Thus, 'ScenarioSize' must be a "
-                             "multiple of 'TimeHorizon'." ) );
+    throw( std::logic_error( "ScenarioSet::deserialize: 'SubScenarioSize' "
+                             "was not provided. Thus, 'ScenarioSize' must be "
+                             "a multiple of 'TimeHorizon'." ) );
 
    sub_scenario_size.resize( time_horizon , scenario_size / time_horizon );
-  }
+   }
 
   // sub_scenario_start_index
 
@@ -182,39 +187,37 @@ public:
   for( Index i = 0 ; i < time_horizon ; ++i ) {
    sub_scenario_start_index[ i ] = next_index;
    next_index += sub_scenario_size[ i ];
-  }
+   }
   sub_scenario_start_index[ time_horizon ] = scenario_size;
 
   // Scenarios
-
   deserialize_scenarios( group );
 
   // NumberRandomDataGroups and SizeRandomDataGroups
-
-  if( std::adjacent_find( sub_scenario_size.begin() , sub_scenario_size.end() ,
-                          std::not_equal_to<>() ) != sub_scenario_size.end() ) {
+  if( std::adjacent_find( sub_scenario_size.begin() ,
+                          sub_scenario_size.end() ,
+                          std::not_equal_to<>() ) != sub_scenario_size.end()
+      ) {
    // Not all sub-scenarios have the same size. In this case, we consider a
    // single random data group.
    num_random_data_groups = 1;
-  }
+   }
   else {
-
    // All sub-scenarios have the same size. Thus, we check
    // NumberRandomDataGroups and SizeRandomDataGroups.
 
-   if( ! ::SMSpp_di_unipi_it::deserialize_dim
-       ( group , "NumberRandomDataGroups" , num_random_data_groups , true ) ) {
+   if( ! ::SMSpp_di_unipi_it::deserialize_dim( group ,
+               "NumberRandomDataGroups" , num_random_data_groups , true ) ) {
     // NumberRandomDataGroups was not provided. Hence, there must be a single
     // random data group.
     num_random_data_groups = 1;
-   }
+    }
    else {
-    // NumberRandomDataGroups was provided. Now, we check SizeRandomDataGroups.
-
-    if( ::SMSpp_di_unipi_it::deserialize
-        ( group , "SizeRandomDataGroups" , num_random_data_groups ,
-          size_random_data_groups , true , false ) ) {
-
+    // NumberRandomDataGroups provided, check SizeRandomDataGroups.
+    if( ::SMSpp_di_unipi_it::deserialize( group , "SizeRandomDataGroups" ,
+                                          num_random_data_groups ,
+                                          size_random_data_groups , true ,
+                                          false ) ) {
      // SizeRandomDataGroups was provided.
 
      if( ( scenario_size / time_horizon ) != std::accumulate
@@ -223,7 +226,7 @@ public:
       throw( std::logic_error( "ScenarioSet::deserialize: The sum of the "
                                "sizes in 'SizeRandomDataGroups' must be "
                                "equal to 'ScenarioSize' / 'TimeHorizon'." ) );
-    }
+     }
     else {
      // SizeRandomDataGroups was not provided.
      size_random_data_groups = { ( scenario_size / time_horizon ) };
@@ -237,7 +240,7 @@ public:
   }
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------- METHODS FOR Saving THE DATA OF THE ScenarioSet ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Saving the data of the ScenarioSet
@@ -251,7 +254,6 @@ public:
   */
 
  void serialize( netCDF::NcGroup & group ) const {
-
   // TimeHorizon
 
   auto TimeHorizon_dim = group.getDim( "TimeHorizon" );
@@ -274,9 +276,8 @@ public:
 
   // Scenarios
 
-  auto scenarios_var = group.addVar
-   ( "Scenarios" , netCDF::NcDouble() ,
-     { NumberScenarios_dim , ScenarioSize_dim } );
+  auto scenarios_var = group.addVar( "Scenarios" , netCDF::NcDouble() ,
+                               { NumberScenarios_dim , ScenarioSize_dim } );
 
   for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
    scenarios_var.putVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
@@ -286,21 +287,106 @@ public:
 
   auto NumberRandomDataGroups_dim = group.addDim( "NumberRandomDataGroups" ,
                                                   num_random_data_groups );
-
   if( ! size_random_data_groups.empty() )
    ::SMSpp_di_unipi_it::serialize( group , "SizeRandomDataGroups" ,
                                    netCDF::NcUint() ,
                                    NumberRandomDataGroups_dim ,
                                    size_random_data_groups , false );
- }
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*---------------- METHODS FOR MODIFYING THE ScenarioSet -------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods for modifying the ScenarioSet
  *  @{ */
 
-/**@} ----------------------------------------------------------------------*/
+ /// set the structural metadata of this ScenarioSet
+ /** Populate the "structural" fields of this ScenarioSet (those that do not
+  * depend on the scenarios themselves) without going through deserialize().
+  * This is meant to be used by SDDPBlock when the actual scenarios come
+  * from a ScenarioGenerator (so that ScenarioSet::deserialize() cannot be
+  * called, as the netCDF variables NumberScenarios / ScenarioSize /
+  * Scenarios are absent) but the per-stage decomposition is still owned
+  * by SDDPBlock. Following this call, set_scenarios() can be used to
+  * install the actual data.
+  *
+  * @param time_horizon The time horizon T.
+  *
+  * @param sub_scenario_size A vector of length T, the i-th element being
+  *        the size of the sub-scenario associated with stage i; the sum
+  *        of these will be set as the scenario_size.
+  *
+  * @param num_random_data_groups The number of related-random-data
+  *        groups in each sub-scenario.
+  *
+  * @param size_random_data_groups A vector of length \p
+  *        num_random_data_groups, the i-th element being the size of the
+  *        i-th group; or empty if num_random_data_groups == 1. */
+
+ void set_structural_metadata( Index time_horizon ,
+                               std::vector< Index > sub_scenario_size ,
+                               Index num_random_data_groups = 1 ,
+                               std::vector< Index > size_random_data_groups
+                               = {} ) {
+  this->time_horizon = time_horizon;
+  this->sub_scenario_size = std::move( sub_scenario_size );
+  this->num_random_data_groups = num_random_data_groups;
+  this->size_random_data_groups = std::move( size_random_data_groups );
+
+  if( this->sub_scenario_size.size() != time_horizon )
+   throw( std::logic_error( "ScenarioSet::set_structural_metadata: "
+                            "'sub_scenario_size' must have length "
+                            "'time_horizon'" ) );
+
+  scenario_size = std::accumulate( this->sub_scenario_size.begin() ,
+                                   this->sub_scenario_size.end() ,
+                     decltype( this->sub_scenario_size )::value_type( 0 ) );
+
+  // recompute sub_scenario_start_index
+  sub_scenario_start_index.resize( time_horizon + 1 );
+  Index next_index = 0;
+  for( Index i = 0 ; i < time_horizon ; ++i ) {
+   sub_scenario_start_index[ i ] = next_index;
+   next_index += this->sub_scenario_size[ i ];
+   }
+  sub_scenario_start_index[ time_horizon ] = scenario_size;
+  }
+
+/*--------------------------------------------------------------------------*/
+ /// set the scenario data of this ScenarioSet
+ /** Install the actual scenario data. The structural metadata must have
+  * been set beforehand (either via deserialize() or via
+  * set_structural_metadata()). Every row of \p new_scenarios must have
+  * length get_scenario_size().
+  *
+  * @param new_scenarios A vector of vectors, each row representing one
+  *        scenario; size sets num_scenarios. */
+
+ void set_scenarios( std::vector< std::vector< double > > new_scenarios ) {
+  for( const auto & s : new_scenarios )
+   if( s.size() != scenario_size )
+    throw( std::logic_error( "ScenarioSet::set_scenarios: every scenario "
+                             "must have length get_scenario_size()." ) );
+  scenarios = std::move( new_scenarios );
+  num_scenarios = scenarios.size();
+  }
+
+/*--------------------------------------------------------------------------*/
+ /// set the number of scenarios reported by size()
+ /** Adjust the num_scenarios counter exposed by size() without touching the
+  * internal #scenarios storage. This is meant to be used by SDDPBlock when
+  * the actual scenario data lives outside the ScenarioSet (i.e., inside a
+  * ScenarioGenerator-driven cache owned by SDDPBlock) but the legacy code
+  * paths still ask the ScenarioSet for the scenario count. Callers that
+  * read size() must NOT then try to access the scenario data through this
+  * ScenarioSet (sub_scenario_begin/end, scenario(), sub_scenario()): in
+  * the generator-backed path the .scenarios storage is empty.
+  *
+  * @param n The new value to be reported by size(). */
+
+ void set_num_scenarios( Index n ) { num_scenarios = n; }
+
+/** @} ---------------------------------------------------------------------*/
 /*------------ METHODS DESCRIBING THE BEHAVIOR OF A ScenarioSet ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods describing the behavior of a ScenarioSet
@@ -311,35 +397,26 @@ public:
   *
   * @return The number of scenarios. */
 
- Index size() const {
-  return( num_scenarios );
- }
+ Index size( void ) const { return( num_scenarios ); }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the size of a scenario in this ScenarioSet
  /** This function returns the size of a scenario in this ScenarioSet. Notice
   * that all scenarios have the same size.
   *
   * @return The size of a scenario. */
 
- Index get_scenario_size() const {
-  return( scenario_size );
- }
+ Index get_scenario_size( void ) const { return( scenario_size ); }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the time horizon
  /** This function returns the time horizon
   *
   * @return The time horizon. */
 
- Index get_time_horizon() const {
-  return( time_horizon );
- }
+ Index get_time_horizon( void ) const { return( time_horizon ); }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the size of each random data group
  /** This function returns a reference to the vector containing the size of
   * each group of related random data. The i-th element in this vector is the
@@ -349,12 +426,11 @@ public:
   *
   * @return The size of each group of related random data. */
 
- const std::vector< Index > & get_size_random_data_groups() const {
+ const std::vector< Index > & get_size_random_data_groups( void ) const {
   return( size_random_data_groups );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns a pointer to the array containing the scenario \p i
  /** This function returns a (const) pointer to the array containing the data
   * of the \p i-th scenario. The size of this array is given by
@@ -366,16 +442,15 @@ public:
 
  const double * scenario( Index i ) const {
   if( i >= size() )
-   throw( std::invalid_argument
-          ( "ScenarioSet::scenario: Invalid scenario index " +
+   throw( std::invalid_argument(
+            "ScenarioSet::scenario: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
 
   return( scenarios[ i ].data() );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns a pointer to the array containing the sub-scenario (i, t)
  /** This function returns a (const) pointer to the array containing the data
   * of the sub-scenario associated with time \p t of the \p i-th scenario. The
@@ -390,7 +465,6 @@ public:
   *         i associated with time instant \p t. */
 
  const double * sub_scenario( Index i , Index t ) const {
-
   if( i >= size() )
    throw( std::invalid_argument
           ( "ScenarioSet::sub_scenario: Invalid scenario index " +
@@ -399,10 +473,9 @@ public:
 
   assert( t < get_time_horizon() );
   return( scenarios[ i ].data() + sub_scenario_start_index[ t ] );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns an iterator to the first element of the sub-scenario (i, t)
  /** This function returns a const iterator to the first element of the
   * sub-scenario associated with time \p t of the \p i-th scenario. The size
@@ -427,15 +500,14 @@ public:
   assert( t < get_time_horizon() );
   return( std::next( scenarios[ i ].cbegin() ,
                      sub_scenario_start_index[ t ] ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns an iterator to the element following the last in sub-scenario (i,t)
  /** This function returns a const iterator to the element following the last
   * element of the vector containing the data of the sub-scenario associated
-  * with time \p t of the \p i-th scenario. The size of this vector is given by
-  * get_sub_scenario_size( t ).
+  * with time \p t of the \p i-th scenario. The size of this vector is given
+  * by get_sub_scenario_size( t ).
   *
   * @param i The index of a scenario, which must be between 0 and size() - 1.
   *
@@ -449,18 +521,17 @@ public:
  std::vector< double >::const_iterator
  sub_scenario_end( Index i , Index t ) const {
   if( i >= size() )
-   throw( std::invalid_argument
-          ( "ScenarioSet::sub_scenario_end: Invalid scenario index " +
+   throw( std::invalid_argument(
+            "ScenarioSet::sub_scenario_end: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
 
   assert( t < get_time_horizon() );
   return( std::next( scenarios[ i ].cbegin() ,
                      sub_scenario_start_index[ t + 1 ] ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the size of the sub-scenario associated with time \p t
  /** This function returns the size of the sub-scenario associated with time
   * \p t.
@@ -473,11 +544,31 @@ public:
  auto get_sub_scenario_size( Index t ) const {
   assert( t < get_time_horizon() );
   return( sub_scenario_start_index[ t + 1 ] - sub_scenario_start_index[ t ] );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
+ /// returns the offset of sub-scenario \p t within a full-horizon scenario
+ /** Returns the index (along the second dimension of the scenarios matrix,
+  * or equivalently along any flat scenario vector of length
+  * #get_scenario_size()) at which the sub-scenario for stage \p t begins.
+  *
+  * The valid range is [0, get_time_horizon()]; for t == get_time_horizon()
+  * the returned value is #get_scenario_size(), so the half-open interval
+  * [sub_scenario_begin_offset(t), sub_scenario_begin_offset(t+1)) gives
+  * the slice for stage t.
+  *
+  * Exposed primarily so that SDDPBlock can re-use this structural
+  * metadata to slice the generator-backed scenario cache without
+  * duplicating the prefix-sum bookkeeping.
+  *
+  * @param t A time instant in [0, get_time_horizon()]. */
 
-/**@} ----------------------------------------------------------------------*/
+ Index sub_scenario_begin_offset( Index t ) const {
+  assert( t <= get_time_horizon() );
+  return( sub_scenario_start_index[ t ] );
+  }
+
+/** @} ---------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -487,13 +578,13 @@ protected:
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Protected methods
-    @{ */
+ *  @{ */
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------------- PROTECTED FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Protected fields
-    @{ */
+ *  @{ */
 
  /// Number of scenarios
  Index num_scenarios;
@@ -504,15 +595,14 @@ protected:
  /// The size of each sub-scenario
  /** A scenario is divided into sub-scenarios, each sub-scenario being
   * associated with a time instant. This vector stores the size of each
-  * sub-scenario. For each t in {0, TimeHorizon - 1}, sub_scenario_size[ t ] is
-  * the size of the sub-scenario associated with time t.
-  */
+  * sub-scenario. For each t in {0, TimeHorizon - 1},
+  * sub_scenario_size[ t ] is the size of the sub-scenario associated with
+  * time t. */
  std::vector< Index > sub_scenario_size;
 
  /// Matrix storing the scenarios
  /** The number of rows is the number of scenarios and the number of columns
-  * is the size of a scenario.
-  */
+  * is the size of a scenario. */
  std::vector< std::vector< double > > scenarios;
 
  /// The number of groups of related random data
@@ -522,17 +612,16 @@ protected:
  /** If there are more than one group of related random data, then
   * size_random_data_groups[ i ] is the size of the i-th group of related
   * random data. If this vector is empty, then there is a single group of
-  * related random data.
-  */
+  * related random data. */
  std::vector< Index > size_random_data_groups;
 
  Index time_horizon;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
 
-private:
+ private:
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
@@ -542,11 +631,11 @@ private:
 
  std::vector< Index > sub_scenario_start_index;
 
-/*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Private methods
-    @{ */
+ *  @{ */
 
  void deserialize_scenarios( const netCDF::NcGroup & group ) {
 
@@ -555,15 +644,14 @@ private:
   auto scenarios_var = group.getVar( "Scenarios" );
 
   if( scenarios_var.isNull() )
-   throw( std::invalid_argument
-          ( "ScenarioSet::deserialize_scenarios: 'Scenarios' "
-            "variable has not been provided." ) );
+   throw( std::invalid_argument(
+                          "ScenarioSet::deserialize_scenarios: 'Scenarios' "
+                          "variable has not been provided." ) );
 
   auto dims = scenarios_var.getDims();
 
   if( ( dims.size() != 2 ) || ( dims[ 0 ].getSize() != num_scenarios ) ||
       ( dims[ 1 ].getSize() != scenario_size ) )
-
    throw( std::logic_error
           ( "ScenarioSet::deserialize_scenarios: 'Scenarios' must be a two-"
             "dimensional array whose first and second dimensions have sizes "
@@ -572,13 +660,15 @@ private:
   for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
    scenarios_var.getVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
                          scenarios[ i ].data() );
- }
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
-};   // end( class ScenarioSet )
+ };   // end( class ScenarioSet )
 
-/** @} end( group( ScenarioSet_CLASSES ) ) */
+/** @} end( group( ScenarioSet_CLASSES ) ) ---------------------------------*/
+/*--------------------------------------------------------------------------*/
 
 }  // end( namespace SMSpp_di_unipi_it )
 

@@ -12,7 +12,16 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
+ *                      Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -201,8 +210,7 @@ public:
   * - kLowPrecision is returned when every subproblem is "solved" and
   *   terminated with either a kOK or kLowPrecision status. In this case, the
   *   solution found is feasible for the deterministic (single-scenario)
-  *   multistage problem but there is no guarantee that it is optimal.
-  */
+  *   multistage problem but there is no guarantee that it is optimal. */
 
  enum sddp_greedy_sol_type {
  kSubproblemInfeasible = kInfeasible + 1 ,
@@ -227,7 +235,6 @@ public:
  };  // end( sddp_greedy_sol_type )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the int algorithmic parameters
  /** Public enum describing the different types of algorithmic parameters of
   * "int" type that the SDDPGreedySolver has, besides those defined in
@@ -360,6 +367,35 @@ public:
    * By default, #intLoadCutsOnce is 1, which means that cuts are loaded only
    * once. */
 
+  intSubBlockIndex ,
+  ///< The index of the sub-Block of the SDDPBlock that must be considered
+  /**< The SDDPBlock may have multiple sub-Blocks for each stage. This
+   * parameter defines the index of the sub-Block at each stage that must be
+   * considered. The value of this parameter must be an integer between 0 and
+   * SDDPBlock::get_num_sub_blocks_per_stage() - 1. The default value for
+   * this parameter is 0. */
+
+  intRandomPoolSize ,
+  ///< Pool size for the random scenario sample
+  /**< If positive, set_Block() calls init_random_pool(value) on the
+   * attached ScenarioGenerator: for a single-stage generator this
+   * shuffles \p value scenarios out of the current universe; for a
+   * :MultiStageScenarioGenerator (necessarily stage-independent) the
+   * same \p value is applied to every stage by looping
+   * init_random_pool() + View::descend() through all stages.
+   *
+   * If non-positive (the default, -1), set_Block() instead calls
+   * init_random_pool() with the default INFScenario argument, which
+   * means "shuffle the full current universe at each stage". This
+   * matches the original "always shuffle" behaviour of
+   * SDDPGreedySolver, which is a Monte-Carlo evaluator of the policy
+   * over the full universe of scenarios.
+   *
+   * To set per-stage sizes for a multi-stage generator (different
+   * \p s_t per stage), use #vintRandomPoolSize instead; if both are
+   * non-default, #vintRandomPoolSize takes precedence. The default
+   * value for this parameter is -1. */
+
   intLastAlgPar
   ///< first allowed new double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -368,7 +404,6 @@ public:
  };  // end( int_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the string algorithmic parameters
  /** Public enum describing the different types of algorithmic parameters of
   * "string" type that the SDDPGreedySolver has, besides those defined in
@@ -391,21 +426,12 @@ public:
   ///< name of the file out of which cuts will be loaded
   /**< This parameter indicates the path to the file out of which cuts will be
    * loaded. By default, the path to this file is empty, which means that no
-   * cut is loaded. If provided, the file must have the format the following
-   * format. The first line contains the header, which will be simply
-   * ignored. Each of the following lines must contain a cut described as
-   * follows:
-   *
-   *     s, a_0, a_1, ..., a_{k-1}, b
-   *
-   * where s is a stage between 0 and get_time_horizon() - 1, which indicates
-   * the stage with which the cut is associated, a_0, ..., a_{k-1} are the
-   * coefficients of the cut (a_i being the coefficient associated with the
-   * i-th state variable), and b is the constant (independent) term of the
-   * cut. Cuts associated with a a particular stage are loaded within
-   * compute() right before the subproblem associated with that stage is
-   * solved. See the parameter #intLoadCutsOnce to control when cuts are
-   * loaded. */
+   * cut is loaded. If provided, the file must have one of the two formats
+   * specified by SDDPBlock::serialize_cuts() (netCDF or the historical
+   * CSV), which is automatically detected. Cuts associated with a
+   * particular stage are loaded within compute() right before the subproblem
+   * associated with that stage is solved. See the parameter #intLoadCutsOnce
+   * to control when cuts are loaded. */
 
   strRandomCutsFile ,
   ///< name of the file out of which the random cuts will be retrieved
@@ -500,7 +526,6 @@ public:
  };  // end( str_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the vector-of-int parameters
  /** Public enum describing the different algorithmic parameters of
   * vector-of-int type that SDDPGreedySolver has in addition to these of
@@ -537,6 +562,20 @@ public:
    * Each element of this vector must be between 0 and get_time_horizon() -
    * 1. By default, this vector is empty. */
 
+  vintRandomPoolSize ,
+  ///< Per-stage pool sizes for the random scenario sample
+  /**< Per-stage refinement of #intRandomPoolSize for a
+   * :MultiStageScenarioGenerator attached to the SDDPBlock. If
+   * non-empty, the vector must have size get_stage_number() and the
+   * t-th component is used as the random-pool size for stage t:
+   * set_Block() loops init_random_pool( sizes[ t ] ) + View::descend()
+   * through all stages.
+   *
+   * If empty (the default), this parameter is ignored and
+   * #intRandomPoolSize is consulted instead. If the attached
+   * generator is single-stage, this parameter must be empty
+   * (otherwise set_Block() throws). */
+
   vintLastAlgPar
   ///< first allowed new vector-of-int parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -545,7 +584,6 @@ public:
  };  // end( vint_par_type_SDDP_Greedy_S )
 
 /*--------------------------------------------------------------------------*/
-
  /// public enum for the vector-of-double parameters
  /** Public enum describing the different algorithmic parameters of
   * vector-of-double type that SDDPGreedySolver has in addition to these of
@@ -571,7 +609,7 @@ public:
 
  };  // end( vdbl_par_type_SDDP_Greedy_S )
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------- CONSTRUCTING AND DESTRUCTING SDDPGreedySolver --------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Constructing and destructing SDDPGreedySolver
@@ -585,7 +623,7 @@ public:
  /// destructor
  virtual ~SDDPGreedySolver();
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Other initializations
@@ -617,6 +655,8 @@ public:
   * - #intEarlyConfig [0]
   *
   * - #intLoadCutsOnce [1]
+  *
+  * - #intSubBlockIndex [0]
   *
   * Please refer to the #int_par_type_SDDP_Greedy_S enumeration for a
   * detailed description of each of them.
@@ -650,6 +690,8 @@ public:
    case( intOutputScenario ): f_output_scenario = value; return;
    case( intEarlyConfig ): f_early_config = value; return;
    case( intLoadCutsOnce ): f_load_cuts_once = value; return;
+   case( intSubBlockIndex ): f_sub_block_index = value; return;
+   case( intRandomPoolSize ): random_pool_size = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -678,8 +720,9 @@ public:
   *   set_ComputeConfig()).
   *
   * - #strLoadCuts [""]: the filename of (path to) the file out of which cuts
-  *   will be loaded. By default, the path to this file is empty, which means
-  *   that no cut is loaded.
+  *   will be loaded. The file must have the netCDF format specified by
+  *   SDDPBlock::serialize_cuts(). By default, the path to this file is
+  *   empty, which means that no cut is loaded.
   *
   * - #strRandomCutsFile [""]: the filename of (path to) the file containing
   *   the random cuts (cuts associated with a particular scenario). By
@@ -740,6 +783,7 @@ public:
  void set_par( idx_type par , std::vector< int > && value ) override {
   switch( par ) {
    case( vintStagesSample ): v_stages_to_sample = value; return;
+   case( vintRandomPoolSize ): random_pool_size_vec = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -827,7 +871,7 @@ public:
 
  void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Handling the parameters of the SDDPGreedySolver
@@ -836,45 +880,41 @@ public:
  /// get the number of int parameters
  /** Get the number of int parameters.
   *
-  * @return The number of int parameters.
-  */
+  * @return The number of int parameters. */
 
  idx_type get_num_int_par( void ) const override {
   return( idx_type( intLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the number of string parameters
  /** Get the number of string parameters.
   *
-  * @return The number of string parameters.
-  */
+  * @return The number of string parameters. */
 
  idx_type get_num_str_par( void ) const override {
   return( idx_type( strLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the number of vector-of-int parameters
  /** Get the number of vector-of-int  parameters.
   *
-  * @return The number of vector-of-int parameters.
-  */
+  * @return The number of vector-of-int parameters. */
 
  idx_type get_num_vint_par( void ) const override {
   return( idx_type( vintLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the number of vector-of-double parameters
  /** Get the number of vector-of-double  parameters.
   *
-  * @return The number of vector-of-double parameters.
-  */
+  * @return The number of vector-of-double parameters. */
 
  idx_type get_num_vdbl_par( void ) const override {
   return( idx_type( vdblLastAlgPar ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of an int parameter
@@ -884,8 +924,7 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
@@ -899,12 +938,13 @@ public:
    case( intOutputScenario ): return -1;
    case( intEarlyConfig ): return 0;
    case( intLoadCutsOnce ): return 1;
+   case( intSubBlockIndex ): return 0;
+   case( intRandomPoolSize ): return -1;
+   }
+  return( Solver::get_dflt_int_par( par ) );
   }
-  return Solver::get_dflt_int_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// get the default value of a string parameter
  /** Get the default value of the string parameter with given index. Please
   * see the #str_par_type_SDDP_Greedy_S and #str_par_type_S enumerations for a
@@ -912,19 +952,17 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::string & get_dflt_str_par( const idx_type par ) const override {
-
   static const std::vector< std::string > default_values =
    { "" , "" , "" , "" , "" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
-   return default_values[ par - str_par_type_S::strLastAlgPar ];
+   return( default_values[ par - str_par_type_S::strLastAlgPar ] );
 
-  return Solver::get_dflt_str_par( par );
- }
+  return( Solver::get_dflt_str_par( par ) );
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of a vector-of-int parameter
@@ -939,19 +977,19 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::vector< int > & get_dflt_vint_par( const idx_type par )
   const override {
   const static std::vector< int > empty;
 
-  if( par == vintStagesSample ) {
-   return empty;
-  }
+  if( par == vintStagesSample )
+   return( empty );
+  if( par == vintRandomPoolSize )
+   return( empty );
 
-  return Solver::get_dflt_vint_par( par );
- }
+  return( Solver::get_dflt_vint_par( par ) );
+  }
 
 /*--------------------------------------------------------------------------*/
  /// get the default value of a vector-of-double parameter
@@ -966,22 +1004,19 @@ public:
   *
   * @param par The parameter whose default value is desired.
   *
-  * @return The default value of the given parameter.
-  */
+  * @return The default value of the given parameter. */
 
  const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
   const override {
   const static std::vector< double > empty;
 
-  if( par == vdblInitialState ) {
-   return empty;
+  if( par == vdblInitialState )
+   return( empty );
+
+  return( Solver::get_dflt_vdbl_par( par ) );
   }
 
-  return Solver::get_dflt_vdbl_par( par );
- }
-
 /*--------------------------------------------------------------------------*/
-
  /// get a specific integer (int) numerical parameter
  /** Get a specific integer (int) numerical parameter. Please see the
   * #int_par_type_SDDP_Greedy_S and #int_par_type_S enumerations for a
@@ -989,8 +1024,7 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
@@ -1005,21 +1039,21 @@ public:
    case( intOutputScenario ): return f_output_scenario;
    case( intEarlyConfig ): return f_early_config;
    case( intLoadCutsOnce ): return f_load_cuts_once;
-  }
+   case( intSubBlockIndex ): return f_sub_block_index;
+   case( intRandomPoolSize ): return random_pool_size;
+   }
   return( Solver::get_dflt_int_par( par ) );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// get a specific string numerical parameter
- /** Get a specific string numerical parameter. Please see the
+ /// get a specific string parameter
+ /** Get a specific string parameter. Please see the
   * #str_par_type_SDDP_Greedy_S and #str_par_type_S enumerations for a
   * detailed explanation of the possible parameters.
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
@@ -1028,12 +1062,11 @@ public:
    case( strLoadCuts ): return f_load_cuts_filename;
    case( strRandomCutsFile ): return f_random_cuts_filename;
    case( strSimulationData ): return f_simulation_data_filename;
+   }
+  return( Solver::get_str_par( par ) );
   }
-  return Solver::get_str_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// get a specific vector-of-int parameter
  /** Get a specific vector-of-int parameter. Please see the
   * #vint_par_type_SDDP_Greedy_S and #vint_par_type_S enumerations for a
@@ -1041,19 +1074,18 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::vector< int > & get_vint_par( const idx_type par )
   const override {
   switch( par ) {
-   case( vintStagesSample ): return v_stages_to_sample;
+   case( vintStagesSample ): return( v_stages_to_sample );
+   case( vintRandomPoolSize ): return( random_pool_size_vec );
+   }
+  return( Solver::get_vint_par( par ) );
   }
-  return Solver::get_vint_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// get a specific vector-of-double parameter
  /** Get a specific vector-of-double parameter. Please see the
   * #vdbl_par_type_SDDP_Greedy_S and #vdbl_par_type_S enumerations for a
@@ -1061,19 +1093,17 @@ public:
   *
   * @param par The parameter whose value is desired.
   *
-  * @return The value of the given parameter.
-  */
+  * @return The value of the given parameter. */
 
  const std::vector< double > & get_vdbl_par( const idx_type par )
   const override {
   switch( par ) {
-   case( vdblInitialState ): return v_initial_state;
+   case( vdblInitialState ): return( v_initial_state );
+   }
+  return( Solver::get_vdbl_par( par ) );
   }
-  return Solver::get_vdbl_par( par );
- }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the index of the int parameter with given string \p name
  /** This method takes a string, which is assumed to be the name of an int
   * parameter, and returns its index, i.e., the integer value that can be
@@ -1084,8 +1114,7 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type int_par_str2idx( const std::string & name ) const override {
   if( name == "intScenarioId" ) return intScenarioId;
@@ -1098,11 +1127,12 @@ public:
   if( name == "intOutputScenario" ) return intOutputScenario;
   if( name == "intEarlyConfig" ) return intEarlyConfig;
   if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
+  if( name == "intSubBlockIndex" ) return intSubBlockIndex;
+  if( name == "intRandomPoolSize" ) return intRandomPoolSize;
   return Solver::int_par_str2idx( name );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the index of the string parameter with given string name
  /** This method takes a string, which is assumed to be the name of a string
   * parameter, and returns its index, i.e., the integer value that can be
@@ -1110,8 +1140,7 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type str_par_str2idx( const std::string & name ) const override {
   if( name == "strInnerBC" ) return strInnerBC;
@@ -1119,11 +1148,10 @@ public:
   if( name == "strLoadCuts" ) return strLoadCuts;
   if( name == "strRandomCutsFile" ) return strRandomCutsFile;
   if( name == "strSimulationData" ) return strSimulationData;
-  return Solver::str_par_str2idx( name );
- }
+  return( Solver::str_par_str2idx( name ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the index of the vector-of-int parameter with given string name
  /** This method takes a string, which is assumed to be the name of a
   * vector-of-int parameter, and returns its index, i.e., the int value that
@@ -1131,33 +1159,30 @@ public:
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name. */
 
  idx_type vint_par_str2idx( const std::string & name ) const override {
   if( name == "vintStagesSample" ) return vintStagesSample;
-  return Solver::vint_par_str2idx( name );
- }
+  if( name == "vintRandomPoolSize" ) return vintRandomPoolSize;
+  return( Solver::vint_par_str2idx( name ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the index of the vector-of-double parameter with given string name
+ /// returns the index of the vector-of-double parameter with given str. name
  /** This method takes a string, which is assumed to be the name of a
   * vector-of-double parameter, and returns its index, i.e., the double value
   * that can be used in [set/get]_par() to set/get it.
   *
   * @param name The name of the parameter.
   *
-  * @return The index of the parameter with the given \p name.
-  */
+  * @return The index of the parameter with the given \p name.xs */
 
  idx_type vdbl_par_str2idx( const std::string & name ) const override {
-  if( name == "vdblInitialState" ) return vdblInitialState;
-  return Solver::vdbl_par_str2idx( name );
- }
+  if( name == "vdblInitialState" ) return( vdblInitialState );
+  return( Solver::vdbl_par_str2idx( name ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
 /// returns the string name of the int parameter with given index
  /** This method takes an int parameter index, i.e., the integer value that
   * can be used in [set/get]_par() [see above] to set/get it, and returns its
@@ -1165,25 +1190,23 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & int_par_idx2str( const idx_type idx ) const override {
-
   static const std::vector< std::string > parameter_names =
    { "intScenarioId" , "intFirstStageScenarioId" , "intUnregisterSolver" ,
      "intScenarioSeed" , "intScenarioSampleFrequency" ,
      "intSimulationDataOutputPrecision" , "intOutputScenario" ,
-     "intEarlyConfig" , "intLoadCutsOnce" };
+     "intEarlyConfig" , "intLoadCutsOnce" , "intSubBlockIndex" ,
+     "intRandomPoolSize" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
-   return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
+   return( parameter_names[ idx - int_par_type_S::intLastAlgPar ] );
 
-  return Solver::int_par_idx2str( idx );
- }
+  return( Solver::int_par_idx2str( idx ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the string name of the string parameter with given index
  /** This method takes a string parameter index, i.e., the integer value that
   * can be used in [set/get]_par() [see above] to set/get it, and returns its
@@ -1191,62 +1214,56 @@ public:
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & str_par_idx2str( const idx_type idx ) const override {
-
   static const std::vector< std::string > parameter_names =
    { "strInnerBC" , "strInnerBSC" , "strLoadCuts" , "strRandomCutsFile" ,
      "strSimulationData" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
-   return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
+   return( parameter_names[ idx - str_par_type_S::strLastAlgPar ] );
 
-  return Solver::str_par_idx2str( idx );
- }
+  return( Solver::str_par_idx2str( idx ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the string name of the vector-of-double parameter with given index
+ /// returns the name of the vector-of-double parameter with given index
  /** This method takes a vector-of-double parameter index, i.e., the double
   * value that can be used in [set/get]_par() [see above] to set/get it, and
   * returns its "string name".
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & vint_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
-   { "vintStagesSample" };
+   { "vintStagesSample" , "vintRandomPoolSize" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
-   return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
-  return Solver::vint_par_idx2str( idx );
- }
+   return( parameter_names[ idx - vint_par_type_S::vintLastAlgPar ] );
+  return( Solver::vint_par_idx2str( idx ) );
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the string name of the vector-of-double parameter with given index
+ /// returns the name of the vector-of-double parameter with given index
  /** This method takes a vector-of-double parameter index, i.e., the double
   * value that can be used in [set/get]_par() [see above] to set/get it, and
   * returns its "string name".
   *
   * @param idx The index of the parameter.
   *
-  * @return The name of the parameter with the given index \p idx.
-  */
+  * @return The name of the parameter with the given index \p idx. */
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
    { "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
-   return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
-  return Solver::vdbl_par_idx2str( idx );
- }
+   return( parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ] );
+  return( Solver::vdbl_par_idx2str( idx ) );
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- METHODS FOR SOLVING THE MODEL ----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Solving the model encoded by the current Block
@@ -1285,7 +1302,7 @@ public:
 
  int compute( bool changedvars = true ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------- METHODS FOR CHANGING THE DATA OF THE SDDPGreedySolver ----------*/
 /*--------------------------------------------------------------------------*/
 /** @name Changing the data of the SDDPGreedySolver
@@ -1368,7 +1385,7 @@ public:
   this->random_number_engine = random_number_engine;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Accessing the found solutions (if any)
@@ -1381,6 +1398,31 @@ public:
 /*--------------------------------------------------------------------------*/
 
  void get_var_solution( Configuration *solc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+ /// returns the State of this SDDPGreedySolver
+ /** Returns the State of this SDDPGreedySolver, i.e., a SDDPSolverState
+  * containing the cuts (the PolyhedralFunction of each stage) of the
+  * SDDPBlock this SDDPGreedySolver is attached to; see SDDPSolverState for
+  * details. Being the cuts the (only) algorithmic state that SDDPSolver and
+  * SDDPGreedySolver share, the State produced by one can be put_State() into
+  * the other, e.g., to simulate upon the cuts produced by an optimization. */
+
+ State * get_State( void ) const override;
+
+/*--------------------------------------------------------------------------*/
+ /// puts the given State (the cuts) into this SDDPGreedySolver
+ /** Puts the given State into this SDDPGreedySolver, i.e., writes the cuts
+  * contained in the given SDDPSolverState (if \p state is not a
+  * SDDPSolverState, exception is thrown) into the PolyhedralFunction of
+  * every sub-Block of every stage of the SDDPBlock this SDDPGreedySolver is
+  * attached to, replacing the current ones. */
+
+ void put_State( const State & state ) override;
+
+/*--------------------------------------------------------------------------*/
+
+ void put_State( State && state ) override;
 
 /*--------------------------------------------------------------------------*/
 
@@ -1444,7 +1486,7 @@ public:
   return fault_stage;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------- METHODS FOR READING THE DATA OF THE SDDPGreedySolver -----------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the state of the SDDPGreedySolver
@@ -1524,7 +1566,7 @@ public:
   return random_number_engine;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -1553,6 +1595,9 @@ protected:
 
  /// It indicates whether cuts should be loaded only once (see #intLoadCutsOnce)
  int f_load_cuts_once = 1;
+
+ /// The index of the sub-Block of the SDDPBlock that must be considered
+ int f_sub_block_index = 0;
 
  /// Indicates whether the Solver of the inner Block must be unregister
  bool f_unregister_solver = false;
@@ -1590,6 +1635,17 @@ protected:
  /// BlockSolverConfig for the inner Blocks
  std::vector< BlockSolverConfig * > v_BSC;
 
+ /// the clear()-ed BlockSolverConfig that configured each inner Block
+ /**< For each stage, the clone of the BlockSolverConfig that has actually
+  * been apply()-ed to the inner Block of the corresponding BendersBFunction,
+  * kept clear()-ed: apply()-ing it removes all and only the Solver that it
+  * has registered there [see BlockSolverConfig::apply()], which is how the
+  * configuration is un-done [see unregister_solver_inner_block()]. A clone
+  * per stage is necessary because the same BlockSolverConfig is apply()-ed
+  * to the inner Block of every stage, while the record of the registered
+  * Solver that its cleared apply() uses is per-Block. */
+ std::vector< BlockSolverConfig * > v_aBSC;
+
  /// Indicates whether the inner Block of each BendersBFunction was configured
  std::vector< bool > v_inner_block_configured;
 
@@ -1597,8 +1653,8 @@ protected:
  /// has been configured
  std::vector< bool > v_inner_solver_configured;
 
- /// It indicates whether cuts for each stage have been loaded
- std::vector< bool > v_cuts_loaded;
+ /// It indicates whether cuts for each stage and sub-Block have been loaded
+ std::vector< std::vector< bool > > v_cuts_loaded;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -1677,7 +1733,7 @@ private:
     const auto sddp_block = static_cast< SDDPBlock * >( solver->get_Block() );
     this->scenario_width =
      std::max( std::string::size_type( 9 ) ,
-               std::to_string( sddp_block->get_scenario_set().size() ).size() );
+               std::to_string( sddp_block->size() ).size() );
    }
   }
 
@@ -1752,7 +1808,7 @@ private:
 
   auto benders_block = static_cast< BendersBlock * >
    ( static_cast< SDDPBlock * >( f_Block )->
-     get_sub_Block( stage )->get_inner_block() );
+     get_sub_Block( stage , f_sub_block_index )->get_inner_block() );
 
   auto objective = static_cast< FRealObjective * >
    ( benders_block->get_objective() );
@@ -1808,7 +1864,8 @@ private:
 
  double get_future_value( Index stage ) const {
   assert( stage < get_time_horizon() );
-  return static_cast< SDDPBlock * >( f_Block )->get_future_cost( stage , 0 );
+  return static_cast< SDDPBlock * >( f_Block )->
+   get_future_cost( stage , f_sub_block_index );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1995,6 +2052,18 @@ private:
 
  /// Stages at which scenarios must be sampled
  std::vector< int > v_stages_to_sample;
+
+ /// Pool size for the random scenario sample
+ /** Storage for the #intRandomPoolSize algorithmic parameter. See the
+  * comments on that parameter for the dispatch rules applied in
+  * set_Block(). */
+ int random_pool_size = -1;
+
+ /// Per-stage pool sizes for the random scenario sample
+ /** Storage for the #vintRandomPoolSize algorithmic parameter. See the
+  * comments on that parameter for the per-stage dispatch applied in
+  * set_Block(). */
+ std::vector< int > random_pool_size_vec;
 
  /// Distribution for selecting the scenarios at each stage
  std::uniform_int_distribution< Index > scenario_distribution;

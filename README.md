@@ -120,14 +120,13 @@ necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
 modules that already include them). Relevant examples are the
-[sddp_solver](https://gitlab.com/smspp/tools/-/blob/develop/sddp_solver/sddp_solver.cpp?ref_type=heads) and the
-[sddp_greedy_solver](https://gitlab.com/smspp/tools/-/blob/develop/sddp_solver/sddp_greedy_solver.cpp?ref_type=heads) available in the
-[tools](https://gitlab.com/smspp/tools) repository. The makefiles in turn
-recursively include all the required other makefiles, hence one should only
-need to edit the "main makefile" for compilation type (C++ compiler and its
-options) and it all should be good to go. In case some of the external
-libraries (say, StOpt) are not at their default location, it should only be
-necessary to create the `../extlib/makefile-paths` out of the
+[sddp_solver](https://gitlab.com/smspp/tools/-/blob/develop/sddp_solver/sddp_solver.cpp?ref_type=heads)
+available in the [tools](https://gitlab.com/smspp/tools) repository.
+The makefiles in turn recursively include all the required other makefiles,
+hence one should only need to edit the "main makefile" for compilation type
+(C++ compiler and its options) and it all should be good to go. In case some
+of the external libraries (say, StOpt) are not at their default location, it
+should only be necessary to create the `../extlib/makefile-paths` out of the
 `extlib/makefile-default-paths-*` for your OS `*` and edit the relevant bits
 (commenting out all the rest).
 
@@ -154,6 +153,8 @@ conduct, and the process for submitting merge requests to us.
 - **Rafael Durbano Lobato**  
   Dipartimento di Informatica  
   Università di Pisa
+
+### Contributors
 
 
 ## License

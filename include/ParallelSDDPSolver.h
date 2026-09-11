@@ -9,7 +9,11 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -149,6 +153,12 @@ protected:
    SDDPSolver::SDDPOptimizer::reset();
    new_stage = true;
    cuts_synchronized = false;
+   locked.clear();
+   last_sub_block_solved.clear();
+   scenario_currently_set.clear();
+   preferred_block.clear();
+   non_reserved_block.clear();
+   reserved_blocks.clear();
   }
 
 /*--------------------------------------------------------------------------*/

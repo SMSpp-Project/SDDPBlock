@@ -10,7 +10,11 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -39,7 +43,6 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
-
 /*--------------------------------------------------------------------------*/
 /*------------------------------- CLASSES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -53,12 +56,11 @@ namespace SMSpp_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// ScenarioSimulator, a SimulatorSDDPBase for a set of scenarios
 /** ScenarioSimulator is a class that derives from StOpt::SimulatorSDDPBase
- * and serves as a simple simulator for a set of scenarios.
- */
+ * and serves as a simple simulator for a set of scenarios. */
 
-class ScenarioSimulator : public StOpt::SimulatorSDDPBase {
-
-public:
+class ScenarioSimulator : public StOpt::SimulatorSDDPBase
+{
+ public:
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PUBLIC TYPES --------------------------------*/
@@ -68,7 +70,7 @@ public:
 
  using Index = unsigned int;
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------ CONSTRUCTING AND DESTRUCTING ScenarioSimulator --------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Constructing and destructing ScenarioSimulator
@@ -86,7 +88,6 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
-
  /// Constructs a ScenarioSimulator for the given set of scenarios
  /** Constructs a ScenarioSimulator for the given set of scenarios.
   *
@@ -106,14 +107,14 @@ public:
 
   set_scenarios( scenario_set );
   random_number_engine.seed( initial_seed );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// destructor
+
  virtual ~ScenarioSimulator() {}
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*------------- METHODS FOR MODIFYING THE ScenarioSimulator ----------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods for modifying the ScenarioSimulator
@@ -123,11 +124,10 @@ public:
  void set_number_simulations( int n ) {
   number_simulations = n;
   indices_selected_particles.resize( number_simulations );
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
- /// indicates if the sampling of scenarios must be with or without replacement
+ /// tells if the sampling of scenarios must be with or without replacement
  /** This function determines if the sampling of scenarios must be done with
   * or without replacement.
   *
@@ -137,10 +137,9 @@ public:
 
  void set_sampling_replacement( bool with_replacement ) {
   sampling_with_replacement = with_replacement;
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// indicates if the sampling must be done at at time instant
  /** This function determines if the sampling of scenarios must be done at
   * each time instant as opposed to only at time 0 (for a forward simulator)
@@ -152,26 +151,40 @@ public:
 
  void set_intermediate_sampling( bool intermediate_sampling ) {
   this->intermediate_sampling = intermediate_sampling;
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// defines the set of scenarios
- void set_scenarios( const ScenarioSet & scenario_set ) {
+ /** Generic version: the source \p src must expose the same minimal
+  * interface that ScenarioSet (and, since v2 step 1, SDDPBlock) provides
+  * to ScenarioSimulator, namely:
+  *
+  *  - Index   size() const
+  *  - Index   get_time_horizon() const
+  *  - const std::vector< Index > & get_size_random_data_groups() const
+  *  - some const_iterator sub_scenario_begin( Index i, Index t ) const
+  *  - some const_iterator sub_scenario_end  ( Index i, Index t ) const
+  *
+  * Templating this on Src avoids hard-coding ScenarioSet here and lets
+  * callers pass either a plain ScenarioSet (legacy path) or an SDDPBlock
+  * whose data is sourced from an attached ScenarioGenerator (v2 path),
+  * without having to include SDDPBlock.h from this header (which would
+  * cause a cyclic dependency, since SDDPBlock.h includes us). */
 
+ template< typename Src > void set_scenarios( const Src & src ) {
   // Construct the particles
 
-  const auto num_scenarios = scenario_set.size();
+  const auto num_scenarios = src.size();
 
   distribution = std::uniform_int_distribution< Index >
    ( 0 , num_scenarios - 1 );
 
-  const auto time_horizon = scenario_set.get_time_horizon();
+  const auto time_horizon = src.get_time_horizon();
 
   all_particles.resize( time_horizon );
 
   const auto & size_random_data_groups =
-   scenario_set.get_size_random_data_groups();
+   src.get_size_random_data_groups();
 
   const auto particle_length = size_random_data_groups.empty() ? 1 :
    size_random_data_groups.size();
@@ -182,12 +195,13 @@ public:
 
    for( Index i = 0 ; i < num_scenarios ; ++i ) {
 
-    auto sub_scenario_begin = scenario_set.sub_scenario_begin( i , t );
-    auto sub_scenario_end = scenario_set.sub_scenario_end( i , t );
+    auto sub_scenario_begin = src.sub_scenario_begin( i , t );
+    auto sub_scenario_end = src.sub_scenario_end( i , t );
 
     if( particle_length == 1 )
      all_particles[ t ]( 0 , i ) =
-      std::accumulate( sub_scenario_begin , sub_scenario_end , double( 0.0 ) ) /
+      std::accumulate( sub_scenario_begin , sub_scenario_end ,
+                       double( 0.0 ) ) /
       std::distance( sub_scenario_begin , sub_scenario_end );
     else {
      Index start = 0;
@@ -205,35 +219,28 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
-
  /// set the initial seed of the random number generator
- void set_seed( unsigned int seed ) {
-  initial_seed = seed;
- }
 
-/**@} ----------------------------------------------------------------------*/
+ void set_seed( unsigned int seed ) { initial_seed = seed; }
+
+/** @} ---------------------------------------------------------------------*/
 /*--------- METHODS DESCRIBING THE BEHAVIOR OF A ScenarioSimulator ---------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods describing the behavior of a ScenarioSimulator
  * @{ */
 
  /// returns the number of particles (used in regression part)
- int getNbSimul() const override {
-  return number_simulations;
- }
+
+ int getNbSimul( void ) const override { return number_simulations; }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the number of samples
  /** This function returns the number of samples. For the ScenarioSimulator,
   * the number of samples is fixed to 1. */
 
- int getNbSample() const override {
-  return 1;
- }
+ int getNbSample( void ) const override { return 1; }
 
 /*--------------------------------------------------------------------------*/
-
  /// update the simulator for the given date
  /** Update the simulator for the date associated with the given index.
   *
@@ -254,7 +261,6 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the particle associated with the given index
  /** This function returns the particle associated with the given \p index.
   *
@@ -263,12 +269,11 @@ public:
   * @return The particle associated with the given \p index. */
 
  Eigen::VectorXd getOneParticle( const int & index ) const override {
-  return all_particles[ current_date_index ].col
-   ( indices_selected_particles[ index ] );
- }
+  return all_particles[ current_date_index ].col(
+                                       indices_selected_particles[ index ] );
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns all particles associated with the current date
  /** This function returns the matrix containing all particles associated with
   * the current date. The number of particles is equal to the number of
@@ -277,23 +282,21 @@ public:
   * @return The matrix containing all particles. */
 
  Eigen::MatrixXd getParticles() const override {
-
-  assert( decltype( indices_selected_particles )::size_type( number_simulations )
+  assert( decltype( indices_selected_particles )::size_type(
+                                                       number_simulations )
           == indices_selected_particles.size() );
 
   Eigen::MatrixXd particles( all_particles[ current_date_index ].rows() ,
                              number_simulations );
 
-  for( int i = 0 ; i < number_simulations ; ++i ) {
-   particles.col( i ) = all_particles[ current_date_index ].col
-    ( indices_selected_particles[ i ] );
-  }
+  for( int i = 0 ; i < number_simulations ; ++i )
+   particles.col( i ) = all_particles[ current_date_index ].col(
+                                           indices_selected_particles[ i ] );
 
   return particles;
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// reset the simulator to use it again for another SDDP sweep
  /** This function resets the simulator to use it again for another SDDP
   * sweep. For a backward simulator, it resets the random seed and sets the
@@ -304,27 +307,25 @@ public:
   if( backward_simulator ) {
    random_number_engine.seed( initial_seed );
    updateDateIndex( get_number_dates() - 1 );
-  }
-  else {
+   }
+  else
    updateDateIndex( 0 );
   }
- }
 
 /*--------------------------------------------------------------------------*/
-
  /** This function simply updates the number of simulations and calls
   * resetTime(). This function should only be called by a forward simulator.
   *
   * @param number_simulations The new number of simulations. */
 
- virtual void updateSimulationNumberAndResetTime
- ( const int & number_simulations ) override {
+ virtual void updateSimulationNumberAndResetTime(
+                                 const int & number_simulations ) override {
   assert( ! backward_simulator );
   set_number_simulations( number_simulations );
   resetTime();
- }
+  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*--------- METHODS FOR READING THE DATA OF THE ScenarioSimulator ----------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the data of the ScenarioSimulator
@@ -334,34 +335,32 @@ public:
  Index get_scenario_index( Index simulation_id ) const {
   assert( simulation_id < indices_selected_particles.size() );
   return indices_selected_particles[ simulation_id ];
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the size of a particle
- Index get_particle_length() const {
+
+ Index get_particle_length( void ) const {
   if( all_particles.empty() )
    return 0;
   return all_particles.front().rows();
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the total number of scenarios available
- Index get_number_scenarios() const {
+
+ Index get_number_scenarios( void ) const {
   if( all_particles.empty() )
    return 0;
   return all_particles.front().cols();
- }
+  }
 
 /*--------------------------------------------------------------------------*/
-
  /// returns the initial seed of the random number generator
- unsigned int get_seed() const {
-  return initial_seed;
- }
 
-/**@} ----------------------------------------------------------------------*/
+ unsigned int get_seed( void ) const { return initial_seed; }
+
+/** @} ---------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -374,14 +373,13 @@ protected:
     @{ */
 
  /// returns the number of dates, which is equal to the time horizon
- Index get_number_dates() const {
-  return all_particles.size();
- }
+
+ Index get_number_dates() const { return all_particles.size(); }
 
 /*--------------------------------------------------------------------------*/
-
  /// sample the particles
- void sample() {
+
+ void sample( void ) {
   indices_selected_particles.resize( number_simulations );
 
   if( sampling_with_replacement ) {
@@ -418,10 +416,9 @@ protected:
   }
  }
 
-/**@} ----------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
 /*-------------------------- PROTECTED FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
-
  /// The vector containing the matrices representing the particles
  /** This is a vector containing the particles for each time step. The t-th
   * element in this vector is a matrix containing the particles associated
@@ -433,7 +430,6 @@ protected:
  std::vector< Eigen::MatrixXd > all_particles;
 
 /*--------------------------------------------------------------------------*/
-
  /// The vector containing the indices of the particles
  /** This is a vector containing the indices of all particles, i.e., contains
   * the set {0, 1, ..., number_scenarios - 1}. */
@@ -441,13 +437,11 @@ protected:
  std::vector< Index > indices_all_particles;
 
 /*--------------------------------------------------------------------------*/
-
  /// The vector containing the indices of the selected particles
 
  std::vector< Index > indices_selected_particles;
 
 /*--------------------------------------------------------------------------*/
-
  /// The index associated with the current date
  int current_date_index = 0;
 
@@ -472,9 +466,10 @@ protected:
  /// Distribution for selecting the particles
  std::uniform_int_distribution< Index > distribution;
 
-};   // end( class ScenarioSimulator )
+ };   // end( class ScenarioSimulator )
 
-/** @} end( group( ScenarioSimulator_CLASSES ) ) */
+/** @} end( group( ScenarioSimulator_CLASSES ) ) ---------------------------*/
+/*--------------------------------------------------------------------------*/
 
 }  // end( namespace SMSpp_di_unipi_it )
 

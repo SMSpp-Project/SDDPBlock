@@ -7,11 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added 
+### Added
 
-### Changed 
+### Changed
 
-### Fixed 
+### Fixed
+
+## [0.6.0] - 2026-09-12
+
+### Changed
+
+- `CutProcessing` is gone: removing the redundant rows of a
+  `PolyhedralFunction` is done by the `PolyhedralFunctionBlock` that owns it,
+  through `PolyhedralFunctionBlock::remove_redundant_rows()`
+
+- the scenario tree of a MultiStageScenarioGenerator is walked through its
+  View only, the pool being sized and rewound by `root_view()` and `descend()`
+
+- the version of the module is the git tag of its repository, or the
+  VERSION.txt of a release tarball, and the shared library carries it: its
+  SONAME is major.minor while the major is 0, and it is installed with an
+  RPATH relative to itself, so that an installed tree keeps working wherever
+  it is moved
+
+### Fixed
+
+- the cuts of an all-zero last stage were sized on the wrong number of
+  Variable in SDDPSolver, and a constant future cost with no Variable at all
+  is handled through the bound
+
+- `serialize()` writes the AbstractPath in a sub-group of their own, so that
+  what it writes is read back
+
+- SDDPGreedySolver un-configures the inner Block of each stage with the clone
+  that configured it
+
+- the package configuration file finds OpenMP, MPI and StOpt, which the
+  library links
 
 ## [0.5.4] - 2025-12-12
 
@@ -126,7 +158,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.4...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...develop
+[0.6.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.4...0.6.0
 [0.5.4]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.3...0.5.4
 [0.5.3]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.2...0.5.3
 [0.5.2]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.1...0.5.2

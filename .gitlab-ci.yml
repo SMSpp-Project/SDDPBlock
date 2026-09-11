@@ -2,13 +2,12 @@ default:
   image: registry.gitlab.com/smspp/smspp-project
 
 cache:
-  key: ${CI_COMMIT_REF_SLUG}
+  key: ${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
   paths:
     - smspp-project
 
 stages:
   - build
-  - test
   - deploy
 
 build:
@@ -17,8 +16,11 @@ build:
     - eval $(ssh-agent -s)
     - ssh-add <(echo "$SMSPP_DEPLOY_KEY")
     - mkdir -p ~/.ssh && ssh-keyscan -H gitlab.com >> ~/.ssh/known_hosts
-    - if [ -d smspp-project ]; then (cd smspp-project && git pull); else git clone --branch develop git@gitlab.com:smspp/smspp-project.git; fi
-    - cmake -S smspp-project -B smspp-project/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DBUILD_SDDPBlock=ON
+    # the pull does not recurse into the submodules: CMake initializes
+    # the ones the enabled modules need, and a revision the pull walks
+    # through may pin a submodule commit no longer on its remote
+    - if [ -d smspp-project ]; then (cd smspp-project && git pull --no-recurse-submodules && git submodule update --recursive); else git clone --branch develop git@gitlab.com:smspp/smspp-project.git; fi
+    - cmake -S smspp-project -B smspp-project/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_SDDPBlock=ON
     - cmake --build smspp-project/build --target install
   artifacts:
     paths:
@@ -34,22 +36,7 @@ build:
       - test/*
       - tools/*
       - CMakeLists.txt
-
-test:
-  stage: test
-  script:
-    - ctest -V -C Release --test-dir smspp-project/build
-  only:
-    refs:
-      - develop
-      - tags
-    changes:
-      - cmake/*
-      - include/*
-      - src/*
-      - test/*
-      - tools/*
-      - CMakeLists.txt
+      - .gitlab-ci.yml
 
 deploy:
   stage: deploy

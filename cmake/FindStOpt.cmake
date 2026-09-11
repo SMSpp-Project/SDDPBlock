@@ -52,76 +52,80 @@ endif ()
 
 # Check if already in cache
 if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
-    StOpt_INCLUDE_DIR AND StOpt_LIBRARY)
+        StOpt_INCLUDE_DIR AND StOpt_LIBRARY)
     set(StOpt_FOUND TRUE)
 else ()
 
     # ----- Find the geners include directory ------------------------------- #
     find_path(StOpt_geners_INCLUDE_DIR
-              NAMES geners
-              PATHS ${StOpt_ROOT}/include/geners
-              DOC "geners include directory.")
+            NAMES geners
+            PATHS ${StOpt_ROOT}/include/geners
+            DOC "geners include directory.")
 
     # ----- Find the geners library ----------------------------------------- #
 
     if (UNIX)
         find_library(StOpt_geners_LIBRARY
-                     NAMES geners
-                     PATHS ${StOpt_ROOT}/lib
-                     DOC "geners library.")
+                NAMES geners
+                PATHS ${StOpt_ROOT}/lib
+                DOC "geners library.")
 
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY}
                 CACHE FILEPATH "geners debug library." FORCE)
     elseif (WIN32)
         find_library(StOpt_geners_LIBRARY
-                     NAMES geners
-                     PATHS ${StOpt_ROOT}/lib
-                           ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
-                           $ENV{LIBRARY_LIB}
-                     NO_DEFAULT_PATH
-                     DOC "geners library.")
+                NAMES geners
+                PATHS
+                ${StOpt_ROOT}/lib
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
+                $ENV{LIBRARY_LIB}
+                NO_DEFAULT_PATH
+                DOC "geners library.")
 
         find_library(StOpt_geners_LIBRARY_DEBUG
-                     NAMES geners
-                     PATHS ${StOpt_ROOT}/debug/lib
-                           ${StOpt_ROOT}/build/lib/Debug
-                           ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
-                     NO_DEFAULT_PATH
-                     DOC "geners debug library.")
+                NAMES geners
+                PATHS
+                ${StOpt_ROOT}/debug/lib
+                ${StOpt_ROOT}/build/lib/Debug
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
+                NO_DEFAULT_PATH
+                DOC "geners debug library.")
     endif ()
 
     # ----- Find the StOpt include directory -------------------------------- #
     find_path(StOpt_INCLUDE_DIR
-              NAMES StOpt/sddp
-              PATHS ${StOpt_ROOT}/include
-              PATH_SUFFIXES StOpt
-              DOC "StOpt include directory.")
+            NAMES StOpt/sddp
+            PATHS ${StOpt_ROOT}/include
+            PATH_SUFFIXES StOpt
+            DOC "StOpt include directory.")
 
     # ----- Find the StOpt library ------------------------------------------ #
     if (UNIX)
         find_library(StOpt_LIBRARY
-                     NAMES StOpt
-                     PATHS ${StOpt_ROOT}/lib
-                     DOC "StOpt library.")
+                NAMES StOpt
+                PATHS ${StOpt_ROOT}/lib
+                DOC "StOpt library.")
 
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY}
                 CACHE FILEPATH "StOpt debug library." FORCE)
     elseif (WIN32)
         find_library(StOpt_LIBRARY
-                     NAMES StOpt
-                     PATHS ${StOpt_ROOT}/lib
-                           ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
-                           $ENV{LIBRARY_LIB}
-                     NO_DEFAULT_PATH
-                     DOC "StOpt library.")
+                NAMES StOpt
+                PATHS
+                ${StOpt_ROOT}/lib
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
+                $ENV{LIBRARY_LIB}
+                NO_DEFAULT_PATH
+                DOC "StOpt library.")
 
         find_library(StOpt_LIBRARY_DEBUG
-                     NAMES StOpt
-                     PATHS ${StOpt_ROOT}/debug/lib
-                           ${StOpt_ROOT}/build/lib/Debug
-                           ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
-                     NO_DEFAULT_PATH
-                     DOC "StOpt debug library.")
+                NAMES StOpt
+                PATHS
+                ${StOpt_ROOT}/debug/lib
+                ${StOpt_ROOT}/build/lib/Debug
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
+                NO_DEFAULT_PATH
+                DOC "StOpt debug library.")
     endif ()
 
     # ----- Parse the version ----------------------------------------------- #
@@ -145,8 +149,8 @@ else ()
     # https://cmake.org/cmake/help/latest/module/FindPackageHandleStandardArgs.html
     find_package_handle_standard_args(
             StOpt
-            REQUIRED_VARS StOpt_LIBRARY        StOpt_INCLUDE_DIR
-                          StOpt_geners_LIBRARY StOpt_geners_INCLUDE_DIR)
+            REQUIRED_VARS StOpt_LIBRARY StOpt_INCLUDE_DIR
+            StOpt_geners_LIBRARY StOpt_geners_INCLUDE_DIR)
 endif ()
 
 # ----- Export the targets -------------------------------------------------- #
@@ -179,9 +183,9 @@ endif ()
 
 # Variables marked as advanced are not displayed in CMake GUIs, see:
 # https://cmake.org/cmake/help/latest/command/mark_as_advanced.html
-mark_as_advanced(StOpt_INCLUDE_DIR      StOpt_geners_INCLUDE_DIR
-                 StOpt_LIBRARY          StOpt_geners_LIBRARY
-                 StOpt_LIBRARY_DEBUG    StOpt_geners_LIBRARY_DEBUG
-                 StOpt_VERSION)
+mark_as_advanced(StOpt_INCLUDE_DIR StOpt_geners_INCLUDE_DIR
+        StOpt_LIBRARY StOpt_geners_LIBRARY
+        StOpt_LIBRARY_DEBUG StOpt_geners_LIBRARY_DEBUG
+        StOpt_VERSION)
 
 # --------------------------------------------------------------------------- #
