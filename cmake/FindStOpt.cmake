@@ -101,8 +101,9 @@ else ()
 
     # ----- Find the StOpt library ------------------------------------------ #
     if (UNIX)
+        # a distribution packaging StOpt names the library in lowercase
         find_library(StOpt_LIBRARY
-                NAMES StOpt
+                NAMES StOpt stopt
                 PATHS ${StOpt_ROOT}/lib
                 DOC "StOpt library.")
 

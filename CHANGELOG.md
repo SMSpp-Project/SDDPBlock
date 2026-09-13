@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `FindStOpt` looks for the library in lowercase too, as a distribution
+  packaging StOpt names it
+
 ## [0.6.0] - 2026-09-12
 
 ### Changed
