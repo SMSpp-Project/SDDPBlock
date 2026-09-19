@@ -32,6 +32,8 @@
 /*--------------------------------------------------------------------------*/
 
 #include "Block.h"
+
+#include "Solution.h"
 #include "Objective.h"
 #include "PolyhedralFunction.h"
 #include "ScenarioGenerator.h"
