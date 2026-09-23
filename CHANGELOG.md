@@ -15,8 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.1] - 2026-09-13
 
-
-
 ### Fixed
 
 - `FindStOpt` looks for the library in lowercase too, as a distribution
@@ -80,8 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - adapted to new CMake / makefile organisation
 
-## [0.5.2] - 2023-17-05
-
+## [0.5.2] - 2023-05-17
 ### Added
 
 - Handle eEverykIteration events in SDDPSolver.
