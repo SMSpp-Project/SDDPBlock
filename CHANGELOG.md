@@ -11,8 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- whoever links the module keeps it: the classes of a module register
+  themselves in the factory from a static initialiser, and a linker that
+  drops what looks unused takes the registration away with it, so the target
+  now tells whoever links it to keep the symbol that forces the module in,
+  and on ELF, where naming the symbol is not enough, the library as a whole
 ### Fixed
 
+- the header includes the `Solution` it derives from, which it was getting by
+  chance from another header and would have stopped getting the day that one
+  stopped including it
 ## [0.6.1] - 2026-09-13
 
 ### Fixed
