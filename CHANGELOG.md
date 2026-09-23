@@ -164,7 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.1...develop
+[0.6.1]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...0.6.1
 [0.6.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.4...0.6.0
 [0.5.4]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.3...0.5.4
 [0.5.3]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.2...0.5.3
