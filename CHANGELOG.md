@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drops what looks unused takes the registration away with it, so the target
   now tells whoever links it to keep the symbol that forces the module in,
   and on ELF, where naming the symbol is not enough, the library as a whole
+
 ### Fixed
 
 - the header includes the `Solution` it derives from, which it was getting by
@@ -62,13 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.4] - 2025-12-12
 
-### Added 
+### Added
 
 - SDDPSolver parameters to better control outputs
 
 - parameter to set the seed of the forward simulator
 
-### Changed 
+### Changed
 
 - adapted to new standard organization of makefiles
 
@@ -76,17 +77,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - made USE_MPI public
 
-### Fixed 
+### Fixed
 
 - corrected dysfunctional makefile-s and -c
 
 ## [0.5.3] - 2024-02-29
 
-### Changed 
+### Changed
 
 - adapted to new CMake / makefile organisation
 
 ## [0.5.2] - 2023-05-17
+
 ### Added
 
 - Handle eEverykIteration events in SDDPSolver.
