@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `SDDPBlockSolution::is_dual_feasible()` asks the Solution of each stage
+  [see `Solution::is_dual_feasible()`]
+
 ### Changed
 
 - whoever links the module keeps it: the classes of a module register

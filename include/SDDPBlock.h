@@ -1827,6 +1827,14 @@ class SDDPBlockSolution : public Solution {
   delete( f_inner_Config );
   }
 
+/*--------------------------------------------------------------------------*/
+ /// tells whether the dual values held here are feasible for the Block
+ /** Asks the Solution of each stage held here, with the inner Block of that
+  * stage; false if there is none, or if one of them says false [see Solution::is_dual_feasible()]. */
+
+ bool is_dual_feasible( Block * block ,
+			Configuration * fsbc = nullptr ) override;
+
 /*--------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPBlockSolution ----------*/
 
  void read( const Block * block ) override final;

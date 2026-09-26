@@ -1034,6 +1034,30 @@ void SDDPBlockSolution::write( Block * block )
 
 /*--------------------------------------------------------------------------*/
 
+bool SDDPBlockSolution::is_dual_feasible( Block * block ,
+					  Configuration * fsbc )
+{
+ auto sddp_block = dynamic_cast< SDDPBlock * >( block );
+ if( ! sddp_block )
+  throw( std::invalid_argument( "SDDPBlockSolution::is_dual_feasible: block "
+				"is not a SDDPBlock" ) );
+
+ if( v_stage_solutions.empty() ||
+     ( v_stage_solutions.size() != sddp_block->get_time_horizon() ) )
+  return( false );
+
+ for( Block::Index t = 0 ; t < v_stage_solutions.size() ; ++t )
+  if( ( ! v_stage_solutions[ t ] ) ||
+      ( ! v_stage_solutions[ t ]->is_dual_feasible(
+			       stage_inner_Block( sddp_block , t ) , fsbc ) ) )
+   return( false );
+
+ return( true );
+
+ }  // end( SDDPBlockSolution::is_dual_feasible )
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPBlockSolution::serialize( netCDF::NcGroup & group ) const
 {
  // call the method of the base class
