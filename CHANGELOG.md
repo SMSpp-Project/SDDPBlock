@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SDDPBlockSolution::is_dual_feasible()` asks the Solution of each stage
   [see `Solution::is_dual_feasible()`]
 
+- the fourth element of the vector that the extra Configuration of
+  `SDDPSolver` can be, as for `SDDPGreedySolver`: the Configuration of
+  `get_dual_solution()` of the Solver of the inner Block of each stage,
+  which the `BendersBFunction` of the stage is given as its
+  `get_dual_solution` and `get_dual_solution_partial` Configurations and
+  passes on when it computes or stores a linearization, so that only the
+  part of the dual solution that the `BendersBFunction` needs is written; a
+  vector of 2 or 3 elements is read as before, and the whole dual solution
+  is written
+
 ### Changed
 
 - whoever links the module keeps it: the classes of a module register

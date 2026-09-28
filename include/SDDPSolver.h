@@ -595,6 +595,7 @@ public:
   delete f_inner_block_config;
   delete f_inner_block_solver_config;
   delete f_get_var_solution_config;
+  delete f_get_dual_solution_config;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -825,14 +826,27 @@ public:
   * either nullptr or a pointer to a BlockConfig. The second element, if
   * present, must be either nullptr or a pointer to a BlockSolverConfig. These
   * will be used to configure the inner Block of the BendersBFunction at every
-  * stage and their Solver. Finally, the third element, if present, must be
-  * either nullptr or a pointer to a Configuration. This Configuration will be
-  * used to retrieve the Solution from the inner Block of the
-  * BendersBFunction, at every stage, after it is solved. This Configuration
-  * will be passed to get_var_solution() of the inner Solver. The relevant
-  * part of the Solution of the inner Block is the values of the active
-  * Variables of the PolyhedralFunction. Thus, this Configuration can be used
-  * to specify that only that portion of the Solution should be retrieved.
+  * stage and their Solver. The third element, if present, must be either
+  * nullptr or a pointer to a Configuration. This Configuration will be used
+  * to retrieve the Solution from the inner Block of the BendersBFunction, at
+  * every stage, after it is solved. This Configuration will be passed to
+  * get_var_solution() of the inner Solver. The relevant part of the Solution
+  * of the inner Block is the values of the active Variables of the
+  * PolyhedralFunction. Thus, this Configuration can be used to specify that
+  * only that portion of the Solution should be retrieved. Finally, the
+  * fourth element, if present, must be either nullptr or a pointer to a
+  * Configuration. This Configuration will be used to retrieve the dual
+  * Solution from the inner Block of the BendersBFunction, at every stage,
+  * after it is solved: it is given to the BendersBFunction as both its
+  * "get_dual_solution" and "get_dual_solution_partial" Configurations [see
+  * BendersBFunction::set_ComputeConfig()], which pass it to
+  * get_dual_solution() of the inner Solver when a linearization is computed
+  * or stored. The relevant part of the dual Solution of the inner Block
+  * is that of the constraints the BendersBFunction handles, and this
+  * Configuration can be used to specify that only that portion of it should
+  * be retrieved; if it is not there, or nullptr, the whole dual Solution is
+  * retrieved. Elements missing at the end of the vector are taken as
+  * nullptr.
   *
   * If the extra Configuration is not any of the specified above, an exception
   * is thrown.
@@ -2102,6 +2116,9 @@ protected:
 
  /// Configuration to be passed to get_var_solution() of the inner Solver
  Configuration * f_get_var_solution_config = nullptr;
+
+ /// Configuration to be passed to get_dual_solution() of the inner Solver
+ Configuration * f_get_dual_solution_config = nullptr;
 
  /// Maximum number of iterations that the method should perform
  int maximum_number_iterations;

@@ -81,6 +81,9 @@ void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
   delete f_get_var_solution_config;
   f_get_var_solution_config = nullptr;
 
+  delete f_get_dual_solution_config;
+  f_get_dual_solution_config = nullptr;
+
   return;
   }
 
@@ -92,8 +95,8 @@ void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
  BlockSolverConfig * block_solver_config = nullptr;
 
  // First, we try to extract a BlockConfig and/or a BlockSolverConfig from the
- // extra Configuration, as well as the Configuration to be passed to
- // get_var_solution() of the inner Solver.
+ // extra Configuration, as well as the Configurations to be passed to
+ // get_var_solution() and get_dual_solution() of the inner Solver.
 
  if( auto config = dynamic_cast< SimpleConfiguration<
      std::vector< Configuration * > > * >( scfg->f_extra_Configuration ) ) {
@@ -102,9 +105,12 @@ void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
   // present and not nullptr, must be a BlockConfig for the inner Blocks of
   // the BendersBFunctions. The second element, if present and not nullptr,
   // must be a BlockSolverConfig for the inner Blocks of the
-  // BendersBFunctions. Finally, the third element, if present and not
-  // nullptr, must be a Configuration to be passed to get_var_solution() when
-  // retrieving the Solutions to the inner Blocks of the BendersBFunctions.
+  // BendersBFunctions. The third element, if present and not nullptr, must
+  // be a Configuration to be passed to get_var_solution() when retrieving
+  // the Solutions to the inner Blocks of the BendersBFunctions. Finally, the
+  // fourth element, if present and not nullptr, must be a Configuration to
+  // be passed to get_dual_solution() when the BendersBFunctions retrieve the
+  // dual Solutions to their inner Blocks.
 
   if( ( ! config->f_value.empty() ) && config->f_value.front() ) {
    // A BlockConfig must have been provided.
@@ -127,7 +133,15 @@ void SDDPSolver::set_ComputeConfig( const ComputeConfig * scfg )
   if( config->f_value.size() >= 3 && config->f_value[ 2 ] ) {
    // A Configuration for get_var_solution() of the Solver attached to the
    // inner Blocks.
+   delete f_get_var_solution_config;
    f_get_var_solution_config = config->f_value[ 2 ]->clone();
+   }
+
+  if( config->f_value.size() >= 4 && config->f_value[ 3 ] ) {
+   // A Configuration for get_dual_solution() of the Solver attached to the
+   // inner Blocks, which the BendersBFunctions call.
+   delete f_get_dual_solution_config;
+   f_get_dual_solution_config = config->f_value[ 3 ]->clone();
    }
   }
  else {
@@ -310,8 +324,10 @@ void SDDPSolver::set_Block( Block * block )
   }
  }
 
- // Configure the inner Blocks
- if( f_inner_block_config || f_inner_block_solver_config ) {
+ // Configure the inner Blocks, and tell the BendersBFunctions what to pass
+ // to get_dual_solution() of their Solver
+ if( f_inner_block_config || f_inner_block_solver_config ||
+     f_get_dual_solution_config ) {
 
   for( Index stage = 0 ; stage < get_time_horizon() ; ++stage ) {
 
@@ -338,6 +354,25 @@ void SDDPSolver::set_Block( Block * block )
 
     if( f_inner_block_solver_config )
      f_inner_block_solver_config->apply( inner_block );
+
+    if( f_get_dual_solution_config ) {
+     // the "get_dual_solution" and "get_dual_solution_partial" keys of the
+     // extra Configuration of the BendersBFunction, the first being used
+     // when a linearization is stored and the second when the last one is
+     // computed, in a differential ComputeConfig that changes nothing else;
+     // the BendersBFunction clones them
+     SimpleConfiguration< std::map< std::string , Configuration * > > dcfg;
+     dcfg.f_value[ "get_dual_solution" ] = f_get_dual_solution_config;
+     dcfg.f_value[ "get_dual_solution_partial" ] =
+      f_get_dual_solution_config;
+     ComputeConfig ccfg;
+     ccfg.set_diff( true );
+     ccfg.f_extra_Configuration = & dcfg;
+     benders_function->set_ComputeConfig( & ccfg );
+     // the Configurations are not owned by ccfg and dcfg
+     ccfg.f_extra_Configuration = nullptr;
+     dcfg.f_value.clear();
+     }
    }
   }
  }
