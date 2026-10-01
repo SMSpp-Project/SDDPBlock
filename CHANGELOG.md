@@ -9,9 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `SDDPBlockSolution::is_dual_feasible()` asks the Solution of each stage
-  [see `Solution::is_dual_feasible()`]
-
 - the fourth element of the vector that the extra Configuration of
   `SDDPSolver` can be, as for `SDDPGreedySolver`: the Configuration of
   `get_dual_solution()` of the Solver of the inner Block of each stage,
