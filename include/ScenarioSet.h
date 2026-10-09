@@ -376,8 +376,8 @@ class ScenarioSet
  /** Adjust the num_scenarios counter exposed by size() without touching the
   * internal #scenarios storage. This is meant to be used by SDDPBlock when
   * the actual scenario data lives outside the ScenarioSet (i.e., inside a
-  * ScenarioGenerator-driven cache owned by SDDPBlock) but the legacy code
-  * paths still ask the ScenarioSet for the scenario count. Callers that
+  * ScenarioGenerator-driven cache owned by SDDPBlock) while some code
+  * paths ask the ScenarioSet for the scenario count. Callers that
   * read size() must NOT then try to access the scenario data through this
   * ScenarioSet (sub_scenario_begin/end, scenario(), sub_scenario()): in
   * the generator-backed path the .scenarios storage is empty.

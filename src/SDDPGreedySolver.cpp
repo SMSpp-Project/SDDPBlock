@@ -483,6 +483,11 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    unregister_solver_inner_block( stage );
  }
 
+ // the loop over the stages is over, at its end or at a stage that failed:
+ // the function given to set_end_callback() may restore the data that the
+ // callback has changed
+ if( end_callback ) end_callback();
+
  // Unlock the SDDPBlock
 
  if( ! owned )              // if the Block was actually locked

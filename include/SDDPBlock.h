@@ -56,8 +56,8 @@ namespace SMSpp_di_unipi_it
 /*--------------------------- GENERAL NOTES --------------------------------*/
 /*--------------------------------------------------------------------------*/
 /// SDDPBlock, representing a multistage stochastic programming problem
-/** The SDDPBlock is a class that derives from Block and represents a
- * multistage stochastic programming problem of the form
+/** SDDPBlock derives from Block and represents a multistage stochastic
+ * programming problem of the form
  *
  * \f[
  *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
@@ -66,82 +66,83 @@ namespace SMSpp_di_unipi_it
  *   \mathbb{E} \left \lbrack \dots +
  *   \mathbb{E} \left \lbrack
  *   \min_{x_{T-1} \in \mathcal{X}_{T-1}} f_{T-1}(x_{T-1})
- *   \right\rbrack \right\rbrack\right\rbrack,
+ *   + \mathcal{V}_T( x_{T-1} )
+ *   \right\rbrack \right\rbrack\right\rbrack \tag{1}
  * \f]
  *
- * where T is called the time horizon, \f$\mathcal{X}_t \equiv
- * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
- * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
- * T-1\}} \f$ is a stochastic process. Notice that \f$ x_{-1} \f$ and \f$
- * \xi_0 \f$ are deterministic. For each \f$ t \in \{0, \dots, T-1\}\f$, we
- * call
+ * where \f$ T \f$ is the number of stages (the "TimeHorizon" of the
+ * SDDPBlock, not to be confused with the number of time instants of
+ * the problem of a stage), \f$ \mathcal{X}_t \equiv \mathcal{X}_t( x_{t-1} ,
+ * \xi_t ) \subseteq \mathbb{R}^{n_t} \f$ for each \f$ t \in \{ 0 , \dots ,
+ * T - 1 \} \f$, \f$ \xi = \{ \xi_t \}_{t \in \{ 1 , \dots , T - 1 \}} \f$
+ * is a stochastic process, \f$ x_{-1} \f$ and \f$ \xi_0 \f$ are
+ * deterministic, and \f$ \mathcal{V}_T \f$ is the terminal value function
+ * discussed below (identically zero in the simplest case). Writing
+ * \f$ \xi_{[t]} = ( \xi_0 , \dots , \xi_t ) \f$ for the history of the
+ * process up to stage \f$ t \f$, (1) is equivalent to the Bellman recursion
  *
  * \f[
- *   \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
- *   \mathcal{V}_{t+1}(x_t)
+ *   V_t( x_{t-1} , \xi_t ) = \min_{x_t \in \mathcal{X}_t( x_{t-1} , \xi_t )}
+ *     f_t( x_t ) + \mathcal{V}_{t+1}( x_t ) \;,
+ *   \qquad
+ *   \mathcal{V}_{t+1}( x_t ) = \mathbb{E} \left\lbrack
+ *     V_{t+1}( x_t , \xi_{t+1} ) \mid \xi_{[t]} \right\rbrack \tag{2}
  * \f]
  *
- * the problem associated with stage \f$ t \f$, where
+ * for \f$ t = T - 1 , \dots , 0 \f$, where the second part of (2) defines
+ * \f$ \mathcal{V}_{t+1} \f$ for \f$ t < T - 1 \f$ while
+ * \f$ \mathcal{V}_T \f$ is given, and \f$ V_0( x_{-1} , \xi_0 ) \f$ is the
+ * optimal value of (1). The minimization in the first part of (2) is the
+ * problem associated with stage \f$ t \f$, and \f$ \mathcal{V}_{t+1} \f$
+ * is its (expected) cost-to-go function, also called value function, future
+ * value function or future cost function. We consider an approximation to
+ * the problem associated with stage \f$ t \f$ in which
+ * \f$ \mathcal{V}_{t+1} \f$ is replaced by a polyhedral function
+ * \f$ \mathcal{P}_{t+1} \f$,
  *
  * \f[
- *   \mathcal{V}_{t+1}(x_t) =
- *    \mathbb{E}
- *      \left\lbrack
- *        V_{t+1}(x_t, \xi_{t+1})
- *      \right\rbrack
+ *   \min_{x_t \in \mathcal{X}_t( x_{t-1} , \xi_t )} f_t(x_t) +
+ *   \mathcal{P}_{t+1}( z_t ) \;,
+ *   \qquad
+ *   \mathcal{P}_{t+1}( z_t ) = \max \Big\{ \max_{j \in \mathcal{J}_t}
+ *     \{ \alpha_{t,j} + \beta_{t,j}^\top z_t \} \,,\, L_t \Big\}
+ *   \tag{3}
  * \f]
  *
- * is the (expected value) cost-to-go function (also called value function,
- * future value function, future cost function), with \f$ \mathcal{V}_{T}
- * \equiv 0 \f$ and
- *
- * \f[
- *    V_{t}(x_{t-1}, \xi_{t}) =
- *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
- *    \mathcal{V}_{t+1}(x_t)
- * \f]
- *
- * with given \f$ x_{-1} \f$ and (deterministic) \f$ \xi_0\f$. We consider an
- * approximation to the problem associated with stage \f$ t \in \{0, \dots,
- * T-1\} \f$ as the problem
- *
- * \f[
- *    \min_{x_t \in \mathcal{X}_t} f_t(x_t) +
- *    \mathcal{P}_{t+1}(x_t)
- *    \qquad (1)
- * \f]
- *
- * where \f$ \mathcal{P}_{t+1}(x_t) \f$ is a polyhedral function, i.e., it is
- * a function of the form
- *
- * \f[
- *    \mathcal{P}_{t+1}(x_t) = \max_{i \in \{1,\dots,k_t\}}
- *                                     \{ d_{t,i}^{\top}x_t + e_{t,i} \}
- * \f]
- *
- * with \f$ d_{t,i} \in \mathbb{R}^{n_t} \f$ and \f$ e_{t,i} \in \mathbb{R}
- * \f$ for each \f$ i \in \{1,\dots,k_t\} \f$.
+ * where \f$ z_t \in \mathbb{R}^{m_t} \f$ is the part of \f$ x_t \f$ on which
+ * the future depends (the state at the end of stage \f$ t \f$, see below),
+ * each \f$ j \in \mathcal{J}_t \f$ is a row (a cut) of the PolyhedralFunction
+ * with constant \f$ \alpha_{t,j} \f$ and coefficients \f$ \beta_{t,j} \f$,
+ * and \f$ L_t \f$ is its global lower bound (\f$ -\infty \f$ when no bound is
+ * set). For minimization problems, as written here, the PolyhedralFunction is
+ * convex, and (3) underestimates the problem of stage \f$ t \f$ as long as
+ * each cut and the bound underestimate \f$ \mathcal{V}_{t+1} \f$;
+ * maximization problems, with a concave PolyhedralFunction (a minimum of
+ * affine functions and an upper bound), are handled with all the inequalities
+ * reversed.
  *
  * An SDDPBlock is then characterized by the following:
  *
  * - It has a time horizon T.
  *
- * - It has T sub-Blocks, each one being a StochasticBlock. The t-th sub-Block
- *   represents an approximation to the problem associated with stage t as
- *   defined in (1). See the note below for the case in which it may have more
- *   than T sub-Blocks.
+ * - It has T sub-Blocks, each of which is a StochasticBlock. The t-th
+ *   sub-Block represents an approximation to the problem associated with
+ *   stage t as defined in (3). See the note below for the case in which it
+ *   may have more than T sub-Blocks.
  *
- * - It has pointers to "T - 1" PolyhedralFunction. The t-th
- *   PolyhedralFunction represents the function \f$ \mathcal{P}_{t+1} \f$ in
- *   (1) and, therefore, must be defined in the t-th sub-Block of this
- *   SDDPBlock or in any of the sub-Blocks of that sub-Block, recursively.
+ * - It has pointers to T PolyhedralFunction (to T times
+ *   "NumPolyhedralFunctionsPerSubBlock" of them in general, see
+ *   deserialize()). The t-th PolyhedralFunction represents the function
+ *   \f$ \mathcal{P}_{t+1} \f$ in (3) and, therefore, must be defined in the
+ *   t-th sub-Block of this SDDPBlock or in any of the sub-Blocks of that
+ *   sub-Block, recursively; the last one, \f$ \mathcal{P}_T \f$, is the
+ *   terminal value function \f$ \mathcal{V}_T \f$ of (1).
  *
  * - It has a set of scenarios \f$\mathcal{S}\f$. Each scenario in
  *   \f$\mathcal{S}\f$ is represented by a vector of double and spans all the
- *   time horizon T. Each vector is divided into T parts, each one being
- *   associated with a stage of the multistage problem. Let \f$S\f$ denote a
- *   vector representing a scenario in \f$\mathcal{S}\f$. Then, \f$S\f$ is
- *   defined as
+ *   time horizon T. Each vector is divided into T parts, each associated with
+ *   a stage of the multistage problem. Let \f$S\f$ denote a vector
+ *   representing a scenario in \f$\mathcal{S}\f$. Then, \f$S\f$ is defined as
  *
  *   \f[
  *     S = ( S_0 , \dots, S_{T-1} )
@@ -177,15 +178,226 @@ namespace SMSpp_di_unipi_it
  *   But the sub-scenario associated with stage \f$t\f$ must respect the same
  *   order for each scenario in \f$\mathcal{S}\f$.
  *
- * In the simplest case, an SDDPBlock has \f$ T \f$ sub-Blocks, the \f$t\f$-th
- * one being an StochasticBlock associated with stage \f$t\f$. However, it may
- * be interesting to have more than one sub-Block associated with each stage
- * in some circumstances. The solution process implemented by SDDPSolver, for
- * instance, involves the solution of a number of subproblems, each of them
- * associated with a stage \f$ t \f$, a particular sub-scenario \f$ S_t^i \f$,
- * and some initial state. There are at least two clear situations under which
- * the presence of multiple sub-Blocks for each stage can be beneficial to
- * SDDPSolver.
+ * \par Stages and state
+ *
+ * For each stage \f$ t \f$, the sub-Block is a StochasticBlock whose inner
+ * Block is a BendersBlock, which the methods that set and read the state
+ * (set_state(), get_state(), set_admissible_state()) and the Solvers of this
+ * module assume without checking it. The Variables of the BendersBlock are a
+ * copy \f$ z_{t-1} \in \mathbb{R}^{m_{t-1}} \f$ of the state that stage
+ * \f$ t \f$ receives. Its Objective is a BendersBFunction whose inner Block
+ * \f$ B_t \f$ is the model of the stage (e.g., a UCBlock), and which, given
+ * \f$ z_{t-1} \f$, writes
+ *
+ * \f[
+ *   [ \, M_t z_{t-1} + m_t \, ]_i \tag{4}
+ * \f]
+ *
+ * into one side (the left, the right or both) of the \f$ i \f$-th of a set of
+ * RowConstraint of \f$ B_t \f$ (cf. BendersBFunction::set_mapping()). Its
+ * value is the optimal value of \f$ B_t \f$, i.e.,
+ * \f$ V_t( z_{t-1} , \xi_t ) \f$ of (2) with \f$ \mathcal{V}_{t+1} \f$
+ * replaced by \f$ \mathcal{P}_{t+1} \f$, since the PolyhedralFunction of stage
+ * \f$ t \f$ lies inside \f$ B_t \f$. Stage \f$ t \f$ passes on the vector
+ * \f$ z_t \f$ of the values of the active Variables of its (first)
+ * PolyhedralFunction, which a Solver copies into the BendersBlock of stage
+ * \f$ t + 1 \f$ before solving it. Hence, \f$ m_t \f$ ("StateSize"[ t ]) must
+ * be both the number of those active Variables and the number of Variables of
+ * the BendersBlock of stage \f$ t + 1 \f$, and the two vectors must list the
+ * same quantities in the same order (which is not checked). The state
+ * \f$ z_{-1} \f$ of the first stage is "InitialState", unless the
+ * vdblInitialState parameter of the Solver (SDDPSolver, SDDPGreedySolver)
+ * is given.
+ *
+ * \par Cuts
+ *
+ * Let \f$ y_i \f$ be the dual value of the \f$ i \f$-th row of (4) in the last
+ * solution of \f$ B_t \f$, with the sign convention of RowConstraint: for a
+ * minimization, \f$ y_i \f$ is the coefficient of the row in the Lagrangian
+ * function, i.e., minus the derivative of the optimal value of \f$ B_t \f$
+ * w.r.t. the side of the row that is binding. The coefficients of the
+ * linearization of the BendersBFunction at the current state
+ * \f$ \bar z_{t-1} \f$ (cf.
+ * BendersBFunction::get_linearization_coefficients()) are then
+ *
+ * \f[
+ *   g_t = - \sum_{i \in \mathcal{I}_t} y_i \, M_{t,i}^\top \tag{5}
+ * \f]
+ *
+ * where \f$ M_{t,i} \f$ is the \f$ i \f$-th row of \f$ M_t \f$ and
+ * \f$ \mathcal{I}_t \f$ contains the rows whose dual value refers to the side
+ * written by (4); a nonzero dual value of the other side of a ranged row does
+ * not count. Also, the constant \f$ a_t \f$ is computed either as
+ * \f$ \bar v - g_t^\top \bar z_{t-1} \f$, with \f$ \bar v \f$ the bound on the
+ * optimal value of \f$ B_t \f$ given by its Solver, or from the dual values of
+ * all the rows of \f$ B_t \f$ (cf. the intLinComp parameter of
+ * BendersBFunction). If \f$ B_t \f$ is convex (e.g., a Linear Program) and the
+ * dual values are optimal, then \f$ g_t \f$ is a subgradient of
+ * \f$ V_t( \cdot , \xi_t ) \f$ at \f$ \bar z_{t-1} \f$ and
+ *
+ * \f[
+ *   V_t( z , \xi_t ) \geq a_t + g_t^\top z
+ *   \quad \text{for all } z \in \mathbb{R}^{m_{t-1}} \tag{6}
+ * \f]
+ *
+ * holds for \f$ V_t \f$ computed with \f$ \mathcal{P}_{t+1} \f$, and therefore
+ * also for \f$ V_t \f$ of (2), since
+ * \f$ \mathcal{P}_{t+1} \leq \mathcal{V}_{t+1} \f$. In its backward pass a
+ * Solver (see SDDPSolver) computes (6) at a trial state for the sub-scenarios
+ * of stage \f$ t \f$. It then combines these linearizations into an estimate
+ * \f$ \alpha + \beta^\top z_{t-1} \f$ of a linearization of
+ * \f$ \mathcal{V}_t \f$ (an average over the sub-scenarios, or a regression on
+ * the random data that depend on the previous stage), and adds it as a new row
+ * of \f$ \mathcal{P}_t \f$, i.e., of the PolyhedralFunction of stage
+ * \f$ t - 1 \f$ (cf. add_cuts()).
+ *
+ * The cuts underestimate \f$ \mathcal{V}_t \f$ only if the latter is convex
+ * in the state, which holds by backward induction when each stage problem is
+ * convex jointly in its state and its decisions (e.g., a linear program in
+ * which the state enters only through (4)): \f$ \mathcal{V}_T \f$ is convex
+ * (a polyhedral function); if \f$ \mathcal{V}_{t+1} \f$ is convex,
+ * \f$ f_t( x_t ) + \mathcal{V}_{t+1}( x_t ) \f$ is convex in \f$ x_t \f$, the
+ * feasible set \f$ \{ ( z_{t-1} , x_t ) : x_t \in \mathcal{X}_t \} \f$ is
+ * convex, and the minimum over \f$ x_t \f$ of a function jointly convex in
+ * \f$ ( z_{t-1} , x_t ) \f$ is convex in \f$ z_{t-1} \f$, and therefore each
+ * \f$ V_t( \cdot , \xi_t ) \f$ is convex, and so is their expectation
+ * \f$ \mathcal{V}_t \f$. When the random data of stage \f$ t \f$ depend on
+ * those of stage \f$ t - 1 \f$ (the time-related random variables of
+ * SDDPSolver), \f$ \mathcal{V}_t \f$ depends on these data as well, and so
+ * does its model: SDDPSolver estimates the cuts by a regression on them, and
+ * before solving a stage it writes in \f$ \mathcal{P}_{t+1} \f$ the cuts of
+ * the current realization of these data, and therefore (3) holds with
+ * \f$ \alpha_{t,j} \f$ and \f$ \beta_{t,j} \f$ depending on it. The
+ * linearization (6) of one sub-scenario at the trial state is a cut of
+ * \f$ V_t( \cdot , \xi_t ) \f$ for that sub-scenario only; SDDPSolver can
+ * store these random cuts (see store_random_cut() and get_random_cut()),
+ * which SDDPGreedySolver uses to give the derivative of the cost of a
+ * scenario with respect to its initial state.
+ *
+ * \par Terminal condition
+ *
+ * At the last stage, the PolyhedralFunction \f$ \mathcal{P}_T \f$ is data of
+ * the problem and stands for \f$ \mathcal{V}_T \f$ in (1); no Solver computes
+ * cuts for it, and remove_cuts() leaves it untouched. SDDPSolver::compute()
+ * keeps the rows and the bound it has and adds to it the cuts given in the
+ * vdblLastStageCuts parameter of SDDPSolver; if it still has neither rows nor
+ * a finite bound, it receives the all-zero cut (or the bound 0, if it has no
+ * active Variable). Thus, \f$ \mathcal{V}_T \equiv 0 \f$ unless last-stage
+ * cuts or a finite bound are given, either in that PolyhedralFunction or
+ * (the cuts) through SDDPSolver; with a finite global bound \f$ L \f$ and
+ * no rows, \f$ \mathcal{V}_T \equiv L \f$, and with rows (1) also values
+ * the state left at the end of the horizon (e.g., the water left in the
+ * reservoirs).
+ *
+ * \par Initial conditions that are not in the state
+ *
+ * Only the Variables of the BendersBlock of each stage form the state, and
+ * only the rows written by (4) depend on it. Any other initial condition of
+ * \f$ B_t \f$ (e.g., the initial flow rates of hydro units, the initial
+ * commitment, up/down time and power of thermal units, the initial power and
+ * storage of batteries) is data of \f$ B_t \f$. A Solver that computes the
+ * cuts (SDDPSolver, ParallelSDDPSolver) does not update these data with the
+ * solution of stage \f$ t - 1 \f$, which amounts to fixing each such
+ * condition to a prescribed value; the cuts are then those of a problem in
+ * which the stages are decoupled in these conditions. We remark that this
+ * problem approximates the one in which the conditions are part of the state,
+ * but it is a restriction of it (and its value an upper bound) only if the
+ * final value of each condition in stage \f$ t - 1 \f$ is also required to
+ * equal the value prescribed for stage \f$ t \f$, which is not done. A Solver
+ * that simulates a policy may instead update these data between stages. In
+ * fact, SDDPGreedySolver calls, right before solving each stage, the function
+ * given to SDDPGreedySolver::set_callback(), which may copy into \f$ B_t \f$
+ * the final values of stage \f$ t - 1 \f$ (say, the final flow rate of each
+ * hydro unit as its initial flow rate, the final power of each thermal unit
+ * and battery as its initial power, the final storage of each battery as its
+ * initial storage). The values so written remain in the data of the stage,
+ * unless the function given to SDDPGreedySolver::set_end_callback(), which
+ * compute() calls at the end of the simulation, restores the values the
+ * stage had before it (as the investmentblock_solver tool does); then a
+ * Solver that later computes cuts on the same sub-Blocks starts from the
+ * data of the stages, and otherwise from the values the simulation has
+ * written. Furthermore, three
+ * other treatments of these conditions are not modeled: (i) adding them to
+ * the state, (ii) requiring each of them to have, at the end of each stage,
+ * the value it has at the beginning, and (iii) relaxing them, i.e., letting
+ * each stage choose its initial conditions, which gives a lower
+ * approximation.
+ *
+ * \par Random data
+ *
+ * At stage \f$ t \f$, the random data are those that the DataMapping of its
+ * StochasticBlock write when a sub-scenario \f$ S_t \f$ is set (cf.
+ * set_scenario()). They may be any datum of \f$ B_t \f$ or of the
+ * BendersBFunction for which a DataMapping can be built, e.g., the constants
+ * \f$ m_t \f$ of (4) through BendersBFunction::modify_constants(). Note that
+ * (4) is written again on the whole side of each mapped row whenever the
+ * state changes; hence, a random datum that appears in that side must be
+ * written into \f$ m_t \f$ (a change of it in \f$ B_t \f$ would be
+ * overwritten). In a model of an electrical system the random data typically
+ * are the demand, the inflows and the renewable generation. Outages of units
+ * are not modeled as a random process, as no stage represents the failure of
+ * a unit or carries it over to the following stages, although one can write a
+ * different availability per scenario where the unit has a setter for it that
+ * a DataMapping can call (e.g., ThermalUnitBlock::set_availability()). How
+ * the expectation in (2) is estimated from the scenarios, and which random
+ * data are allowed where, is described in SDDPSolver.
+ *
+ * \par Seasonal storage valuation
+ *
+ * In the seasonal valuation of the storages of an electrical system the
+ * horizon is split into consecutive periods, one per stage, and \f$ B_t \f$
+ * is a UCBlock over the \f$ \bar T_t \f$ instants
+ * \f$ 0 , \dots , \bar T_t - 1 \f$ of period \f$ t \f$. In this setting the
+ * seasonal storages are the reservoirs \f$ n \f$ of the HydroUnitBlock of a
+ * HydroSystemUnitBlock, and \f$ z_{t-1} \f$ collects their initial volumes
+ * \f$ V^0_n \f$. These enter the problem only through the right-hand side
+ * \f$ V^0_n + A_{n,0} \f$ of the water balance rows at instant 0 (cf.
+ * HydroUnitBlock), with \f$ A_{n,0} \f$ the inflow of instant 0, and (4)
+ * writes them there; hence, the inflows of instant 0 belong to \f$ m_t \f$.
+ * Conversely, the final volumes \f$ v^{hy}_{n , \bar T_t - 1} \f$ are the
+ * active Variables of the PolyhedralFunction of the HydroSystemUnitBlock (the
+ * future cost of the water), and \f$ z_t \f$ collects them in the same order
+ * (it is the vector \f$ v^{f} \f$ of \ref ucbm_multi). Summing the water
+ * balance over the instants of the period shows that the final volumes are an
+ * affine function of the initial volumes, the flows and the inflows (see
+ * HydroUnitBlock), and hence that the state evolves linearly from one stage
+ * to the next; the cost of a stage can therefore be seen either as a function
+ * of the flows (with the final volumes given by that affine map) or, as here,
+ * as the value of the problem in which the final volumes are variables tied
+ * to the flows by the water balances; of course, the two are the same
+ * problem. By (5), when \f$ M_t \f$ is the identity, the coefficient of
+ * \f$ V^0_n \f$ in \f$ g_t \f$ is minus the dual value of the water balance
+ * row of reservoir \f$ n \f$ at instant 0, i.e., the derivative of the cost
+ * of the stage w.r.t. the initial volume (usually nonpositive, as more water
+ * lowers the cost). Its coefficient in a cut is then the estimate of the
+ * expectation of this derivative over the sub-scenarios. A UCBlock has
+ * integer variables, while (6) requires a convex \f$ B_t \f$. Thus, the dual
+ * values in (5) must be those of a convex relaxation of \f$ B_t \f$, e.g.,
+ * its continuous relaxation, or the Lagrangian relaxation of its linking
+ * constraints solved by a LagrangianDualSolver, which (for linear objectives)
+ * amounts to replacing the feasible set of each unit by its convex hull, and
+ * in general its cost by the convex envelope of the cost on that convex hull
+ * (the closed convex hull of the epigraph). The cuts are then valid for the
+ * value function of that relaxation, and the duals of the water balances,
+ * which are rows of a subproblem, are those described in \ref ucbm_multi.
+ * Besides the three treatments of the non-state initial conditions listed
+ * above, two things are not modeled. A UCBlock has a future value function on
+ * the final volumes only, and therefore no other state is valued at the end
+ * of a stage (e.g., neither the energy left in batteries nor the energy
+ * curtailed by a load curtailment unit); also, the volumes of several
+ * reservoirs cannot be aggregated into fewer state variables.
+ *
+ * \par Several sub-Blocks per stage
+ *
+ * In the simplest case, an SDDPBlock has \f$ T \f$ sub-Blocks, where the
+ * \f$t\f$-th one is a StochasticBlock associated with stage \f$t\f$. However,
+ * it may be interesting to have more than one sub-Block associated with each
+ * stage in some circumstances. The solution process implemented by
+ * SDDPSolver, for instance, involves the solution of a number of subproblems,
+ * each of them associated with a stage \f$ t \f$, a particular sub-scenario
+ * \f$ S_t^i \f$, and some initial state. There are at least two clear
+ * situations under which the presence of multiple sub-Blocks for each stage
+ * can be beneficial to SDDPSolver.
  *
  * -# To change the sub-Block as little as possible.
  *
@@ -193,23 +405,23 @@ namespace SMSpp_di_unipi_it
  *    the data of the Block associated with that subproblem must be updated
  *    according to some sub-scenario \f$ S_t^i \f$ and some initial state. In
  *    the case in which the SDDPBlock has \f$ T \f$ sub-Blocks, this means
- *    that its \f$t\f$-th sub-Block must be updated every time a particular
+ *    that its \f$t\f$-th sub-Block must be updated each time a particular
  *    scenario and state is considered. In order to allow reoptimization,
  *    SMS++ is designed to deal with changes in the data of a Block by means
  *    of its Modification mechanism. However, one would expect, in general,
  *    that the less a Block is modified, the faster it can be reoptimized. In
- *    the ideal case, an SDDPBlock would have as much sub-Blocks for each
+ *    the ideal case, an SDDPBlock would have as many sub-Blocks for each
  *    stage as there are scenarios. In this case, each sub-Block would be
  *    associated with a particular scenario, and the data of each of these
  *    sub-Blocks that depend on the scenarios would be updated only once, in
- *    the beginning. Of course, the sub-Block must still be modified every
- *    time before it is solved, because it also depends on the initial
- *    state. But in general, most of the data in a Block that needs to be
- *    updated is dependent on the scenarios. Therefore, having one sub-Block
- *    associated with each scenario would imply that only the initial state of
- *    the sub-Block must be updated, and the reoptimization could be expected
- *    to be faster (not to mention the process of modifying the scenario of a
- *    sub-Block that would also be avoided by itself).
+ *    the beginning. Of course, the sub-Block must still be modified each time
+ *    before it is solved, because it also depends on the initial state. But
+ *    in general, most of the data in a Block that needs to be updated is
+ *    dependent on the scenarios. Therefore, having one sub-Block associated
+ *    with each scenario would imply that only the initial state of the
+ *    sub-Block must be updated, and the reoptimization could be expected to
+ *    be faster (besides avoiding the modification of the scenario of a
+ *    sub-Block).
  *
  * -# To allow parallelization in a shared-memory multiprocessing system.
  *
@@ -220,7 +432,7 @@ namespace SMSpp_di_unipi_it
  *    solving a particular subproblem requires changing the data of that
  *    sub-Block. The presence of multiple sub-Blocks per stage, however, makes
  *    it possible to parallelize this procedure. Suppose, for instance, that
- *    at every iteration, for each stage, SDDPSolver must solve N subproblems,
+ *    at each iteration, for each stage, SDDPSolver must solve N subproblems,
  *    each one associated with some scenario and some initial state. Suppose
  *    also that SDDPBlock has B sub-Blocks per stage and a process running
  *    ParallelSDDPSolver::compute() has M threads available. In this case, it
@@ -455,12 +667,12 @@ public:
   //
   // Two mutually-exclusive paths are supported:
   //
-  // (legacy) The scenarios are stored inline at the SDDPBlock group level
+  // (inline) The scenarios are stored inline at the SDDPBlock group level
   //   (variables "Scenarios", "NumberScenarios", "ScenarioSize" plus the
   //   structural metadata SubScenarioSize / NumberRandomDataGroups /
   //   SizeRandomDataGroups). ScenarioSet::deserialize() handles the lot.
   //
-  // (new) A ScenarioGenerator is provided via a "ScenarioGenerator" sub-
+  // (generator) A ScenarioGenerator is provided via a "ScenarioGenerator" sub-
   //   group (with the standard factory schema, i.e. "type" attribute);
   //   the actual scenarios are produced by the generator at runtime, via
   //   init_*_pool() / load_scenarios_from_generator(). In this case the
@@ -469,7 +681,7 @@ public:
   //   to encode, since the pool is yet to be chosen), but the structural
   //   metadata (SubScenarioSize / NumberRandomDataGroups /
   //   SizeRandomDataGroups) remains at the SDDPBlock level, exactly where
-  //   they would be in the legacy path. An optional sub-group
+  //   they would be with the inline scenarios. An optional sub-group
   //   "ScenarioGeneratorConfig" can carry a Configuration to be passed to
   //   the generator's set_config().
   //
@@ -479,24 +691,24 @@ public:
 
   const auto gen_group = group.getGroup( "ScenarioGenerator" );
   const auto scenarios_var = group.getVar( "Scenarios" );
-  const bool has_new_path = ! gen_group.isNull();
-  const bool has_legacy_path = ! scenarios_var.isNull();
+  const bool has_generator = ! gen_group.isNull();
+  const bool has_inline = ! scenarios_var.isNull();
 
-  if( has_new_path && has_legacy_path )
-   throw( std::logic_error( "SDDPBlock::deserialize: both the legacy "
-                            "'Scenarios' variable and the new "
+  if( has_generator && has_inline )
+   throw( std::logic_error( "SDDPBlock::deserialize: both the "
+                            "'Scenarios' variable and the "
                             "'ScenarioGenerator' sub-group are present in "
                             "the netCDF; only one of the two is allowed." ) );
 
-  if( ( ! has_new_path ) && ( ! has_legacy_path ) )
-   throw( std::logic_error( "SDDPBlock::deserialize: neither the legacy "
+  if( ( ! has_generator ) && ( ! has_inline ) )
+   throw( std::logic_error( "SDDPBlock::deserialize: neither the "
                             "'Scenarios' variable nor a 'ScenarioGenerator' "
                             "sub-group are present in the netCDF; no source "
                             "of scenarios available." ) );
 
-  if( has_new_path ) {
+  if( has_generator ) {
 
-   // (new path) build the generator via factory, set ourselves as its
+   // (generator) build the generator via factory, set ourselves as its
    // partner Block, optionally apply ScenarioGeneratorConfig, and
    // populate the structural metadata of scenario_set (the actual data
    // will be filled later by the attached Solver, via
@@ -530,14 +742,14 @@ public:
    //    walking a View with descend() and reading get_scenario_size()
    //    at each stage. The 'SubScenarioSize' netCDF attribute is
    //    ignored if present (it would be meaningful only on the
-   //    SDDPBlock side if it were authoritative, which it isn't here —
+   //    SDDPBlock side if it were authoritative, which it is not here:
    //    the generator owns the per-stage sizes). Requires the generator
    //    to be walkable right after deserialize() (lazy-init contract).
    //
    //  - single-stage generator: read 'SubScenarioSize' from the netCDF
-   //    group (optional — if absent, all sub-scenarios share the same
+   //    group (optional: if absent, all sub-scenarios share the same
    //    size derived from the generator's scenario_size and time
-   //    horizon, mirroring the legacy convention).
+   //    horizon, as with the inline scenarios).
    std::vector< Index > sub_scenario_size;
    if( auto mgen = dynamic_cast<
        ::SMSpp_di_unipi_it::MultiStageScenarioGenerator * >(
@@ -569,8 +781,8 @@ public:
     const auto sz = f_scenario_generator->get_scenario_size();
     if( sz % time_horizon != 0 )
      throw( std::logic_error( "SDDPBlock::deserialize: 'SubScenarioSize' "
-                              "was not provided in the new path, but the "
-                              "generator's scenario_size (" +
+                              "was not provided with a ScenarioGenerator, "
+                              "but the generator's scenario_size (" +
                               std::to_string( sz ) + ") is not a multiple "
                               "of 'TimeHorizon' (" +
                               std::to_string( time_horizon ) + ")." ) );
@@ -581,8 +793,8 @@ public:
    std::vector< Index > size_random_data_groups;
 
    // NumberRandomDataGroups / SizeRandomDataGroups are meaningful only if
-   // all sub-scenarios share the same size (mirroring the legacy logic
-   // in ScenarioSet::deserialize())
+   // all sub-scenarios share the same size (as in
+   // ScenarioSet::deserialize())
    if( std::adjacent_find( sub_scenario_size.begin() ,
                            sub_scenario_size.end() ,
                            std::not_equal_to<>() ) ==
@@ -617,7 +829,7 @@ public:
                                           size_random_data_groups ) );
    }
   else {
-   // (legacy path) ScenarioSet handles everything inline
+   // (inline) ScenarioSet handles everything
    scenario_set.deserialize( group );
    }
 
@@ -940,7 +1152,7 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the size of the admissible state associated with the given \p stage
+ /// returns the size of the admissible state of the given \p stage
  /** This function returns the size of the admissible state associated with
   * the given \p stage.
   *
@@ -980,15 +1192,14 @@ public:
   * pool into the internal cache, after which the data-access helpers
   * #size() / #sub_scenario_begin() / #sub_scenario_end() (and therefore
   * #set_scenario() and ScenarioSimulator) will route reads through the
-  * cache instead of through the legacy ScenarioSet storage.
+  * cache instead of through the ScenarioSet storage.
   *
-  * Note: in v2 step 1 only the base ScenarioGenerator is supported (the
-  * scenario produced by get_current_scenario() is assumed to span all
-  * stages, and the per-stage decomposition is taken from the netCDF
-  * SubScenarioSize variable that is read at deserialization time, as for
-  * the legacy ScenarioSet path). MultiStageScenarioGenerator support is
-  * planned for step 2 and will be discriminated via dynamic_cast inside
-  * prepare_generator_pool() and the attached Solvers. */
+  * With a ScenarioGenerator that is not a MultiStageScenarioGenerator, the
+  * scenario produced by get_current_scenario() spans all the stages, and
+  * the per-stage decomposition is taken from the netCDF SubScenarioSize
+  * variable read by deserialize(), as for the scenarios stored in the
+  * ScenarioSet; a MultiStageScenarioGenerator gives instead the scenarios
+  * of each stage (see prepare_multi_stage_generator_pool()). */
 
  ScenarioGenerator * get_scenario_generator() const {
   return( f_scenario_generator );
@@ -1003,10 +1214,10 @@ public:
   * SDDPBlock-side data-access helpers (#size(), #sub_scenario_begin(),
   * #sub_scenario_end()) route reads through this cache instead of
   * through #scenario_set (whose .scenarios storage is left untouched and
-  * is in fact empty in the generator-backed path). The number of
-  * scenarios is also mirrored into scenario_set via
-  * ScenarioSet::set_num_scenarios(), so that legacy callers that still
-  * read get_scenario_set().size() observe the right count.
+  * is in fact empty when the scenarios come from a generator). The number
+  * of scenarios is also mirrored into scenario_set via
+  * ScenarioSet::set_num_scenarios(), so that a caller that reads
+  * get_scenario_set().size() observes the right count.
   *
   * The generator's pool must already have been initialized (typically by
   * the caller via init_random_pool() or init_representative_pool());
@@ -1017,9 +1228,8 @@ public:
   * SubScenarioSize structural metadata read from the netCDF group at
   * deserialize time (see deserialize()). The per-scenario probabilities
   * returned by the generator must all be equal to 1 / pool_size (uniform);
-  * non-uniform probabilities trigger an explicit "not yet implemented"
-  * exception, since incorporating non-uniform weights into the SDDP cut
-  * averaging is deferred to a follow-up version (cf. v2 step 2+ TODO).
+  * non-uniform probabilities make the method throw, since the averaging of
+  * the cuts of SDDPSolver uses uniform weights.
   *
   * After this method returns, the generator's pool iteration is left at
   * the beginning (reset_pool() is called at the end) so that subsequent
@@ -1034,25 +1244,22 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /// snapshot a MultiStageScenarioGenerator's per-stage pools into the cache
- /** Analogue of #prepare_generator_pool() for the MultiStageScenarioGenerator
-  * branch (v2 step 2). Walks the attached MultiStageScenarioGenerator and
+ /** Analogue of #prepare_generator_pool() for a
+  * MultiStageScenarioGenerator. Walks the attached generator and
   * fills #f_multi_stage_pool_cache, a per-stage table of scenario vectors,
   * where each row cache[t][k] is a flat scenario of length
   * scenario_set.get_sub_scenario_size(t).
   *
-  * The walk currently assumes **stage independence** — i.e., the per-stage
-  * pool is the same regardless of the path history H_t. Concretely, for
-  * each stage t the method navigates to a (default-history) realization
-  * of X_t and enumerates next_scenario() until exhausted. This matches
-  * the planned MultiStageScenarioSet implementation (one DiscreteScenarioSet
-  * per stage), which is the only concrete subclass we will be able to
-  * validate against in the immediate future; supporting genuinely
-  * history-dependent multi-stage generators (a full tree walk) is left as
-  * a follow-up.
+  * The walk assumes stage independence, i.e., that the pool of a stage is
+  * the same whatever the history of the process before it: for each stage
+  * t the method navigates to one realization of the history and enumerates
+  * next_scenario() until exhausted. A generator whose pools depend on the
+  * history (a tree of scenarios) is not handled.
   *
   * As in #prepare_generator_pool(), the per-stage probabilities must be
   * uniform (otherwise weighted-average cuts in the backward pass would
-  * be required, which is deferred). The pool sizes per stage may differ.
+  * be required, which SDDPSolver does not compute). The pool sizes per stage
+  * may differ.
   * After this method returns, the generator's pool iteration is reset
   * (reset_pool()) so that subsequent external uses are unaffected.
   *
@@ -1066,20 +1273,20 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the number of scenarios available to this SDDPBlock at stage \p stage
+ /// returns the number of scenarios of this SDDPBlock at stage \p stage
  /** Dispatches between three possible scenario sources, in order of
   * precedence:
   *
   *  1. The MultiStageScenarioGenerator cache (#f_multi_stage_pool_cache,
-  *     populated by #prepare_multi_stage_generator_pool() in v2 step 2):
+  *     populated by #prepare_multi_stage_generator_pool()):
   *     returns the per-stage pool size cache[\p stage].size().
   *
   *  2. The single-stage ScenarioGenerator cache (#f_generator_pool_cache,
-  *     populated by #prepare_generator_pool() in v2 step 1): returns
+  *     populated by #prepare_generator_pool()): returns
   *     cache.size(), the same value for every stage (the scenario spans
   *     the full horizon).
   *
-  *  3. The legacy ScenarioSet storage: returns scenario_set.size(), the
+  *  3. The ScenarioSet storage: returns scenario_set.size(), the
   *     same value for every stage.
   *
   * The parameter \p stage is only consulted in case 1.
@@ -1102,7 +1309,7 @@ public:
  /// returns the size of each random data group
  /** Forwards to ScenarioSet::get_size_random_data_groups(), as this is
   * structural metadata that lives in #scenario_set in all paths
-  * (legacy, single-stage generator, and multi-stage generator). */
+  * (inline scenarios, single-stage generator, and multi-stage generator). */
 
  const std::vector< Index > & get_size_random_data_groups() const {
   return( scenario_set.get_size_random_data_groups() );
@@ -1122,7 +1329,7 @@ public:
   *     into cache[scenario_id], advanced to the offset of stage \p
   *     stage as dictated by the structural metadata in #scenario_set.
   *
-  *  3. The legacy ScenarioSet storage: delegates to
+  *  3. The ScenarioSet storage: delegates to
   *     ScenarioSet::sub_scenario_begin().
   *
   * @param scenario_id The index of a scenario, which must be in
@@ -1155,7 +1362,7 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns an iterator to the element following the last in sub-scenario (i,t)
+ /// returns an iterator past the last element of sub-scenario (i,t)
 
  std::vector< double >::const_iterator
  sub_scenario_end( Index scenario_id , Index stage ) const {
@@ -1595,8 +1802,8 @@ protected:
   * SDDPBlock was deserialized with a "ScenarioGenerator" sub-group; in that
   * case, scenario_set retains only the structural metadata and the actual
   * scenario data is snapshotted into #f_generator_pool_cache by
-  * prepare_generator_pool(). Null in the legacy path, where the scenarios
-  * live entirely inside scenario_set. */
+  * prepare_generator_pool(). Null when the scenarios are stored inline,
+  * where they live entirely inside scenario_set. */
 
  ScenarioGenerator * f_scenario_generator = nullptr;
 
@@ -1605,8 +1812,8 @@ protected:
   * after the attached Solver has called init_*_pool() on the generator.
   * Each row is a flat scenario of length scenario_set.get_scenario_size(),
   * spanning all stages (the per-stage decomposition is taken from
-  * #scenario_set's structural metadata). Empty in the legacy path, where
-  * scenario_set.scenarios is the data home instead.
+  * #scenario_set's structural metadata). Empty when the scenarios are
+  * stored inline, scenario_set.scenarios being their home instead.
   *
   * Mutually exclusive with #f_multi_stage_pool_cache: at most one of the
   * two is non-empty after a successful prepare_* call.
@@ -1618,7 +1825,7 @@ protected:
 
  std::vector< std::vector< double > > f_generator_pool_cache;
 
- /// Per-stage snapshot of a MultiStageScenarioGenerator's pools (v2 step 2)
+ /// Per-stage snapshot of a MultiStageScenarioGenerator's pools
  /** Filled by prepare_multi_stage_generator_pool() when the attached
   * generator is a MultiStageScenarioGenerator. The outer dimension is
   * time_horizon; the middle dimension is the per-stage pool size (can
@@ -1628,9 +1835,6 @@ protected:
   *
   * Mutually exclusive with #f_generator_pool_cache.
   *
-  * In v2 step 2 we only have the framework: the only concrete subclass
-  * we can plausibly point at — the planned MultiStageScenarioSet —
-  * does not exist yet, so no run-time validation has been performed.
   * The walking logic in prepare_multi_stage_generator_pool() assumes
   * stage independence; see the comment there. */
 

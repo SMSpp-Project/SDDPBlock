@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `SDDPGreedySolver::set_end_callback()`, a function that `compute()` calls at
+  the end of the simulation, e.g., to restore the data that the callback has
+  changed
+
 - the fourth element of the vector that the extra Configuration of
   `SDDPSolver` can be, as for `SDDPGreedySolver`: the Configuration of
   `get_dual_solution()` of the Solver of the inner Block of each stage,
@@ -20,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is written
 
 ### Changed
+
+- the documentation of `SDDPBlock` derives the convexity of the value
+  functions, relates the random cuts and the cuts that depend on the random
+  data of the previous stage to the model of the cuts, states the terminal
+  function with a global bound only, and describes the scenario pool in the
+  present; the error messages of `deserialize()` name the two sources of
+  the scenarios
 
 - whoever links the module keeps it: the classes of a module register
   themselves in the factory from a static initialiser, and a linker that
@@ -38,6 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the header includes the `Solution` it derives from, which it was getting by
   chance from another header and would have stopped getting the day that one
   stopped including it
+
+- the documentation of `SDDPBlock` counts one `PolyhedralFunction` per stage,
+  the last one being the terminal value function, which is zero only when no
+  last-stage cut is given, and it states the Bellman recursion, the state,
+  the cuts and the sign of their coefficients, the random data and the
+  initial conditions that are not in the state
+
 ## [0.6.1] - 2026-09-13
 
 ### Fixed

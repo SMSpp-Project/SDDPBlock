@@ -66,9 +66,9 @@ namespace SMSpp_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// a greedy solver for multistage programming problems
 /**
- * The SDDPGreedySolver class derives from Solver and implements a sequential,
- * greedy strategy to solve an SDDPBlock for a fixed scenario. Recall that an
- * SDDPBlock represents an optimization problem of the form
+ * SDDPGreedySolver derives from CDASolver and implements a sequential,
+ * greedy strategy to solve an SDDPBlock for a fixed scenario. Recall that
+ * an SDDPBlock represents an optimization problem of the form
  *
  * \f[
  *   \min_{x_0 \in \mathcal{X}_0} f_0(x_0) +
@@ -80,12 +80,12 @@ namespace SMSpp_di_unipi_it
  *   \right\rbrack \right\rbrack\right\rbrack, \qquad (1)
  * \f]
  *
- * where T is the time horizon, \f$\mathcal{X}_t \equiv
- * \mathcal{X}_t(x_{t-1}, \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
+ * where T is the time horizon, \f$\mathcal{X}_t \equiv \mathcal{X}_t(x_{t-1},
+ * \xi_t) \subseteq \mathbb{R}^{n_t}\f$ for each
  * \f$t \in \{0, \dots, T-1\}\f$, and \f$ \xi = \{ \xi_t \}_{t \in \{1, \dots,
- * T-1\}} \f$ is a stochastic process. See SDDPBlock for details. The
- * SDDPGreedySolver considers the problem (1) for a single realization of the
- * stochastic process, i.e., a deterministic problem of the form
+ * T-1\}} \f$ is a stochastic process (see SDDPBlock for details). This Solver
+ * considers problem (1) for a single realization of the stochastic process,
+ * i.e., a deterministic problem of the form
  *
  * \f[
  *   \min_{x_0 \in \mathcal{\tilde{X}}_0} f_0(x_0) +
@@ -99,13 +99,12 @@ namespace SMSpp_di_unipi_it
  *
  * with \f$\mathcal{\tilde{X}}_t \equiv \mathcal{\tilde{X}}_t(x_{t-1},
  * \tilde{\xi}_t)\f$ where \f$ \tilde{\xi}_t = \{ \tilde{\xi}_t \}_{t \in \{1,
- * \dots, T-1\}} \f$ is a realization of the stochastic process \f$ \xi
- * \f$. The SDDPGreedySolver is a heuristic as it does not look for an optimal
- * solution to problem (2). The method it employs is very simple: it solves
- * the subproblem at each stage in sequence, from the first to the last one,
- * using the solution found for a stage to define the problem at the next
- * stage. First, for a given \f$ (x_{-1}, \tilde{\xi}_0)\f$, it solves
- * the problem
+ * \dots, T-1\}} \f$ is a realization of the stochastic process \f$ \xi \f$.
+ * This Solver is a heuristic, since it does not look for an optimal solution
+ * to problem (2); the method it employs is quite simple, i.e., it solves the
+ * subproblem at each stage in sequence, from the first to the last one, using
+ * the solution found for a stage to define the problem at the next stage.
+ * First, for a given \f$ (x_{-1}, \tilde{\xi}_0)\f$, it solves the problem
  *
  * @f{align}
  *   \min       & \ \ f_0(x_0) + \mathcal{P}_{1}(x_0) \qquad (3) \\
@@ -114,8 +113,8 @@ namespace SMSpp_di_unipi_it
  * @f}
  *
  * where \f$ \mathcal{P}_{1} \f$ is a polyhedral function that approximates
- * the cost-to-go function. Let \f$ x_0^* \f$ be a solution obtained to
- * problem (3). Next, the following problem is solved
+ * the cost-to-go function. If \f$ x_0^* \f$ is a solution obtained for
+ * problem (3), the following problem is solved next
  *
  * @f{align}
  *   \min       & \ \ f_1(x_1) + \mathcal{P}_{2}(x_1)\\
@@ -123,7 +122,7 @@ namespace SMSpp_di_unipi_it
  *                  \tilde{\xi}_1)
  * @f}
  *
- * and a solution \f$ x_1^* \f$ is obtained. This process continues until the
+ * and a solution \f$ x_1^* \f$ is obtained; this process continues until the
  * subproblem at stage \f$ T-1 \f$ is solved and a solution \f$ x_{T-1}^* \f$
  * is found for it. In general, for each \f$ t \in \{0, \dots, T-1\}\f$, the
  * subproblem solved at stage \f$ t \f$ is the following
@@ -139,10 +138,10 @@ namespace SMSpp_di_unipi_it
  * \mathcal{P}_{t+1} \f$ denotes a polyhedral function that approximates the
  * cost-to-go function at stage \f$ t \f$.
  *
- *     Notice that the SDDPGreedySolver does not solve neither the problem
- *     encoded by SDDPBlock nor the deterministic (single-scenario) multistage
- *     problem defined in (2). It may not even find a feasible solution to
- *     problem (2) even if one exists.
+ * Note that the SDDPGreedySolver solves neither the problem encoded by
+ * SDDPBlock nor the deterministic (single-scenario) multistage problem
+ * defined in (2), and it may not even find a feasible solution to problem (2)
+ * even if one exists.
  */
 
 class SDDPGreedySolver : public CDASolver {
@@ -1366,10 +1365,33 @@ public:
  /// sets the callback function
  /** It sets the callback function that is called right before the sub-problem
   * at each stage is solved. The parameter of the callback function is the
-  * stage associated with the sub-problem that will be solved.
+  * stage associated with the sub-problem that will be solved. The function
+  * is called after the state of the stage has been set and before its
+  * inner Block is configured, and it may be used to copy
+  * into the data of the stage the final values, in the previous stage, of
+  * the initial conditions that are not part of the state (see SDDPBlock);
+  * the values it writes remain in the data of the stage afterwards, unless
+  * the function given to set_end_callback() restores them.
   */
  void set_callback( std::function< void( Index ) > function ) {
   callback = function;
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// sets the function called at the end of the simulation
+ /** It sets the function that compute() calls once the loop over the stages
+  * is over, either after the last stage or after the stage that failed, and
+  * before the SDDPBlock is unlocked. It may restore the data of the stages
+  * that the function given to set_callback() has changed, so that a Solver
+  * that later computes cuts on the same sub-Blocks (say, the SDDPSolver of
+  * an InvestmentFunction, between two simulations) finds the data the stages
+  * had before the simulation. A :MILPSolver of a sub-Block processes the
+  * Modification so issued only when it is called again, hence the solution
+  * of the simulation can still be read from it afterwards.
+  */
+ void set_end_callback( std::function< void( void ) > function ) {
+  end_callback = function;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1604,6 +1626,9 @@ protected:
 
  /// Function to be called right before each sub-problem is solved
  std::function< void( Index ) > callback;
+
+ /// Function to be called at the end of compute() [see set_end_callback()]
+ std::function< void( void ) > end_callback;
 
  /// Name of the default BlockConfig file for the inner Blocks
  std::string f_inner_block_config_filename{};
