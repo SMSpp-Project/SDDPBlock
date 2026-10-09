@@ -156,7 +156,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 /*--------------------------------------------------------------------------*/
  /// defines the set of scenarios
  /** Generic version: the source \p src must expose the same minimal
-  * interface that ScenarioSet (and, since v2 step 1, SDDPBlock) provides
+  * interface that ScenarioSet (and SDDPBlock) provides
   * to ScenarioSimulator, namely:
   *
   *  - Index   size() const
@@ -166,8 +166,8 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
   *  - some const_iterator sub_scenario_end  ( Index i, Index t ) const
   *
   * Templating this on Src avoids hard-coding ScenarioSet here and lets
-  * callers pass either a plain ScenarioSet (legacy path) or an SDDPBlock
-  * whose data is sourced from an attached ScenarioGenerator (v2 path),
+  * callers pass either a plain ScenarioSet (the scenarios stored in the
+  * ScenarioSet) or an SDDPBlock (the scenarios of a ScenarioGenerator),
   * without having to include SDDPBlock.h from this header (which would
   * cause a cyclic dependency, since SDDPBlock.h includes us). */
 

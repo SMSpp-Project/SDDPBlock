@@ -72,60 +72,57 @@ class StochasticBlock;
 /*--------------------------------------------------------------------------*/
 /// an SDDP solver for multistage linear stochastic programming problems
 /**
- * The SDDPSolver class derives from Solver and implements the stochastic dual
- * dynamic programming (SDDP) method for multistage linear stochastic
- * problems. In fact, this works as a wrapper for the SDDP solver implemented
- * by the STochastic OPTimization (StOpt) library, which is publicly available
- * at https://gitlab.com/stochastic-control/StOpt. This SDDPSolver can be
+ * SDDPSolver derives from Solver and implements the Stochastic Dual Dynamic
+ * Programming (SDDP) method for multistage linear stochastic problems; in
+ * fact, it works as a wrapper for the SDDP solver implemented by the
+ * STochastic OPTimization (StOpt) library, which is publicly available at
+ * https://gitlab.com/stochastic-control/StOpt. This SDDPSolver can be
  * attached to an SDDPBlock whose subproblems are linear, i.e., one that has
  * the following form:
  *
  * \f[
- *    \min_{\substack{x_0 \in \mathbb{R}^{n_0} \\ A_0 x_0 + B_0 x_{-1} = b_0\\
+ *    \min_{\substack{x_0 \in \mathbb{R}^{n_0} \\ W_0 x_0 + U_0 x_{-1} = h_0\\
  *                    x_0 \ge 0}} c_0^{\top}x_0 +
  *    \mathbb{E} \left \lbrack
- *    \min_{\substack{x_1 \in \mathbb{R}^{n_1} \\ A_1 x_1 + B_1 x_0 = b_1\\
+ *    \min_{\substack{x_1 \in \mathbb{R}^{n_1} \\ W_1 x_1 + U_1 x_0 = h_1\\
  *                    x_1 \ge 0}} c_1^{\top}x_1 +
  *    \mathbb{E} \left \lbrack \dots +
  *    \mathbb{E} \left \lbrack
  *    \min_{\substack{x_{T-1} \in \mathbb{R}^{n_{T-1}} \\
- *          A_{T-1} x_{T-1} + B_{T-1} x_{T-2} = b_{T-1}\\
+ *          W_{T-1} x_{T-1} + U_{T-1} x_{T-2} = h_{T-1}\\
  *                    x_{T-1} \ge 0}} c_{T-1}^{\top}x_{T-1}
  *    \right\rbrack \right\rbrack\right\rbrack,
  * \f]
  *
- * where \f$ T \f$ is called the time horizon and \f$ \xi = \{ (b_t,
- * c_t, A_t, B_t) \}_{t \in \{1, \dots, T-1\}} \f$ is a stochastic
- * process. This means that some (or all) the components of the
- * matrices \f$ A_t \f$ and \f$ B_t \f$ and the vectors \f$ b_t \f$
- * and \f$ c_t \f$ may be random variables. Notice that \f$ x_{-1} \f$
- * and \f$ (b_0, c_0, A_0, B_0) \f$, which we denote by \f$ \xi_0 \f$,
- * are deterministic. The term \f$ B_0 x_{-1} \f$ in the first stage
- * problem could be disregarded (i.e., we could have \f$ B_0 = 0 \f$
- * or \f$ x_{-1} = 0 \f$ without loss of generality), but we keep them
- * in order to have all subproblems with the same structure, which
- * will facilitate our approach.
+ * where \f$ T \f$ is called the time horizon and \f$ \xi = \{ (h_t, c_t, W_t,
+ * U_t) \}_{t \in \{1, \dots, T-1\}} \f$ is a stochastic process, which means
+ * that some (or all) of the components of the matrices \f$ W_t \f$ and
+ * \f$ U_t \f$ and the vectors \f$ h_t \f$ and \f$ c_t \f$ may be random
+ * variables. Notice that \f$ x_{-1} \f$ and \f$ (h_0, c_0, W_0, U_0) \f$,
+ * which we denote by \f$ \xi_0 \f$, are deterministic; hence, the term
+ * \f$ U_0 x_{-1} \f$ in the first stage problem could be disregarded (i.e.,
+ * we could have \f$ U_0 = 0 \f$ or \f$ x_{-1} = 0 \f$ without loss of
+ * generality), but we keep it in order to have all subproblems with the same
+ * structure, which simplifies our approach.
  *
  * We shall distinguish two types of random variables: the convex and
  * the non-convex random variables.
  *
- * - The *convex random variables* are those that can only appear in
- *   the right-hand side of the constraints, i.e., they can only be
- *   part of the vectors \f$ b_t \f$ for \f$ t \in \{1, \dots, T-1\}
- *   \f$.
+ * - We call *convex random variables* those that can only appear in the
+ *   right-hand side of the constraints, i.e., they can only be part of the
+ *   vectors \f$ h_t \f$ for \f$ t \in \{1, \dots, T-1\} \f$.
  *
- * - The *non-convex random variables* are those that can only appear
- *   in the left-hand side of the constraints or in the objective
- *   function, i.e., they can only be part of the matrices \f$ A_t \f$
- *   or the vectors \f$ c_t \f$ for \f$ t \in \{1, \dots, T-1\} \f$.
+ * - We call *non-convex random variables* those that can only appear in the
+ *   left-hand side of the constraints or in the objective function, i.e.,
+ *   they can only be part of the matrices \f$ W_t \f$ or the vectors
+ *   \f$ c_t \f$ for \f$ t \in \{1, \dots, T-1\} \f$.
  *
- * Among the convex random variables, we further consider two
- * types. The *time-related random variables* are those that depend on
- * some random data of the previous stage. The *time-independent
- * random variables* are those that do not depend on random variables
- * of previous stages. Notice that we do not allow non-convex random
- * variables to be time-related. We also denote the \f$t\f$-th random
- * variable of the stochastic process \f$ \xi \f$ as
+ * Among the convex random variables we further distinguish the *time-related
+ * random variables*, which depend on some random data of the previous stage,
+ * from the *time-independent random variables*, which do not depend on random
+ * variables of previous stages; note that we do not allow non-convex random
+ * variables to be time-related. We also denote the \f$t\f$-th random variable
+ * of the stochastic process \f$ \xi \f$ as
  *
  * \f[  \xi_t = ( \omega_t , \nu_t ) \f]
  *
@@ -148,7 +145,7 @@ class StochasticBlock;
  *
  * \f[
  *    \min_{\substack{x_t \in \mathbb{R}^{n_t}\\
- *                    A_t x_t + B_t x_{t-1} = b_t\\
+ *                    W_t x_t + U_t x_{t-1} = h_t\\
  *                    x_t \ge 0}} c_t^{\top}x_t +
  *    \mathcal{V}_{t+1}(x_t, \omega_t^{\text{dep}})
  * \f]
@@ -164,13 +161,16 @@ class StochasticBlock;
  * \f]
  *
  * is the (expected value) cost-to-go function (also called value
- * function, future value function, future cost function), with \f$
- * \mathcal{V}_{T} \equiv 0 \f$ and
+ * function, future value function, future cost function), with
+ * \f$ \mathcal{V}_{T} \f$ the terminal value function, which is
+ * identically zero unless last-stage cuts or a finite global bound are
+ * given (in the PolyhedralFunction of the last stage or, the cuts, by
+ * #vdblLastStageCuts, see SDDPBlock), and
  *
  * \f[
  *    V_{t}(x_{t-1}, \xi_{t}) =
  *    \min_{\substack{x_t \in \mathbb{R}^{n_t} \\
- *                    A_t x_t + B_t x_{t-1} = b_t\\
+ *                    W_t x_t + U_t x_{t-1} = h_t\\
  *                    x_t \ge 0}} c_t^{\top}x_t +
  *    \mathcal{V}_{t+1}(x_t, \omega_t^{\text{dep}})
  * \f]
@@ -181,7 +181,7 @@ class StochasticBlock;
  *
  * \f[
  *    \min_{\substack{x_t \in \mathbb{R}^{n_t} \\
- *                    A_t x_t + B_t x_{t-1} = b_t\\
+ *                    W_t x_t + U_t x_{t-1} = h_t\\
  *                    x_t \ge 0}} c_t^{\top}x_t +
  *    \mathcal{P}_{t+1}(x_t)
  * \f]
@@ -190,12 +190,17 @@ class StochasticBlock;
  * function, i.e., it is a function of the form
  *
  * \f[
- *    \mathcal{P}_{t+1}(x_t) = \max_{i \in \{1,\dots,k_t\}}
- *                                     \{ d_{t,i}^{\top}x_t + e_{t,i} \}
+ *    \mathcal{P}_{t+1}(x_t) = \max_{j \in \mathcal{J}_t}
+ *                       \{ \alpha_{t,j} + \beta_{t,j}^{\top} x_t \}
  * \f]
  *
- * with \f$ d_{t,i} \in \mathbb{R}^{n_t} \f$ and \f$ e_{t,i} \in
- * \mathbb{R} \f$ for each \f$ i \in \{1,\dots,k_t\} \f$.
+ * with \f$ \beta_{t,j} \in \mathbb{R}^{n_t} \f$ and \f$ \alpha_{t,j} \in
+ * \mathbb{R} \f$ for each cut \f$ j \in \mathcal{J}_t \f$ (in fact,
+ * \f$ \mathcal{P}_{t+1} \f$ depends only on the state part of \f$ x_t \f$,
+ * and it may have a global lower bound; see SDDPBlock, which also describes
+ * how the state is passed between stages, how the cuts are obtained from the
+ * dual values of the rows into which the state is written, and how the
+ * initial conditions that are not in the state are treated).
  */
 
 class SDDPSolver : public Solver {
@@ -595,6 +600,7 @@ public:
   delete f_inner_block_config;
   delete f_inner_block_solver_config;
   delete f_get_var_solution_config;
+  delete f_get_dual_solution_config;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -825,14 +831,27 @@ public:
   * either nullptr or a pointer to a BlockConfig. The second element, if
   * present, must be either nullptr or a pointer to a BlockSolverConfig. These
   * will be used to configure the inner Block of the BendersBFunction at every
-  * stage and their Solver. Finally, the third element, if present, must be
-  * either nullptr or a pointer to a Configuration. This Configuration will be
-  * used to retrieve the Solution from the inner Block of the
-  * BendersBFunction, at every stage, after it is solved. This Configuration
-  * will be passed to get_var_solution() of the inner Solver. The relevant
-  * part of the Solution of the inner Block is the values of the active
-  * Variables of the PolyhedralFunction. Thus, this Configuration can be used
-  * to specify that only that portion of the Solution should be retrieved.
+  * stage and their Solver. The third element, if present, must be either
+  * nullptr or a pointer to a Configuration. This Configuration will be used
+  * to retrieve the Solution from the inner Block of the BendersBFunction, at
+  * every stage, after it is solved. This Configuration will be passed to
+  * get_var_solution() of the inner Solver. The relevant part of the Solution
+  * of the inner Block is the values of the active Variables of the
+  * PolyhedralFunction. Thus, this Configuration can be used to specify that
+  * only that portion of the Solution should be retrieved. Finally, the
+  * fourth element, if present, must be either nullptr or a pointer to a
+  * Configuration. This Configuration will be used to retrieve the dual
+  * Solution from the inner Block of the BendersBFunction, at every stage,
+  * after it is solved: it is given to the BendersBFunction as both its
+  * "get_dual_solution" and "get_dual_solution_partial" Configurations [see
+  * BendersBFunction::set_ComputeConfig()], which pass it to
+  * get_dual_solution() of the inner Solver when a linearization is computed
+  * or stored. The relevant part of the dual Solution of the inner Block
+  * is that of the constraints the BendersBFunction handles, and this
+  * Configuration can be used to specify that only that portion of it should
+  * be retrieved; if it is not there, or nullptr, the whole dual Solution is
+  * retrieved. Elements missing at the end of the vector are taken as
+  * nullptr.
   *
   * If the extra Configuration is not any of the specified above, an exception
   * is thrown.
@@ -1776,9 +1795,9 @@ protected:
 /*--------------------------------------------------------------------------*/
   /// install scenarios into both backward / forward simulators
   /** Templated on the source type, so that callers may pass either a
-   * ScenarioSet (legacy SDDPBlock storage) or an SDDPBlock (the v2 path,
-   * where data is sourced from an attached ScenarioGenerator via the
-   * SDDPBlock-side cache). The source must expose the minimal interface
+   * ScenarioSet (the scenarios stored in the SDDPBlock) or an SDDPBlock
+   * (whose scenarios come from an attached ScenarioGenerator, through the
+   * cache of the SDDPBlock). The source must expose the minimal interface
    * documented on ScenarioSimulator::set_scenarios(). */
 
   template< typename Src >
@@ -2102,6 +2121,9 @@ protected:
 
  /// Configuration to be passed to get_var_solution() of the inner Solver
  Configuration * f_get_var_solution_config = nullptr;
+
+ /// Configuration to be passed to get_dual_solution() of the inner Solver
+ Configuration * f_get_dual_solution_config = nullptr;
 
  /// Maximum number of iterations that the method should perform
  int maximum_number_iterations;

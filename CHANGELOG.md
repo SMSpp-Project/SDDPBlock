@@ -7,15 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-09
+
 ### Added
+
+- `SDDPGreedySolver::set_end_callback()`, a function that `compute()` calls at
+  the end of the simulation, e.g., to restore the data that the callback has
+  changed
+
+- the fourth element of the vector that the extra Configuration of
+  `SDDPSolver` can be, as for `SDDPGreedySolver`: the Configuration of
+  `get_dual_solution()` of the Solver of the inner Block of each stage,
+  which the `BendersBFunction` of the stage is given as its
+  `get_dual_solution` and `get_dual_solution_partial` Configurations and
+  passes on when it computes or stores a linearization, so that only the
+  part of the dual solution that the `BendersBFunction` needs is written; a
+  vector of 2 or 3 elements is read as before, and the whole dual solution
+  is written
 
 ### Changed
 
+- the documentation of `SDDPBlock` derives the convexity of the value
+  functions, relates the random cuts and the cuts that depend on the random
+  data of the previous stage to the model of the cuts, states the terminal
+  function with a global bound only, and describes the scenario pool in the
+  present; the error messages of `deserialize()` name the two sources of
+  the scenarios
+
+- whoever links the module keeps it: the classes of a module register
+  themselves in the factory from a static initialiser, and a linker that
+  drops what looks unused takes the registration away with it, so the target
+  now tells whoever links it to keep the symbol that forces the module in,
+  and on ELF, where naming the symbol is not enough, the library as a whole
+
 ### Fixed
 
+- on macOS a program linking the module lost the classes the module
+  registers in the factories when the linker dropped the library, as it
+  does under `-dead_strip_dylibs`, which conda sets: the target now asks the
+  linker for the symbol that forces the module in (`-u`), which ld64,
+  unlike the ELF linker, counts as a use of the library
+
+- the header includes the `Solution` it derives from, which it was getting by
+  chance from another header and would have stopped getting the day that one
+  stopped including it
+
+- the documentation of `SDDPBlock` counts one `PolyhedralFunction` per stage,
+  the last one being the terminal value function, which is zero only when no
+  last-stage cut is given, and it states the Bellman recursion, the state,
+  the cuts and the sign of their coefficients, the random data and the
+  initial conditions that are not in the state
+
 ## [0.6.1] - 2026-09-13
-
-
 
 ### Fixed
 
@@ -56,13 +99,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.4] - 2025-12-12
 
-### Added 
+### Added
 
 - SDDPSolver parameters to better control outputs
 
 - parameter to set the seed of the forward simulator
 
-### Changed 
+### Changed
 
 - adapted to new standard organization of makefiles
 
@@ -70,17 +113,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - made USE_MPI public
 
-### Fixed 
+### Fixed
 
 - corrected dysfunctional makefile-s and -c
 
 ## [0.5.3] - 2024-02-29
 
-### Changed 
+### Changed
 
 - adapted to new CMake / makefile organisation
 
-## [0.5.2] - 2023-17-05
+## [0.5.2] - 2023-05-17
 
 ### Added
 
@@ -167,7 +210,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.7.0...develop
+[0.7.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.1...0.7.0
+[0.6.1]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...0.6.1
 [0.6.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.4...0.6.0
 [0.5.4]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.3...0.5.4
 [0.5.3]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.2...0.5.3
