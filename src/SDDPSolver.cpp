@@ -1505,9 +1505,9 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
   objective_value -= static_cast< SDDPBlock * >( sddp_solver->f_Block )->
    get_future_cost( current_stage , sub_block_index );
 
- /**************************/
+ /***************************/
  /* RETRIEVING THE SOLUTION */
- /**************************/
+ /***************************/
 
  // Retrieve the solution x_t of the Block associated with the current stage.
 

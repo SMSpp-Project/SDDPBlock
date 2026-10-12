@@ -2031,7 +2031,7 @@ class SDDPBlockSolution : public Solution {
   delete( f_inner_Config );
   }
 
-/*--------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPBlockSolution ----------*/
+/*--------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPBlockSolution ---------*/
 
  void read( const Block * block ) override final;
 
