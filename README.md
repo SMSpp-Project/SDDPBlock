@@ -1,5 +1,11 @@
 # SDDPBlock
 
+[![Pipeline](https://gitlab.com/smspp/sddpblock/badges/develop/pipeline.svg)](https://gitlab.com/smspp/sddpblock/-/pipelines?ref=develop)
+[![Release](https://gitlab.com/smspp/sddpblock/-/badges/release.svg)](https://gitlab.com/smspp/sddpblock/-/releases)
+[![Documentation](https://img.shields.io/badge/docs-Doxygen-blue)](https://smspp.gitlab.io/smspp-project/)
+[![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+
 SMS++ `:Block` and `Solver` for multistage stochastic programming problems
 amenable of solution by means of Stochastic Dual Dynamic Programming (SDDP)
 approaches. In particular three components are provided:
