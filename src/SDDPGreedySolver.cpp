@@ -229,13 +229,49 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
 
 /*--------------------------------------------------------------------------*/
 
+ComputeConfig * SDDPGreedySolver::get_ComputeConfig( bool all ,
+                                                     ComputeConfig * ocfg )
+ const
+{
+ auto ccfg = ThinComputeInterface::get_ComputeConfig( all , ocfg );
+
+ if( ! ( f_inner_block_config || f_inner_block_solver_config ||
+         f_get_var_solution_config || f_get_dual_solution_config ) )
+  return( ccfg );
+
+ if( ! ccfg ) {
+  ccfg = new ComputeConfig();
+  ccfg->set_diff( ! all );
+  }
+
+ auto clone = []( const Configuration * c ) -> Configuration * {
+  return( c ? c->clone() : nullptr );
+  };
+
+ auto extra = new SimpleConfiguration< std::vector< Configuration * > >();
+ extra->f_value = { clone( f_inner_block_config ) ,
+                    clone( f_inner_block_solver_config ) ,
+                    clone( f_get_var_solution_config ) ,
+                    clone( f_get_dual_solution_config ) };
+ delete ccfg->f_extra_Configuration;
+ ccfg->f_extra_Configuration = extra;
+
+ return( ccfg );
+ }
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPGreedySolver::set_Block( Block * block )
 {
  if( f_Block == block )
   return;
 
  if( f_Block ) {
-  // TODO clean
+  // the Solver this SDDPGreedySolver has registered to the inner Blocks
+  // leave with it [see unregister_solver_inner_block()]
+  for( Index stage = 0 ; stage < v_inner_solver_configured.size() ; ++stage )
+   if( v_inner_solver_configured[ stage ] )
+    unregister_solver_inner_block( stage );
   v_inner_block_configured.clear();
   v_inner_solver_configured.clear();
  }
@@ -419,7 +455,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    set_scenario( get_scenario_id( stage ) , stage );
   }
 
-  if( callback ) callback( stage );
+  if( callback ) callback( static_cast< SDDPBlock * >( f_Block ) , stage );
 
   configure_inner_block( stage );
 

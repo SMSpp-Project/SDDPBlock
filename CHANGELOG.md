@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- an `SDDPGreedySolver` that leaves its SDDPBlock takes away the Solver it
+  has registered to the inner Blocks of the stages
+
+### Added
+
+- `SDDPGreedySolver::get_ComputeConfig()` also returns the extra
+  Configuration, i.e., the BlockConfig and the BlockSolverConfig of the inner
+  Blocks and the Configuration of their solutions, so that another
+  SDDPGreedySolver given it configures the stages in the same way
+
+### Changed
+
+- the function given to `SDDPGreedySolver::set_callback()` also receives the
+  SDDPBlock being simulated, so that the same function serves the
+  SDDPGreedySolver of a copy of it; `get_callback()` and `get_end_callback()`
+  return the functions given
+
 ## [0.7.0] - 2026-10-09
 
 ### Added

@@ -310,13 +310,16 @@ namespace SMSpp_di_unipi_it
  * the final values of stage \f$ t - 1 \f$ (say, the final flow rate of each
  * hydro unit as its initial flow rate, the final power of each thermal unit
  * and battery as its initial power, the final storage of each battery as its
- * initial storage). The values so written remain in the data of the stage,
+ * initial storage). Since a unit may refuse such a value once its Variable
+ * are generated (a ThermalUnitBlock an InitUpDownTime that changes them),
+ * the simulation is meant to run on an SDDPBlock whose stages have not been
+ * solved yet, as sddp_solver and the InvestmentFunction do, each simulation
+ * on a new one. The values so written remain in the data of the stage,
  * unless the function given to SDDPGreedySolver::set_end_callback(), which
  * compute() calls at the end of the simulation, restores the values the
- * stage had before it (as the investmentblock_solver tool does); then a
- * Solver that later computes cuts on the same sub-Blocks starts from the
- * data of the stages, and otherwise from the values the simulation has
- * written. Furthermore, three
+ * stage had before it; then a Solver that later computes cuts on the same
+ * sub-Blocks starts from the data of the stages, and otherwise from the
+ * values the simulation has written. Furthermore, three
  * other treatments of these conditions are not modeled: (i) adding them to
  * the state, (ii) requiring each of them to have, at the end of each stage,
  * the value it has at the beginning, and (iii) relaxing them, i.e., letting

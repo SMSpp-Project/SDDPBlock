@@ -870,6 +870,23 @@ public:
 
  void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
+/*--------------------------------------------------------------------------*/
+ /// returns the ComputeConfig of the SDDPGreedySolver, with its extra
+ /** Returns the ComputeConfig of the SDDPGreedySolver as
+  * ThinComputeInterface::get_ComputeConfig() does, and also its extra
+  * Configuration, in the form set_ComputeConfig() reads: a
+  * SimpleConfiguration< std::vector< Configuration * > > with clones of the
+  * BlockConfig and of the BlockSolverConfig of the inner Blocks of the
+  * BendersBFunction and of the Configuration given to get_var_solution()
+  * and get_dual_solution() of their Solver, each nullptr if there is none;
+  * there is no extra Configuration if none of them is there. Thus another
+  * SDDPGreedySolver given this ComputeConfig (say, that of a copy of the
+  * SDDPBlock) configures the inner Blocks as this one does. */
+
+ ComputeConfig * get_ComputeConfig( bool all = false ,
+				    ComputeConfig * ocfg = nullptr )
+  const override;
+
 /** @} ---------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
@@ -1364,8 +1381,11 @@ public:
 
  /// sets the callback function
  /** It sets the callback function that is called right before the sub-problem
-  * at each stage is solved. The parameter of the callback function is the
-  * stage associated with the sub-problem that will be solved. The function
+  * at each stage is solved. The parameters of the callback function are the
+  * SDDPBlock the SDDPGreedySolver is simulating, and the stage associated
+  * with the sub-problem that will be solved: a function that only knows
+  * them can be given to the SDDPGreedySolver of a copy of the SDDPBlock
+  * [see get_callback()]. The function
   * is called after the state of the stage has been set and before its
   * inner Block is configured, and it may be used to copy
   * into the data of the stage the final values, in the previous stage, of
@@ -1373,9 +1393,17 @@ public:
   * the values it writes remain in the data of the stage afterwards, unless
   * the function given to set_end_callback() restores them.
   */
- void set_callback( std::function< void( Index ) > function ) {
+ void set_callback( std::function< void( SDDPBlock * , Index ) > function )
+ {
   callback = function;
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the function given to set_callback()
+
+ const std::function< void( SDDPBlock * , Index ) > & get_callback( void )
+  const { return( callback ); }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1393,6 +1421,14 @@ public:
  void set_end_callback( std::function< void( void ) > function ) {
   end_callback = function;
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the function given to set_end_callback()
+
+ const std::function< void( void ) > & get_end_callback( void ) const {
+  return( end_callback );
+  }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1625,7 +1661,7 @@ protected:
  bool f_unregister_solver = false;
 
  /// Function to be called right before each sub-problem is solved
- std::function< void( Index ) > callback;
+ std::function< void( SDDPBlock * , Index ) > callback;
 
  /// Function to be called at the end of compute() [see set_end_callback()]
  std::function< void( void ) > end_callback;
