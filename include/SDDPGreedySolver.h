@@ -35,8 +35,10 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include "BendersBFunction.h"
+#include "BendersBlock.h"
+#include "CDASolver.h"
 #include "SDDPBlock.h"
-#include "Solver.h"
 
 #include <chrono>
 #include <random>
@@ -48,8 +50,6 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
-
- class BendersBFunction;      // forward declaration of BendersBFunction
 
  class BlockSolverConfig;     // forward declaration of BlockSolverConfig
 

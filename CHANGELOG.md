@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- an `SDDPGreedySolver` that leaves its SDDPBlock takes away the Solver it
-  has registered to the inner Blocks of the stages
-
 ### Added
 
 - `SDDPGreedySolver::get_ComputeConfig()` also returns the extra
@@ -19,12 +14,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Blocks and the Configuration of their solutions, so that another
   SDDPGreedySolver given it configures the stages in the same way
 
+- the C++20 module `smspp.sddpblock` (`src/SDDPBlock.cppm`), which exports
+  every name that the headers declare at namespace scope and re-exports
+  `smspp.stochasticblock`, so that a source file can write `import
+  smspp.sddpblock;` in place of the `#include` of the headers; it is built
+  with the CMake option `SMSpp_BUILD_MODULE`, as the target
+  `SMS++::SDDPBlock_module`
+
 ### Changed
 
 - the function given to `SDDPGreedySolver::set_callback()` also receives the
   SDDPBlock being simulated, so that the same function serves the
   SDDPGreedySolver of a copy of it; `get_callback()` and `get_end_callback()`
   return the functions given
+
+### Fixed
+
+- `SDDPGreedySolver.h` includes `CDASolver.h`, `BendersBFunction.h` and
+  `BendersBlock.h`, which it uses, and so compiles on its own and not only
+  after `SDDPGreedySolver.cpp` has included them
+
+- an `SDDPGreedySolver` that leaves its SDDPBlock takes away the Solver it
+  has registered to the inner Blocks of the stages
 
 ## [0.7.0] - 2026-10-09
 
