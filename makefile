@@ -49,6 +49,12 @@ SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
 	$(SDDPBkSDR)/include/ParallelSDDPSolver.h
 
+# the C++20 module smspp.sddpblock - - - - - - - - - - - - - - - - - - - - -
+# [see makefile-mod of SMS++]
+
+$(eval $(call SMSppMODrule,SDDPBk,$(SDDPBkSDR),SDDPBlock,smspp.sddpblock,\
+	$(StcBlkMOD)))
+
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::

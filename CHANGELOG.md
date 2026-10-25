@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- the makefiles build the C++20 module `smspp.sddpblock` when `SMSppMOD` is
+  not empty (e.g., `make SMSppMOD=1`), with clang++ 16 or later [see
+  `lib/makefile-mod` of SMS++]
+
 - `SDDPGreedySolver::get_ComputeConfig()` also returns the extra
   Configuration, i.e., the BlockConfig and the BlockSolverConfig of the inner
   Blocks and the Configuration of their solutions, so that another
@@ -22,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SMS++::SDDPBlock_module`
 
 ### Changed
+
+- `SMSpp_BUILD_MODULE` no longer stops the configuration when the C++20
+  module cannot be built, i.e., with a CMake older than 3.28, a generator
+  other than Ninja or Visual Studio, a compiler other than Clang 16 (with
+  `clang-scan-deps`) or MSVC 19.34, or a module it imports that is not
+  there: the option is turned off with a warning that says why, and the
+  build goes on with the headers [see `cmake/CheckModule.cmake` of SMS++]
 
 - the function given to `SDDPGreedySolver::set_callback()` also receives the
   SDDPBlock being simulated, so that the same function serves the
