@@ -459,9 +459,9 @@ public:
    * Solver is running on an unreliable system, which may crash while the
    * output is being performed. By using a suffix, at least some not so old
    * data will be available. For instance, suppose that #intOutputFrequency >
-   * 0, #strStateFile = "state.nc4", and #strSuffix = ".0". Then, the first
-   * time the State is serialized, it will be serialized in the file called
-   * "state.nc4". The second time, it will be serialized into
+   * 0, #strStateFile = "state.nc4", and #strFilenameSuffix = ".0". Then,
+   * the first time the State is serialized, it will be serialized in the
+   * file called "state.nc4". The second time, it will be serialized into
    * "state.nc4.0". The third time it will be serialized again into
    * "state.nc4" and so on. By default, this is empty. */
 
@@ -1050,7 +1050,7 @@ public:
   * a detailed explanation of the possible parameters. This function returns
   * the following values depending on the desired parameter:
   *
-  * - #vdblMeshDiscretization: an empty vector
+  * - #vdblLastStageCuts: an empty vector
   *
   * - #vdblInitialState: an empty vector
   *
@@ -2189,9 +2189,7 @@ private:
   *        integer between 0 and get_time_horizon() - 1.
   *
   * @param sub_block_index The index of the sub-Block, which must be an
-  *        integer between 0 and get_num_sub_blocks_per_stage() - 1.
-  *
-  * @param range The indices of the cuts in \p cuts that should be added. */
+  *        integer between 0 and get_num_sub_blocks_per_stage() - 1. */
 
  void add_cuts( const Eigen::ArrayXXd & cuts , SDDPBlock::Index stage ,
                 SDDPBlock::Index sub_block_index ) const;

@@ -346,7 +346,7 @@ public:
   intLoadCutsOnce ,
   ///< It indicates whether cuts should be loaded only once for each stage
   /**< This parameter specifies how many times the cuts provided by
-   * #intLoadCuts are loaded. Cuts associated with a particular stage, if
+   * #strLoadCuts are loaded. Cuts associated with a particular stage, if
    * provided, are loaded within compute() right before the subproblem
    * associated with that stage is solved. If this parameter is nonzero, the
    * cuts are loaded only once. That is, if cuts associated with a particular
@@ -1437,7 +1437,7 @@ public:
   * scenario at each stage when random scenarios must be considered (see the
   * #intScenarioSeed parameter).
   *
-  * @param A random number engine.
+  * @param random_number_engine A random number engine.
   */
  void set_random_number_engine( std::mt19937 random_number_engine ) {
   this->random_number_engine = random_number_engine;
@@ -1896,7 +1896,8 @@ private:
  /** This function sets the state variables associated with the subproblem at
   * the given \p stage.
   *
-  * @param The vector containing the state of the problem at the given stage.
+  * @param state The vector containing the state of the problem at the
+  *        given stage.
   *
   * @param stage The stage whose state must be set.
   */

@@ -1510,10 +1510,11 @@ public:
   * @param sub_block_index The index of the sub-Block whose cuts will be
   *        updated.
   *
-  * @param remove_current_cuts If true, all cuts currently part of sub-Block
-  *        with index \p sub_block_index at the given \p stage are removed
-  *        before the given cuts are added. If false, the current cuts are
-  *        kept. */
+  * @param number_cuts_to_keep The number of the cuts currently in the
+  *        sub-Block with index \p sub_block_index at the given \p stage that
+  *        are kept: the cuts after the first \p number_cuts_to_keep ones are
+  *        removed before the given cuts are added, and by default all of them
+  *        are kept. */
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,
@@ -1540,10 +1541,10 @@ public:
   *
   * @param stage The stage whose cuts should be updated.
   *
-  * @param remove_current_cuts If true, all cuts currently part of sub-Block
-  *        with index \p sub_block_index at the given \p stage are removed
-  *        before the given cuts are added. If false, the current cuts are
-  *        kept. */
+  * @param number_cuts_to_keep The number of the cuts currently in each
+  *        sub-Block at the given \p stage that are kept: the cuts after the
+  *        first \p number_cuts_to_keep ones are removed before the given
+  *        cuts are added, and by default all of them are kept. */
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,

@@ -145,9 +145,9 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
   * each time instant as opposed to only at time 0 (for a forward simulator)
   * or time get_number_dates() - 1 (for a backward simulator).
   *
-  * @param resampling If true, the sampling is done at each time step within
-  *        updateDateIndex(). If false, the sampling is performed only at
-  *        extreme time steps. */
+  * @param intermediate_sampling If true, the sampling is done at each time
+  *        step within updateDateIndex(). If false, the sampling is
+  *        performed only at extreme time steps. */
 
  void set_intermediate_sampling( bool intermediate_sampling ) {
   this->intermediate_sampling = intermediate_sampling;
