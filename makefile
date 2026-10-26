@@ -53,7 +53,7 @@ SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 # [see makefile-mod of SMS++]
 
 $(eval $(call SMSppMODrule,SDDPBk,$(SDDPBkSDR),SDDPBlock,smspp.sddpblock,\
-	$(StcBlkMOD)))
+	StcBlk))
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
