@@ -37,11 +37,7 @@
 module;
 
 #include "ParallelSDDPSolver.h"
-#include "SDDPBlock.h"
 #include "SDDPGreedySolver.h"
-#include "SDDPSolver.h"
-#include "ScenarioSet.h"
-#include "ScenarioSimulator.h"
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- MODULE PURVIEW -----------------------------*/
