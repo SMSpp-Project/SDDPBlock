@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `SDDPSolver` and `SDDPGreedySolver` accept the weights of the Objective
+  and of the Variable of the Block of the stages, and their changes
+  (`handles_weight_change()`, `handles_variable_weight()`): the problems of
+  the stages are solved by their own Solver, which apply the weights, and
+  are read as they are at each `compute()`
+
 - the pipeline builds the module also with its makefiles, after CMake, and
   runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
 

@@ -1481,6 +1481,23 @@ public:
 
  int compute( bool changedvars = true ) override;
 
+/*--------------------------------------------------------------------------*/
+ /// the weights of the Block of the stages are applied
+ /** The problems of the stages are solved by their own Solver, which apply
+  * the weights of the Objective and of the Variable [see
+  * Block::set_objective_weight() and Block::set_variable_weight()] or refuse
+  * them, and are read as they are at each compute(), as for any other change
+  * of their data: a weight, and a change of it, is then what those Solver
+  * make of it. */
+
+ [[nodiscard]] bool handles_weight_change( void ) const override {
+  return( true );
+  }
+
+ [[nodiscard]] bool handles_variable_weight( void ) const override {
+  return( true );
+  }
+
 /** @} ---------------------------------------------------------------------*/
 /*---------------------- METHODS FOR READING RESULTS -----------------------*/
 /*--------------------------------------------------------------------------*/
