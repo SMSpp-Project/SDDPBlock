@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the README leaves the channels that distribute SMS++ to the
+  installation guide of the wiki (Installing-SMS++), keeping the names
+  of the packages of the module
+
 - `SDDPSolver` and `SDDPGreedySolver` accept the weights of the Objective
   and of the Variable of the Block of the stages, and their changes
   (`handles_weight_change()`, `handles_variable_weight()`): the problems of
