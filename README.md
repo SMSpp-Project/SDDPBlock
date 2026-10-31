@@ -70,6 +70,15 @@ approaches. In particular three components are provided:
   multistage problem, even less the stochastic problem encoded by the
   `SDDPBlock`.
 
+- `SDDPSimulationSolver` puts the two together: it trains the policy with
+  the `SDDPSolver` registered with the `SDDPBlock`, then simulates it on
+  every scenario with the `SDDPGreedySolver` registered there, each on a
+  copy of the `SDDPBlock`, in parallel, and its value is the mean of the
+  costs of the simulations. After each scenario it calls the events
+  `eEverySolution`, with the copy holding the solution of the scenario,
+  out of which whoever uses it (an `InvestmentFunction` whose inner Block is
+  the `SDDPBlock`, say) reads what it needs.
+
 
 ## Getting started
 

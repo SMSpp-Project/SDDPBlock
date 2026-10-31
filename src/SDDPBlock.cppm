@@ -38,6 +38,7 @@ module;
 
 #include "ParallelSDDPSolver.h"
 #include "SDDPGreedySolver.h"
+#include "SDDPSimulationSolver.h"
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- MODULE PURVIEW -----------------------------*/
@@ -58,6 +59,9 @@ export namespace SMSpp_di_unipi_it {
 
  // SDDPGreedySolver.h
  using SMSpp_di_unipi_it::SDDPGreedySolver;
+
+ // SDDPSimulationSolver.h
+ using SMSpp_di_unipi_it::SDDPSimulationSolver;
 
  // SDDPSolver.h
  using SMSpp_di_unipi_it::SDDPSolver;

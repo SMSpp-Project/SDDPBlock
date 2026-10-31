@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `SDDPSimulationSolver`, which trains the policy of an `SDDPBlock` with
+  the `SDDPSolver` registered with it and simulates it on every scenario,
+  each on a copy of the `SDDPBlock`, with the `SDDPGreedySolver` registered
+  there, its value being the mean of the costs; after each scenario it calls
+  the events `eEverySolution`, `get_solution_Block()` giving the copy that
+  holds the solution, and with MPI the cuts of the process of rank 0 are
+  given to all the others, so that every process gives the same results.
+  It is what an `InvestmentFunction` whose inner Block is an `SDDPBlock`
+  used to do by itself
+
 - the makefiles build the C++20 module `smspp.sddpblock` when `SMSppMOD` is
   not empty (e.g., `make SMSppMOD=1`), with clang++ 16 or later [see
   `lib/makefile-mod` of SMS++]

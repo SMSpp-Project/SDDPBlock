@@ -136,6 +136,7 @@ endif ()
 target_sources(${modName} PRIVATE
         src/SDDPBlock.cpp
         src/SDDPGreedySolver.cpp
+        src/SDDPSimulationSolver.cpp
         src/SDDPSolver.cpp
         src/ParallelSDDPSolver.cpp)
 

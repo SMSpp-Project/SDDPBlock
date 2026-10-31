@@ -32,6 +32,7 @@
 
 SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
 	$(SDDPBkSDR)/obj/SDDPGreedySolver.o \
+	$(SDDPBkSDR)/obj/SDDPSimulationSolver.o \
 	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o
 
 # note: USE_MPI mirrors the (default ON) CMake option of the same name: StOpt
@@ -47,6 +48,7 @@ SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/ScenarioSimulator.h \
 	$(SDDPBkSDR)/include/SDDPSolver.h \
 	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
+	$(SDDPBkSDR)/include/SDDPSimulationSolver.h \
 	$(SDDPBkSDR)/include/ParallelSDDPSolver.h
 
 # the C++20 module smspp.sddpblock - - - - - - - - - - - - - - - - - - - - -
@@ -83,6 +85,16 @@ $(SDDPBkSDR)/obj/SDDPGreedySolver.o: $(SDDPBkSDR)/src/SDDPGreedySolver.cpp \
 	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
 	$(CC) -c $(SDDPBkSDR)/src/SDDPGreedySolver.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(SMS++INC) $(SW)
+
+$(SDDPBkSDR)/obj/SDDPSimulationSolver.o: \
+	$(SDDPBkSDR)/src/SDDPSimulationSolver.cpp \
+	$(SDDPBkSDR)/include/SDDPSimulationSolver.h \
+	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
+	$(SDDPBkSDR)/include/SDDPSolver.h $(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(CC) -c $(SDDPBkSDR)/src/SDDPSimulationSolver.cpp -o $@ \
+	$(SDDPBkINC) $(StcBlkINC) $(libStOptINC) $(SMS++INC) $(SW)
 
 $(SDDPBkSDR)/obj/ParallelSDDPSolver.o: \
 	$(SDDPBkSDR)/src/ParallelSDDPSolver.cpp \
