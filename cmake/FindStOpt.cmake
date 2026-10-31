@@ -50,6 +50,29 @@ if (NOT Eigen3_FOUND)
     find_package(Eigen3 REQUIRED)
 endif ()
 
+# Drop the cached paths if one of them does not exist any more, so that
+# they are all searched again from the same place
+set(_stopt_cached StOpt_geners_INCLUDE_DIR StOpt_geners_LIBRARY
+        StOpt_geners_LIBRARY_DEBUG StOpt_INCLUDE_DIR StOpt_LIBRARY
+        StOpt_LIBRARY_DEBUG)
+foreach (_var ${_stopt_cached})
+    foreach (_path ${${_var}})
+        if (IS_ABSOLUTE "${_path}" AND NOT EXISTS "${_path}")
+            set(_stopt_stale TRUE)
+        endif ()
+    endforeach ()
+endforeach ()
+if (_stopt_stale)
+    message(STATUS "Cached StOpt paths not found, searching again")
+    foreach (_var ${_stopt_cached})
+        unset(${_var} CACHE)
+    endforeach ()
+endif ()
+unset(_stopt_cached)
+unset(_stopt_stale)
+unset(_var)
+unset(_path)
+
 # Check if already in cache
 if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
         StOpt_INCLUDE_DIR AND StOpt_LIBRARY)
