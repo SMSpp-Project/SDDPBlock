@@ -54,7 +54,7 @@ endif ()
 # they are all searched again from the same place
 set(_stopt_cached StOpt_geners_INCLUDE_DIR StOpt_geners_LIBRARY
         StOpt_geners_LIBRARY_DEBUG StOpt_INCLUDE_DIR StOpt_LIBRARY
-        StOpt_LIBRARY_DEBUG)
+        StOpt_LIBRARY_DEBUG StOpt_VERSION)
 foreach (_var ${_stopt_cached})
     foreach (_path ${${_var}})
         if (IS_ABSOLUTE "${_path}" AND NOT EXISTS "${_path}")
@@ -73,9 +73,18 @@ unset(_stopt_stale)
 unset(_var)
 unset(_path)
 
+# The cached version is the one of the include directory it was read from,
+# possibly none
+if (NOT "${StOpt_INCLUDE_DIR}" STREQUAL
+        "${_StOpt_VERSION_INCLUDE_DIR}")
+    unset(StOpt_VERSION CACHE)
+    unset(_StOpt_VERSION_INCLUDE_DIR CACHE)
+endif ()
+
 # Check if already in cache
 if (StOpt_geners_INCLUDE_DIR AND StOpt_geners_LIBRARY AND
-        StOpt_INCLUDE_DIR AND StOpt_LIBRARY)
+        StOpt_INCLUDE_DIR AND StOpt_LIBRARY AND
+        DEFINED _StOpt_VERSION_INCLUDE_DIR)
     set(StOpt_FOUND TRUE)
 else ()
 
@@ -175,6 +184,15 @@ else ()
             StOpt
             REQUIRED_VARS StOpt_LIBRARY StOpt_INCLUDE_DIR
             StOpt_geners_LIBRARY StOpt_geners_INCLUDE_DIR)
+endif ()
+
+# A found package keeps its version in the cache, with the include
+# directory it was read from
+if (StOpt_FOUND)
+    set(StOpt_VERSION "${StOpt_VERSION}" CACHE INTERNAL
+            "StOpt version.")
+    set(_StOpt_VERSION_INCLUDE_DIR "${StOpt_INCLUDE_DIR}"
+            CACHE INTERNAL "Include directory of the StOpt version.")
 endif ()
 
 # ----- Export the targets -------------------------------------------------- #

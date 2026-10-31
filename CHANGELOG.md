@@ -60,6 +60,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `cmake/FindStOpt.cmake` keeps the version of a found library in the cache,
+  with the include directory it is read from, and reads it again when that
+  directory changes: a configure that took the paths from the cache left
+  `StOpt_VERSION` empty
+
 - `cmake/FindStOpt.cmake` drops the cached paths of StOpt and geners when one
   of them does not exist any more (e.g., in a build directory configured once
   outside and once inside a container, or after an upgrade), so that all of
