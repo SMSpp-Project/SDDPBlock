@@ -1751,10 +1751,12 @@ public:
 
  void set_scenario( Index scenario_id , Index stage ,
                     Index sub_block_index = 0 ) {
-  auto begin = sub_scenario_begin( scenario_id , stage );
+  const std::span< const double > sub_scenario(
+   sub_scenario_begin( scenario_id , stage ) ,
+   sub_scenario_end( scenario_id , stage ) );
 
   try {
-   get_sub_Block( stage , sub_block_index )->set_data( begin );
+   get_sub_Block( stage , sub_block_index )->set_data( sub_scenario );
   }
   catch( const std::exception & e ) {
    std::cout << "SDDPBlock::set_scenario: exception while setting scenario "
