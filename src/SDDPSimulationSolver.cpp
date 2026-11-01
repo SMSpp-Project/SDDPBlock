@@ -29,7 +29,6 @@
 
 #include "BendersBFunction.h"
 #include "BendersBlock.h"
-#include "ColRowSolution.h"
 #include "FRealObjective.h"
 #include "RBlockConfig.h"
 #include "SDDPGreedySolver.h"
@@ -253,31 +252,20 @@ int SDDPSimulationSolver::compute( bool changedvars )
    }
   else {
    const auto value = solver->get_var_value();
-   // the events of the scenario, one simulation at a time, with its
-   // solution copied into the SDDPBlock
+   // the events of the scenario, one simulation at a time, with the copy
+   // as the Block holding its solution
    #pragma omp critical( SDDPSimulationSolver )
-   if( ( ! interrupt ) && ( ! v_events[ eEverySolution ].empty() ) ) {
-    try {
-     ColRowSolution solution;
-     solution.read( copy );
-     solution.write( get_Block() );
-     }
-    catch( const std::exception & e ) {
-     std::cerr << "SDDPSimulationSolver::compute: the solution of scenario "
-               << scenario << " could not be written in the SDDPBlock: '"
-               << e.what() << "'" << std::endl;
-     interrupt = true;
-     status = kError;
-     }
-    if( ! interrupt )
-     for( auto & event : v_events[ eEverySolution ] ) {
-      const auto action = event();
-      if( action > eContinue ) {
-       interrupt = true;
-       status = ( action <= eStopOK ) ? action : kError;
-       break;
-       }
+   if( ! interrupt ) {
+    f_solution_block = copy;
+    for( auto & event : v_events[ eEverySolution ] ) {
+     const auto action = event();
+     if( action > eContinue ) {
+      interrupt = true;
+      status = ( action <= eStopOK ) ? action : kError;
+      break;
       }
+     }
+    f_solution_block = nullptr;
     }
    total += value;
    }

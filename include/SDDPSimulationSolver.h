@@ -83,14 +83,13 @@ namespace SMSpp_di_unipi_it
  * more than one of no use.
  *
  * After each scenario the solution of the copy, primal and dual, is written
- * in it, copied into the SDDPBlock (the two are twins, and a ColRowSolution
- * of the copy, with those of all its sub-Blocks, is written into it), and
- * the events of type eEverySolution [see ThinComputeInterface::event_type]
- * are called, one simulation at a time, so that an event handler can read
- * what it needs out of the solution of each scenario in the SDDPBlock
- * (say, the linearization of the cost with respect to some data of the
- * stages) and combine it as the value is. The data of the stages of the
- * SDDPBlock are not those of the scenario: only the solution is.
+ * in it, and the events of type eEverySolution [see
+ * ThinComputeInterface::event_type] are called, one simulation at a time:
+ * meanwhile get_solution_Block() returns the copy, a twin of the SDDPBlock
+ * whose data are those of the scenario, so that an event handler can read
+ * what it needs out of the solution of each scenario (say, the
+ * linearization of the cost with respect to some data of the stages) and
+ * combine it as the value is.
  *
  * With MPI, the training runs on every process, and the cuts that the
  * process of rank 0 has at the end are given to every other one, so that
@@ -207,6 +206,16 @@ public:
   }
 
 /*--------------------------------------------------------------------------*/
+ /// the copy of the SDDPBlock a scenario has just been simulated on
+ /** While an event of type eEverySolution is being called, the copy of the
+  * SDDPBlock holding the solution of the scenario just simulated [see the
+  * class description]; get_Block() otherwise. */
+
+ [[nodiscard]] Block * get_solution_Block( void ) const override {
+  return( f_solution_block ? f_solution_block : get_Block() );
+  }
+
+/*--------------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -240,6 +249,8 @@ public:
 
  int f_sense = Objective::eMin;  ///< the sense of the problems of the stages
 
+ Block * f_solution_block = nullptr;
+ ///< the copy simulated last, while its eEverySolution events are called
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
