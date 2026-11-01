@@ -40,6 +40,9 @@ include $(StcBlkSDR)/makefile-c
 # include makefile for libStOpt
 include $(SDDPBkSDR)/../extlib/makefile-libStOpt
 
+# include makefile for OpenMP
+include $(SDDPBkSDR)/../extlib/makefile-libOpenMP
+
 # include the makefile requiring all external modules in input
 include $(SDDPBkSDR)/makefile
 
@@ -51,9 +54,9 @@ SDDPBkOBJ := $(SDDPBkOBJ) $(StcBlkOBJ)
 SDDPBkH := $(SDDPBkH) $(StcBlkH)
 SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 
-# external libraries for SDDPBlock; -fopenmp brings in the OpenMP runtime
-# (cf. the OpenMP::OpenMP_CXX PUBLIC link of the CMake build)
+# external libraries for SDDPBlock; $(libOpenMPLIB) brings in the OpenMP
+# runtime (cf. the OpenMP::OpenMP_CXX PUBLIC link of the CMake build)
 SDDPBkLIB = $(StcBlkLIB) $(libStOptLIB) -lmpi -lboost_mpi \
-	-lboost_serialization -fopenmp
+	-lboost_serialization $(libOpenMPLIB)
 
 ########################### End of makefile-c ################################
