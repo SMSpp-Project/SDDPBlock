@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-03
+
+### Added
+
+- `SDDPSimulationSolver`, which trains the policy of an `SDDPBlock` with
+  the `SDDPSolver` registered with it and simulates it on every scenario,
+  each on a copy of the `SDDPBlock`, with the `SDDPGreedySolver` registered
+  there, its value being the mean of the costs; after each scenario it calls
+  the events `eEverySolution`, `get_solution_Block()` giving the copy that
+  holds the solution, and with MPI the cuts of the process of rank 0 are
+  given to all the others, so that every process gives the same results.
+  It is what an `InvestmentFunction` whose inner Block is an `SDDPBlock`
+  used to do by itself
+
+- the makefiles build the C++20 module `smspp.sddpblock` when `SMSppMOD` is
+  not empty (e.g., `make SMSppMOD=1`), with clang++ 16 or later [see
+  `lib/makefile-mod` of SMS++]
+
+- `SDDPGreedySolver::get_ComputeConfig()` also returns the extra
+  Configuration, i.e., the BlockConfig and the BlockSolverConfig of the inner
+  Blocks and the Configuration of their solutions, so that another
+  SDDPGreedySolver given it configures the stages in the same way
+
+- the C++20 module `smspp.sddpblock` (`src/SDDPBlock.cppm`), which exports
+  every name that the headers declare at namespace scope and re-exports
+  `smspp.stochasticblock`, so that a source file can write `import
+  smspp.sddpblock;` in place of the `#include` of the headers; it is built
+  with the CMake option `SMSpp_BUILD_MODULE`, as the target
+  `SMS++::SDDPBlock_module`
+
+### Changed
+
+- `set_scenario()` gives the StochasticBlock of the stage the span of the
+  sub-scenario of that stage, so that a DataMapping going past its end is
+  refused rather than reading the next stage
+
+- the README leaves the channels that distribute SMS++ to the
+  installation guide of the wiki (Installing-SMS++), keeping the names
+  of the packages of the module
+
+- `SDDPSolver` and `SDDPGreedySolver` accept the weights of the Objective
+  and of the Variable of the Block of the stages, and their changes
+  (`handles_weight_change()`, `handles_variable_weight()`): the problems of
+  the stages are solved by their own Solver, which apply the weights, and
+  are read as they are at each `compute()`
+
+- the pipeline builds the module also with its makefiles, after CMake, and
+  runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
+
+- `SMSpp_BUILD_MODULE` no longer stops the configuration when the C++20
+  module cannot be built, i.e., with a CMake older than 3.28, a generator
+  other than Ninja or Visual Studio, a compiler other than Clang 16 (with
+  `clang-scan-deps`) or MSVC 19.34, or a module it imports that is not
+  there: the option is turned off with a warning that says why, and the
+  build goes on with the headers [see `cmake/CheckModule.cmake` of SMS++]
+
+- the function given to `SDDPGreedySolver::set_callback()` also receives the
+  SDDPBlock being simulated, so that the same function serves the
+  SDDPGreedySolver of a copy of it; `get_callback()` and `get_end_callback()`
+  return the functions given
+
+### Fixed
+
+- the makefiles take the options of OpenMP from `extlib/makefile-libOpenMP`
+  of the umbrella instead of `-fopenmp`, which the clang++ of Xcode does not
+  take on macOS
+
+- with the compilers of MinGW (MSYS2) the target asks whoever links it
+  for the symbol that forces the module in, as with MSVC and on macOS:
+  the linker imports a DLL only for the symbols asked for, so that a
+  program that used none had the module left out and its classes
+  missing from the factory
+
+- `cmake/FindStOpt.cmake` keeps the version of a found library in the cache,
+  with the include directory it is read from, and reads it again when that
+  directory changes: a configure that took the paths from the cache left
+  `StOpt_VERSION` empty
+
+- `cmake/FindStOpt.cmake` drops the cached paths of StOpt and geners when one
+  of them does not exist any more (e.g., in a build directory configured once
+  outside and once inside a container, or after an upgrade), so that all of
+  them are searched again; the stale include directory was kept, since
+  `find_path()` does not search a cached one again, and the configuration
+  stopped on reading the version from a header that is not there
+
+- `SDDPGreedySolver.h` includes `CDASolver.h`, `BendersBFunction.h` and
+  `BendersBlock.h`, which it uses, and so compiles on its own and not only
+  after `SDDPGreedySolver.cpp` has included them
+
+- an `SDDPGreedySolver` that leaves its SDDPBlock takes away the Solver it
+  has registered to the inner Blocks of the stages
+
 ## [0.7.0] - 2026-10-09
 
 ### Added
@@ -210,7 +302,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.7.0...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.8.0...develop
+[0.8.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.7.0...0.8.0
 [0.7.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.1...0.7.0
 [0.6.1]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...0.6.1
 [0.6.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.5.4...0.6.0

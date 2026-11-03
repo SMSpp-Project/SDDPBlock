@@ -1,5 +1,11 @@
 # SDDPBlock
 
+[![Pipeline](https://gitlab.com/smspp/sddpblock/badges/develop/pipeline.svg)](https://gitlab.com/smspp/sddpblock/-/pipelines?ref=develop)
+[![Release](https://gitlab.com/smspp/sddpblock/-/badges/release.svg)](https://gitlab.com/smspp/sddpblock/-/releases)
+[![Documentation](https://img.shields.io/badge/docs-Doxygen-blue)](https://smspp.gitlab.io/smspp-project/)
+[![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+
 SMS++ `:Block` and `Solver` for multistage stochastic programming problems
 amenable of solution by means of Stochastic Dual Dynamic Programming (SDDP)
 approaches. In particular three components are provided:
@@ -64,27 +70,25 @@ approaches. In particular three components are provided:
   multistage problem, even less the stochastic problem encoded by the
   `SDDPBlock`.
 
+- `SDDPSimulationSolver` puts the two together: it trains the policy with
+  the `SDDPSolver` registered with the `SDDPBlock`, then simulates it on
+  every scenario with the `SDDPGreedySolver` registered there, each on a
+  copy of the `SDDPBlock`, in parallel, and its value is the mean of the
+  costs of the simulations. After each scenario it calls the events
+  `eEverySolution`, with the copy holding the solution of the scenario,
+  out of which whoever uses it (an `InvestmentFunction` whose inner Block is
+  the `SDDPBlock`, say) reads what it needs.
+
 
 ## Getting started
 
 These instructions will let you build `SDDPBlock` on your system.
 
-The module also comes ready-made, in any of
-
-```sh
-sudo add-apt-repository ppa:smspp-project/smspp   # Ubuntu
-sudo apt install libsmspp-sddp-dev                # and smspp-sddp for the tool
-
-conda install -c conda-forge smspp-project        # Linux, macOS, Windows
-
-brew tap SMSpp-Project/smspp                      # macOS, Linux
-brew install smspp
-
-vcpkg install "smspp[core,sddp]"                  # from the sources
-```
-
-where apt and the port give the module alone, while conda and the tap carry
-the whole framework. What follows is about building it yourself.
+The module also comes ready-made: on Ubuntu as `libsmspp-sddp-dev` (and
+`smspp-sddp` for the tool), in vcpkg as `smspp[core,sddp]`, and in the other
+channels that the [installation
+guide](https://gitlab.com/smspp/smspp-project/-/wikis/Installing-SMS++) of
+SMS++ lists. What follows is about building it yourself.
 
 ### Requirements
 

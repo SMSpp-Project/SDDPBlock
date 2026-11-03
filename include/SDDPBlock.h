@@ -310,13 +310,16 @@ namespace SMSpp_di_unipi_it
  * the final values of stage \f$ t - 1 \f$ (say, the final flow rate of each
  * hydro unit as its initial flow rate, the final power of each thermal unit
  * and battery as its initial power, the final storage of each battery as its
- * initial storage). The values so written remain in the data of the stage,
+ * initial storage). Since a unit may refuse such a value once its Variable
+ * are generated (a ThermalUnitBlock an InitUpDownTime that changes them),
+ * the simulation is meant to run on an SDDPBlock whose stages have not been
+ * solved yet, as sddp_solver and the InvestmentFunction do, each simulation
+ * on a new one. The values so written remain in the data of the stage,
  * unless the function given to SDDPGreedySolver::set_end_callback(), which
  * compute() calls at the end of the simulation, restores the values the
- * stage had before it (as the investmentblock_solver tool does); then a
- * Solver that later computes cuts on the same sub-Blocks starts from the
- * data of the stages, and otherwise from the values the simulation has
- * written. Furthermore, three
+ * stage had before it; then a Solver that later computes cuts on the same
+ * sub-Blocks starts from the data of the stages, and otherwise from the
+ * values the simulation has written. Furthermore, three
  * other treatments of these conditions are not modeled: (i) adding them to
  * the state, (ii) requiring each of them to have, at the end of each stage,
  * the value it has at the beginning, and (iii) relaxing them, i.e., letting
@@ -1507,10 +1510,11 @@ public:
   * @param sub_block_index The index of the sub-Block whose cuts will be
   *        updated.
   *
-  * @param remove_current_cuts If true, all cuts currently part of sub-Block
-  *        with index \p sub_block_index at the given \p stage are removed
-  *        before the given cuts are added. If false, the current cuts are
-  *        kept. */
+  * @param number_cuts_to_keep The number of the cuts currently in the
+  *        sub-Block with index \p sub_block_index at the given \p stage that
+  *        are kept: the cuts after the first \p number_cuts_to_keep ones are
+  *        removed before the given cuts are added, and by default all of them
+  *        are kept. */
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,
@@ -1537,10 +1541,10 @@ public:
   *
   * @param stage The stage whose cuts should be updated.
   *
-  * @param remove_current_cuts If true, all cuts currently part of sub-Block
-  *        with index \p sub_block_index at the given \p stage are removed
-  *        before the given cuts are added. If false, the current cuts are
-  *        kept. */
+  * @param number_cuts_to_keep The number of the cuts currently in each
+  *        sub-Block at the given \p stage that are kept: the cuts after the
+  *        first \p number_cuts_to_keep ones are removed before the given
+  *        cuts are added, and by default all of them are kept. */
 
  void add_cuts( PolyhedralFunction::MultiVector && A ,
                 PolyhedralFunction::RealVector && b , Index stage ,
@@ -1747,10 +1751,12 @@ public:
 
  void set_scenario( Index scenario_id , Index stage ,
                     Index sub_block_index = 0 ) {
-  auto begin = sub_scenario_begin( scenario_id , stage );
+  const std::span< const double > sub_scenario(
+   sub_scenario_begin( scenario_id , stage ) ,
+   sub_scenario_end( scenario_id , stage ) );
 
   try {
-   get_sub_Block( stage , sub_block_index )->set_data( begin );
+   get_sub_Block( stage , sub_block_index )->set_data( sub_scenario );
   }
   catch( const std::exception & e ) {
    std::cout << "SDDPBlock::set_scenario: exception while setting scenario "
@@ -2031,7 +2037,7 @@ class SDDPBlockSolution : public Solution {
   delete( f_inner_Config );
   }
 
-/*--------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPBlockSolution ----------*/
+/*--------- METHODS DESCRIBING THE BEHAVIOR OF A SDDPBlockSolution ---------*/
 
  void read( const Block * block ) override final;
 

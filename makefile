@@ -15,6 +15,7 @@
 #           $(StcBlkH)     = the .h files to include for StochasticBlock     #
 #           $(StcBlkINC)   = the -I$( StochasticBlock source directory )     #
 #           $(libStOptINC) = the -I$(include directories) for libStOpt       #
+#           $(libOpenMPINC) = the options of the compiler for OpenMP         #
 #           $(SDDPBkSDR)   = the directory where the source is               #
 #                                                                            #
 #   Output: $(SDDPBkOBJ)   = the final object(s) / library                   #
@@ -32,22 +33,31 @@
 
 SDDPBkOBJ = $(SDDPBkSDR)/obj/SDDPBlock.o $(SDDPBkSDR)/obj/SDDPSolver.o \
 	$(SDDPBkSDR)/obj/SDDPGreedySolver.o \
+	$(SDDPBkSDR)/obj/SDDPSimulationSolver.o \
 	$(SDDPBkSDR)/obj/ParallelSDDPSolver.o
 
 # note: USE_MPI mirrors the (default ON) CMake option of the same name: StOpt
 # is built with MPI, so whoever drives an SDDP solve must initialize MPI.
-# -fopenmp mirrors the OpenMP::OpenMP_CXX PUBLIC link of the CMake build: the
-# StOpt SDDP drivers are header-only templates, hence they parallelize (and
-# the omp critical sections of ParallelSDDPSolver exist at all) only if the
-# code that includes them is compiled with OpenMP enabled
-SDDPBkINC = -I$(SDDPBkSDR)/include -DUSE_MPI -fopenmp
+# $(libOpenMPINC) mirrors the OpenMP::OpenMP_CXX PUBLIC link of the CMake
+# build [see extlib/makefile-libOpenMP]: the StOpt SDDP drivers are
+# header-only templates, hence they parallelize (and the omp critical sections
+# of ParallelSDDPSolver exist at all) only if the code that includes them is
+# compiled with OpenMP enabled
+SDDPBkINC = -I$(SDDPBkSDR)/include -DUSE_MPI $(libOpenMPINC)
 
 SDDPBkH   = $(SDDPBkSDR)/include/SDDPBlock.h \
 	$(SDDPBkSDR)/include/ScenarioSet.h \
 	$(SDDPBkSDR)/include/ScenarioSimulator.h \
 	$(SDDPBkSDR)/include/SDDPSolver.h \
 	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
+	$(SDDPBkSDR)/include/SDDPSimulationSolver.h \
 	$(SDDPBkSDR)/include/ParallelSDDPSolver.h
+
+# the C++20 module smspp.sddpblock - - - - - - - - - - - - - - - - - - - - -
+# [see makefile-mod of SMS++]
+
+$(eval $(call SMSppMODrule,SDDPBk,$(SDDPBkSDR),SDDPBlock,smspp.sddpblock,\
+	StcBlk))
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -77,6 +87,16 @@ $(SDDPBkSDR)/obj/SDDPGreedySolver.o: $(SDDPBkSDR)/src/SDDPGreedySolver.cpp \
 	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
 	$(CC) -c $(SDDPBkSDR)/src/SDDPGreedySolver.cpp -o $@ $(SDDPBkINC) \
 	$(StcBlkINC) $(SMS++INC) $(SW)
+
+$(SDDPBkSDR)/obj/SDDPSimulationSolver.o: \
+	$(SDDPBkSDR)/src/SDDPSimulationSolver.cpp \
+	$(SDDPBkSDR)/include/SDDPSimulationSolver.h \
+	$(SDDPBkSDR)/include/SDDPGreedySolver.h \
+	$(SDDPBkSDR)/include/SDDPSolver.h $(SDDPBkSDR)/include/SDDPBlock.h \
+	$(SDDPBkSDR)/include/ScenarioSet.h \
+	$(SDDPBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(CC) -c $(SDDPBkSDR)/src/SDDPSimulationSolver.cpp -o $@ \
+	$(SDDPBkINC) $(StcBlkINC) $(libStOptINC) $(SMS++INC) $(SW)
 
 $(SDDPBkSDR)/obj/ParallelSDDPSolver.o: \
 	$(SDDPBkSDR)/src/ParallelSDDPSolver.cpp \

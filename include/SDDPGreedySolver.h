@@ -35,8 +35,10 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include "BendersBFunction.h"
+#include "BendersBlock.h"
+#include "CDASolver.h"
 #include "SDDPBlock.h"
-#include "Solver.h"
 
 #include <chrono>
 #include <random>
@@ -48,8 +50,6 @@
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it
 {
-
- class BendersBFunction;      // forward declaration of BendersBFunction
 
  class BlockSolverConfig;     // forward declaration of BlockSolverConfig
 
@@ -346,7 +346,7 @@ public:
   intLoadCutsOnce ,
   ///< It indicates whether cuts should be loaded only once for each stage
   /**< This parameter specifies how many times the cuts provided by
-   * #intLoadCuts are loaded. Cuts associated with a particular stage, if
+   * #strLoadCuts are loaded. Cuts associated with a particular stage, if
    * provided, are loaded within compute() right before the subproblem
    * associated with that stage is solved. If this parameter is nonzero, the
    * cuts are loaded only once. That is, if cuts associated with a particular
@@ -870,6 +870,23 @@ public:
 
  void set_ComputeConfig( const ComputeConfig *scfg = nullptr ) override;
 
+/*--------------------------------------------------------------------------*/
+ /// returns the ComputeConfig of the SDDPGreedySolver, with its extra
+ /** Returns the ComputeConfig of the SDDPGreedySolver as
+  * ThinComputeInterface::get_ComputeConfig() does, and also its extra
+  * Configuration, in the form set_ComputeConfig() reads: a
+  * SimpleConfiguration< std::vector< Configuration * > > with clones of the
+  * BlockConfig and of the BlockSolverConfig of the inner Blocks of the
+  * BendersBFunction and of the Configuration given to get_var_solution()
+  * and get_dual_solution() of their Solver, each nullptr if there is none;
+  * there is no extra Configuration if none of them is there. Thus another
+  * SDDPGreedySolver given this ComputeConfig (say, that of a copy of the
+  * SDDPBlock) configures the inner Blocks as this one does. */
+
+ ComputeConfig * get_ComputeConfig( bool all = false ,
+				    ComputeConfig * ocfg = nullptr )
+  const override;
+
 /** @} ---------------------------------------------------------------------*/
 /*------------------- METHODS FOR HANDLING THE PARAMETERS ------------------*/
 /*--------------------------------------------------------------------------*/
@@ -1301,6 +1318,23 @@ public:
 
  int compute( bool changedvars = true ) override;
 
+/*--------------------------------------------------------------------------*/
+ /// the weights of the Block of the stages are applied
+ /** The problems of the stages are solved by their own Solver, which apply
+  * the weights of the Objective and of the Variable [see
+  * Block::set_objective_weight() and Block::set_variable_weight()] or refuse
+  * them, and are read as they are at each compute(), as for any other change
+  * of their data: a weight, and a change of it, is then what those Solver
+  * make of it. */
+
+ [[nodiscard]] bool handles_weight_change( void ) const override {
+  return( true );
+  }
+
+ [[nodiscard]] bool handles_variable_weight( void ) const override {
+  return( true );
+  }
+
 /** @} ---------------------------------------------------------------------*/
 /*--------- METHODS FOR CHANGING THE DATA OF THE SDDPGreedySolver ----------*/
 /*--------------------------------------------------------------------------*/
@@ -1364,8 +1398,11 @@ public:
 
  /// sets the callback function
  /** It sets the callback function that is called right before the sub-problem
-  * at each stage is solved. The parameter of the callback function is the
-  * stage associated with the sub-problem that will be solved. The function
+  * at each stage is solved. The parameters of the callback function are the
+  * SDDPBlock the SDDPGreedySolver is simulating, and the stage associated
+  * with the sub-problem that will be solved: a function that only knows
+  * them can be given to the SDDPGreedySolver of a copy of the SDDPBlock
+  * [see get_callback()]. The function
   * is called after the state of the stage has been set and before its
   * inner Block is configured, and it may be used to copy
   * into the data of the stage the final values, in the previous stage, of
@@ -1373,9 +1410,17 @@ public:
   * the values it writes remain in the data of the stage afterwards, unless
   * the function given to set_end_callback() restores them.
   */
- void set_callback( std::function< void( Index ) > function ) {
+ void set_callback( std::function< void( SDDPBlock * , Index ) > function )
+ {
   callback = function;
  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the function given to set_callback()
+
+ const std::function< void( SDDPBlock * , Index ) > & get_callback( void )
+  const { return( callback ); }
 
 /*--------------------------------------------------------------------------*/
 
@@ -1396,12 +1441,20 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the function given to set_end_callback()
+
+ const std::function< void( void ) > & get_end_callback( void ) const {
+  return( end_callback );
+  }
+
+/*--------------------------------------------------------------------------*/
+
  /// sets the random number engine used to select the scenarios
  /** This function sets the random number engine that is used to select the
   * scenario at each stage when random scenarios must be considered (see the
   * #intScenarioSeed parameter).
   *
-  * @param A random number engine.
+  * @param random_number_engine A random number engine.
   */
  void set_random_number_engine( std::mt19937 random_number_engine ) {
   this->random_number_engine = random_number_engine;
@@ -1625,7 +1678,7 @@ protected:
  bool f_unregister_solver = false;
 
  /// Function to be called right before each sub-problem is solved
- std::function< void( Index ) > callback;
+ std::function< void( SDDPBlock * , Index ) > callback;
 
  /// Function to be called at the end of compute() [see set_end_callback()]
  std::function< void( void ) > end_callback;
@@ -1860,7 +1913,8 @@ private:
  /** This function sets the state variables associated with the subproblem at
   * the given \p stage.
   *
-  * @param The vector containing the state of the problem at the given stage.
+  * @param state The vector containing the state of the problem at the
+  *        given stage.
   *
   * @param stage The stage whose state must be set.
   */
