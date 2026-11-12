@@ -14,6 +14,13 @@
 #                             Universita' di Pisa                             #
 # --------------------------------------------------------------------------- #
 get_filename_component(@modName@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+# as in the CMakeLists.txt of the module, before find_dependency() is
+# defined, since it keeps the policies of its definition
+foreach (_policy CMP0144 CMP0167)
+    if (POLICY ${_policy})
+        cmake_policy(SET ${_policy} NEW)
+    endif ()
+endforeach ()
 include(CMakeFindDependencyMacro)
 
 # ----- Settings ------------------------------------------------------------ #

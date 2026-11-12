@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- the configuration, of the module and of one that finds it, no longer
+  warns that policies CMP0144 and CMP0167 are not set: Boost is found by its
+  own package configuration file, and the upper-case `<PACKAGE>_ROOT` are
+  prefixes of `find_package()`
+
 ## [0.8.0] - 2026-11-03
 
 ### Added

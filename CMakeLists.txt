@@ -17,6 +17,13 @@
 # --------------------------------------------------------------------------- #
 cmake_minimum_required(VERSION 3.21)
 cmake_policy(VERSION 3.15)
+# Boost is found by its own package configuration file, as FindBoost is
+# gone, and the upper-case <PACKAGE>_ROOT are prefixes of find_package()
+foreach (_policy CMP0144 CMP0167)
+    if (POLICY ${_policy})
+        cmake_policy(SET ${_policy} NEW)
+    endif ()
+endforeach ()
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DeriveVersion.cmake)
 smspp_derive_version(SMSPP_MODULE_VERSION)
 
