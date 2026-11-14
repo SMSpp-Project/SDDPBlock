@@ -231,14 +231,14 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 
  /// returns the number of particles (used in regression part)
 
- int getNbSimul( void ) const override { return number_simulations; }
+ int getNbSimul( void ) const override { return( number_simulations ); }
 
 /*--------------------------------------------------------------------------*/
  /// returns the number of samples
  /** This function returns the number of samples. For the ScenarioSimulator,
   * the number of samples is fixed to 1. */
 
- int getNbSample( void ) const override { return 1; }
+ int getNbSample( void ) const override { return( 1 ); }
 
 /*--------------------------------------------------------------------------*/
  /// update the simulator for the given date
@@ -269,8 +269,8 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
   * @return The particle associated with the given \p index. */
 
  Eigen::VectorXd getOneParticle( const int & index ) const override {
-  return all_particles[ current_date_index ].col(
-                                       indices_selected_particles[ index ] );
+  return( all_particles[ current_date_index ].col(
+                                       indices_selected_particles[ index ] ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -293,7 +293,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
    particles.col( i ) = all_particles[ current_date_index ].col(
                                            indices_selected_particles[ i ] );
 
-  return particles;
+  return( particles );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -334,7 +334,7 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
  /// returns the index of the scenario associated with the given simulation id
  Index get_scenario_index( Index simulation_id ) const {
   assert( simulation_id < indices_selected_particles.size() );
-  return indices_selected_particles[ simulation_id ];
+  return( indices_selected_particles[ simulation_id ] );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -342,8 +342,8 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 
  Index get_particle_length( void ) const {
   if( all_particles.empty() )
-   return 0;
-  return all_particles.front().rows();
+   return( 0 );
+  return( all_particles.front().rows() );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -351,14 +351,14 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
 
  Index get_number_scenarios( void ) const {
   if( all_particles.empty() )
-   return 0;
-  return all_particles.front().cols();
+   return( 0 );
+  return( all_particles.front().cols() );
   }
 
 /*--------------------------------------------------------------------------*/
  /// returns the initial seed of the random number generator
 
- unsigned int get_seed( void ) const { return initial_seed; }
+ unsigned int get_seed( void ) const { return( initial_seed ); }
 
 /** @} ---------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
@@ -374,7 +374,7 @@ protected:
 
  /// returns the number of dates, which is equal to the time horizon
 
- Index get_number_dates() const { return all_particles.size(); }
+ Index get_number_dates() const { return( all_particles.size() ); }
 
 /*--------------------------------------------------------------------------*/
  /// sample the particles
@@ -385,8 +385,8 @@ protected:
   if( sampling_with_replacement ) {
    std::generate( indices_selected_particles.begin() ,
                   indices_selected_particles.end() ,
-                  [ this ]() { return this->distribution
-                    ( this->random_number_engine ); } );
+                  [ this ]() { return( this->distribution
+                    ( this->random_number_engine ) ); } );
    std::sort( indices_selected_particles.begin() ,
               indices_selected_particles.end() );
   }

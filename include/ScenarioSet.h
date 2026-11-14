@@ -503,7 +503,8 @@ class ScenarioSet
   }
 
 /*--------------------------------------------------------------------------*/
- /// returns an iterator to the element following the last in sub-scenario (i,t)
+ /// returns an iterator to the element following the last in sub-scenario
+ /// (i,t)
  /** This function returns a const iterator to the element following the last
   * element of the vector containing the data of the sub-scenario associated
   * with time \p t of the \p i-th scenario. The size of this vector is given

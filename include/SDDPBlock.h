@@ -629,7 +629,8 @@ public:
   }
 
   if( paths.size() != num_polyhedral_per_sub_block * time_horizon &&
-      ! ( paths.size() == num_polyhedral_per_sub_block && time_horizon > 1 ) ) {
+      ! ( paths.size() == num_polyhedral_per_sub_block &&
+          time_horizon > 1 ) ) {
    if( num_polyhedral_per_sub_block == 1 )
     throw( std::invalid_argument(
      "SDDPBlock::deserialize: The number of AbstractPath to "
@@ -1147,7 +1148,8 @@ public:
   * @return An iterator to the vector containing the admissible state for the
   *         given \p stage. */
 
- std::vector< double >::const_iterator get_admissible_state( Index stage ) const {
+ std::vector< double >::const_iterator
+  get_admissible_state( Index stage ) const {
   assert( stage < get_time_horizon() );
   return( std::next( admissible_states.cbegin() ,
                      admissible_state_begin[ stage ] ) );
@@ -1615,7 +1617,8 @@ public:
    throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
                                  "index: " + std::to_string( stage ) ) );
 
-  return( get_polyhedral_function( stage , i , sub_block_index )->get_nrows() );
+  return( get_polyhedral_function( stage , i ,
+                                   sub_block_index )->get_nrows() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1958,7 +1961,8 @@ private:
    // "DataMapping" then, if "StochasticBlock" has one, we use it.
 
    Index num_data_mappings;
-   if( ! ::SMSpp_di_unipi_it::deserialize_dim( sub_group , "NumberDataMappings" ,
+   if( ! ::SMSpp_di_unipi_it::deserialize_dim( sub_group ,
+                                               "NumberDataMappings" ,
                                                num_data_mappings , true ) ) {
 
     auto StochasticBlock_group = group.getGroup( "StochasticBlock" );

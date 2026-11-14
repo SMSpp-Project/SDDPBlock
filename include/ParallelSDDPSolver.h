@@ -191,7 +191,8 @@ protected:
 
 /*--------------------------------------------------------------------------*/
 
-  /// returns true if, and only if, the sub-Block with the given index is locked
+  /// returns true if, and only if, the sub-Block with the given index is
+  /// locked
   bool is_locked( Index sub_block_index ) const;
 
 /*--------------------------------------------------------------------------*/

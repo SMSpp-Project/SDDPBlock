@@ -418,7 +418,8 @@ public:
    * empty. */
 
   strInnerBSC ,
-  ///< name of the file containing the default BlockSolverConfig for inner Block
+  ///< name of the file containing the default BlockSolverConfig for inner
+  ///< Block
   /**< Name of the file containing the default BlockSolverConfig that will be
    * applied to the inner Block of each BendersBFunction. By default, this is
    * empty. */
@@ -963,21 +964,21 @@ public:
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
-   case( intNStepConv ): return 1;
-   case( intPrintTime ): return 1;
-   case( intNbSimulCheckForConv ): return 1;
+   case( intNStepConv ): return( 1 );
+   case( intPrintTime ): return( 1 );
+   case( intNbSimulCheckForConv ): return( 1 );
    case( intNbSimulBackward ):
-    return sddp_optimizer->get_dflt_number_simulations_backward();
-   case( intNbSimulForward ): return 1;
-   case( intLogVerb ): return 0;
-   case( intOutputFrequency ): return 0;
-   case( intFirstStageScenarioId ): return 0;
-   case( intForwardSimulatorSeed ): return 93645;
-   case( intRepresentativePoolSize ): return -1;
-   case( intForwardSolverIndex ): return 0;
-   case( intBackwardSolverIndex ): return 0;
+    return( sddp_optimizer->get_dflt_number_simulations_backward() );
+   case( intNbSimulForward ): return( 1 );
+   case( intLogVerb ): return( 0 );
+   case( intOutputFrequency ): return( 0 );
+   case( intFirstStageScenarioId ): return( 0 );
+   case( intForwardSimulatorSeed ): return( 93645 );
+   case( intRepresentativePoolSize ): return( -1 );
+   case( intForwardSolverIndex ): return( 0 );
+   case( intBackwardSolverIndex ): return( 0 );
    }
-  return Solver::get_dflt_int_par( par );
+  return( Solver::get_dflt_int_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -992,8 +993,8 @@ public:
   * @return The default value of the given parameter. */
 
  double get_dflt_dbl_par( const idx_type par ) const override {
-  if( par == dblAccuracy ) return 1.0e-4;
-  return Solver::get_dflt_dbl_par( par );
+  if( par == dblAccuracy ) return( 1.0e-4 );
+  return( Solver::get_dflt_dbl_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1013,9 +1014,9 @@ public:
      "", "" , "" , "" , "" , "" , "" ,"" };
 
   if( par >= str_par_type_S::strLastAlgPar && par < strLastAlgPar )
-   return default_values[ par - str_par_type_S::strLastAlgPar ];
+   return( default_values[ par - str_par_type_S::strLastAlgPar ] );
 
-  return Solver::get_dflt_str_par( par );
+  return( Solver::get_dflt_str_par( par ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1037,10 +1038,10 @@ public:
   const override {
   const static std::vector< int > empty;
 
-  if( par == vintMeshDiscretization ) return empty;
-  if( par == vintRepresentativePoolSize ) return empty;
+  if( par == vintMeshDiscretization ) return( empty );
+  if( par == vintRepresentativePoolSize ) return( empty );
 
-  return Solver::get_dflt_vint_par( par );
+  return( Solver::get_dflt_vint_par( par ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1063,9 +1064,9 @@ public:
  const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
   const override {
   const static std::vector< double > empty;
-  if( par == vdblLastStageCuts || par == vdblInitialState ) return empty;
+  if( par == vdblLastStageCuts || par == vdblInitialState ) return( empty );
 
-  return Solver::get_dflt_vdbl_par( par );
+  return( Solver::get_dflt_vdbl_par( par ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1080,22 +1081,23 @@ public:
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
-   case( intMaxIter ): return maximum_number_iterations;
-   case( intNStepConv ): return convergence_frequency;
-   case( intPrintTime ): return print_cpu_time;
-   case( intNbSimulCheckForConv ): return number_simulations_for_convergence;
+   case( intMaxIter ): return( maximum_number_iterations );
+   case( intNStepConv ): return( convergence_frequency );
+   case( intPrintTime ): return( print_cpu_time );
+   case( intNbSimulCheckForConv ):
+    return( number_simulations_for_convergence );
    case( intNbSimulBackward ):
-    return sddp_optimizer->get_number_simulations_backward();
+    return( sddp_optimizer->get_number_simulations_backward() );
    case( intNbSimulForward ):
-    return sddp_optimizer->get_number_simulations_forward();
-   case( intLogVerb ): return log_verbosity;
-   case( intOutputFrequency ): return output_frequency;
-   case( intFirstStageScenarioId ): return first_stage_scenario_index;
+    return( sddp_optimizer->get_number_simulations_forward() );
+   case( intLogVerb ): return( log_verbosity );
+   case( intOutputFrequency ): return( output_frequency );
+   case( intFirstStageScenarioId ): return( first_stage_scenario_index );
    case( intForwardSimulatorSeed ):
-    return sddp_optimizer->get_forward_seed();
-   case( intRepresentativePoolSize ): return representative_pool_size;
-   case( intForwardSolverIndex ): return f_forward_Solver_index;
-   case( intBackwardSolverIndex ): return f_backward_Solver_index;
+    return( sddp_optimizer->get_forward_seed() );
+   case( intRepresentativePoolSize ): return( representative_pool_size );
+   case( intForwardSolverIndex ): return( f_forward_Solver_index );
+   case( intBackwardSolverIndex ): return( f_backward_Solver_index );
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1112,7 +1114,7 @@ public:
 
  double get_dbl_par( const idx_type par ) const override {
   if( par == dblAccuracy )
-   return accuracy;
+   return( accuracy );
   return( get_dflt_dbl_par( par ) );
   }
 
@@ -1128,19 +1130,19 @@ public:
 
  const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
-   case( strRegressorsFilename ): return regressors_filename;
-   case( strCutsFilename ): return cuts_filename;
-   case( strVisitedStatesFilename ): return visited_states_filename;
-   case( strInnerBC ): return f_inner_block_config_filename;
-   case( strInnerBSC ): return f_inner_block_solver_config_filename;
-   case( strOutputFile ): return f_output_filename;
-   case( strStateFile ): return f_state_filename;
-   case( strRandomCutsFile ): return f_random_cuts_filename;
-   case( strFilenameSuffix ): return f_filename_suffix;
-   case( strSubSolverLogFilePrefix ): return f_sub_solver_filename_prefix;
-   case( strDirOUT ): return f_dir_out_pathname;
+   case( strRegressorsFilename ): return( regressors_filename );
+   case( strCutsFilename ): return( cuts_filename );
+   case( strVisitedStatesFilename ): return( visited_states_filename );
+   case( strInnerBC ): return( f_inner_block_config_filename );
+   case( strInnerBSC ): return( f_inner_block_solver_config_filename );
+   case( strOutputFile ): return( f_output_filename );
+   case( strStateFile ): return( f_state_filename );
+   case( strRandomCutsFile ): return( f_random_cuts_filename );
+   case( strFilenameSuffix ): return( f_filename_suffix );
+   case( strSubSolverLogFilePrefix ): return( f_sub_solver_filename_prefix );
+   case( strDirOUT ): return( f_dir_out_pathname );
    }
-  return Solver::get_str_par( par );
+  return( Solver::get_str_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1156,10 +1158,10 @@ public:
  const std::vector< int > & get_vint_par( const idx_type par )
   const override {
   if( par == vintMeshDiscretization )
-   return mesh_discretization;
+   return( mesh_discretization );
   if( par == vintRepresentativePoolSize )
-   return representative_pool_size_vec;
-  return Solver::get_vint_par( par );
+   return( representative_pool_size_vec );
+  return( Solver::get_vint_par( par ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1175,10 +1177,10 @@ public:
  const std::vector< double > & get_vdbl_par( const idx_type par )
   const override {
   switch( par ) {
-   case( vdblLastStageCuts ): return last_stage_cuts;
-   case( vdblInitialState ): return initial_state;
+   case( vdblLastStageCuts ): return( last_stage_cuts );
+   case( vdblInitialState ): return( initial_state );
    }
-  return Solver::get_vdbl_par( par );
+  return( Solver::get_vdbl_par( par ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1195,18 +1197,19 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type int_par_str2idx( const std::string & name ) const override {
-  if( name == "intNStepConv" ) return intNStepConv;
-  if( name == "intPrintTime" ) return intPrintTime;
-  if( name == "intNbSimulCheckForConv" ) return intNbSimulCheckForConv;
-  if( name == "intNbSimulBackward" ) return intNbSimulBackward;
-  if( name == "intNbSimulForward" ) return intNbSimulForward;
-  if( name == "intOutputFrequency" ) return intOutputFrequency;
-  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
-  if( name == "intForwardSimulatorSeed" ) return intForwardSimulatorSeed;
-  if( name == "intRepresentativePoolSize" ) return intRepresentativePoolSize;
-  if( name == "intForwardSolverIndex" ) return intForwardSolverIndex;
-  if( name == "intBackwardSolverIndex" ) return intBackwardSolverIndex;
-  return Solver::int_par_str2idx( name );
+  if( name == "intNStepConv" ) return( intNStepConv );
+  if( name == "intPrintTime" ) return( intPrintTime );
+  if( name == "intNbSimulCheckForConv" ) return( intNbSimulCheckForConv );
+  if( name == "intNbSimulBackward" ) return( intNbSimulBackward );
+  if( name == "intNbSimulForward" ) return( intNbSimulForward );
+  if( name == "intOutputFrequency" ) return( intOutputFrequency );
+  if( name == "intFirstStageScenarioId" ) return( intFirstStageScenarioId );
+  if( name == "intForwardSimulatorSeed" ) return( intForwardSimulatorSeed );
+  if( name == "intRepresentativePoolSize" )
+   return( intRepresentativePoolSize );
+  if( name == "intForwardSolverIndex" ) return( intForwardSolverIndex );
+  if( name == "intBackwardSolverIndex" ) return( intBackwardSolverIndex );
+  return( Solver::int_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1220,8 +1223,8 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type dbl_par_str2idx( const std::string & name ) const override {
-  if( name == "dblAccuracy" ) return dblAccuracy;
-  return Solver::dbl_par_str2idx( name );
+  if( name == "dblAccuracy" ) return( dblAccuracy );
+  return( Solver::dbl_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1235,18 +1238,19 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type str_par_str2idx( const std::string & name ) const override {
-  if( name == "strRegressorsFilename" ) return strRegressorsFilename;
-  if( name == "strCutsFilename" ) return strCutsFilename;
-  if( name == "strVisitedStatesFilename" ) return strVisitedStatesFilename;
-  if( name == "strInnerBC" ) return strInnerBC;
-  if( name == "strInnerBSC" ) return strInnerBSC;
-  if( name == "strOutputFile" ) return strOutputFile;
-  if( name == "strStateFile" ) return strStateFile;
-  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
-  if( name == "strFilenameSuffix" ) return strFilenameSuffix;
-  if( name == "strSubSolverLogFilePrefix" ) return strSubSolverLogFilePrefix;
-  if( name == "strDirOUT" ) return strDirOUT;
-  return Solver::str_par_str2idx( name );
+  if( name == "strRegressorsFilename" ) return( strRegressorsFilename );
+  if( name == "strCutsFilename" ) return( strCutsFilename );
+  if( name == "strVisitedStatesFilename" ) return( strVisitedStatesFilename );
+  if( name == "strInnerBC" ) return( strInnerBC );
+  if( name == "strInnerBSC" ) return( strInnerBSC );
+  if( name == "strOutputFile" ) return( strOutputFile );
+  if( name == "strStateFile" ) return( strStateFile );
+  if( name == "strRandomCutsFile" ) return( strRandomCutsFile );
+  if( name == "strFilenameSuffix" ) return( strFilenameSuffix );
+  if( name == "strSubSolverLogFilePrefix" )
+   return( strSubSolverLogFilePrefix );
+  if( name == "strDirOUT" ) return( strDirOUT );
+  return( Solver::str_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1260,10 +1264,10 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type vint_par_str2idx( const std::string & name ) const override {
-  if( name == "vintMeshDiscretization" ) return vintMeshDiscretization;
+  if( name == "vintMeshDiscretization" ) return( vintMeshDiscretization );
   if( name == "vintRepresentativePoolSize" )
-   return vintRepresentativePoolSize;
-  return Solver::vint_par_str2idx( name );
+   return( vintRepresentativePoolSize );
+  return( Solver::vint_par_str2idx( name ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1277,9 +1281,9 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type vdbl_par_str2idx( const std::string & name ) const override {
-  if( name == "vdblLastStageCuts" ) return vdblLastStageCuts;
-  if( name == "vdblInitialState" ) return vdblInitialState;
-  return Solver::vdbl_par_str2idx( name );
+  if( name == "vdblLastStageCuts" ) return( vdblLastStageCuts );
+  if( name == "vdblInitialState" ) return( vdblInitialState );
+  return( Solver::vdbl_par_str2idx( name ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1301,9 +1305,9 @@ public:
      "intBackwardSolverIndex" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
-   return parameter_names[ idx - int_par_type_S::intLastAlgPar ];
+   return( parameter_names[ idx - int_par_type_S::intLastAlgPar ] );
 
-  return Solver::int_par_idx2str( idx );
+  return( Solver::int_par_idx2str( idx ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1318,8 +1322,8 @@ public:
 
  const std::string & dbl_par_idx2str( const idx_type idx ) const override {
   static const std::string dblAccuracy_name = "dblAccuracy";
-  if( idx == dblAccuracy ) return dblAccuracy_name;
-  return Solver::dbl_par_idx2str( idx );
+  if( idx == dblAccuracy ) return( dblAccuracy_name );
+  return( Solver::dbl_par_idx2str( idx ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1340,9 +1344,9 @@ public:
      "strDirOUT" };
 
   if( idx >= str_par_type_S::strLastAlgPar && idx < strLastAlgPar )
-   return parameter_names[ idx - str_par_type_S::strLastAlgPar ];
+   return( parameter_names[ idx - str_par_type_S::strLastAlgPar ] );
 
-  return Solver::str_par_idx2str( idx );
+  return( Solver::str_par_idx2str( idx ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1359,8 +1363,8 @@ public:
   static const std::vector< std::string > parameter_names =
    { "vintMeshDiscretization" , "vintRepresentativePoolSize" };
   if( idx >= vint_par_type_S::vintLastAlgPar && idx < vintLastAlgPar )
-   return parameter_names[ idx - vint_par_type_S::vintLastAlgPar ];
-  return Solver::vint_par_idx2str( idx );
+   return( parameter_names[ idx - vint_par_type_S::vintLastAlgPar ] );
+  return( Solver::vint_par_idx2str( idx ) );
   }
 
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
@@ -1377,8 +1381,8 @@ public:
   static const std::vector< std::string > parameter_names =
    { "vdblLastStageCuts" , "vdblInitialState" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
-   return parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ];
-  return Solver::vdbl_par_idx2str( idx );
+   return( parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ] );
+  return( Solver::vdbl_par_idx2str( idx ) );
   }
 
 /** @} ---------------------------------------------------------------------*/
@@ -1412,13 +1416,14 @@ public:
                                  "event type " + std::to_string( type ) ) );
 
   if( v_events[ type ].size() > std::numeric_limits< EventID >::max() )
-   throw( std::invalid_argument( "SDDPSolver:set_event_handler: too many event "
-                                 "handlers for type" + std::to_string( type ) ) );
+   throw( std::invalid_argument(
+                   "SDDPSolver:set_event_handler: too many event "
+                   "handlers for type" + std::to_string( type ) ) );
 
   EventID id = v_events[ type ].size();
   v_events[ type ].push_back( std::move( event ) );
 
-  return id ;
+  return( id ) ;
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1433,7 +1438,7 @@ public:
 
  /// returns the maximum number of event types supported by the SDDPSolver
  [[nodiscard]] virtual EventID max_event_number() const override {
-  return e_last_event_type;
+  return( e_last_event_type );
  }
 
 /** @} ---------------------------------------------------------------------*/
@@ -1523,13 +1528,13 @@ public:
 /*--------------------------------------------------------------------------*/
 
  double get_backward_value( void ) const {
-  return backward_value;
+  return( backward_value );
  }
 
 /*--------------------------------------------------------------------------*/
 
  double get_forward_value( void ) const {
-  return forward_value;
+  return( forward_value );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1571,7 +1576,7 @@ public:
   *         call to compute(). */
 
  int get_number_iterations_performed() const {
-  return number_iterations_performed;
+  return( number_iterations_performed );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1611,8 +1616,8 @@ public:
 
  Index get_first_stage_scenario_index() const {
   if( first_stage_scenario_index < 0 )
-   return Inf< Index >();
-  return first_stage_scenario_index;
+   return( Inf< Index >() );
+  return( first_stage_scenario_index );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1625,7 +1630,7 @@ public:
   *         SDDPBlock. */
 
  bool store_random_cuts() const {
-  return ! f_random_cuts_filename.empty();
+  return( ! f_random_cuts_filename.empty() );
   }
 
 /** @} ---------------------------------------------------------------------*/
@@ -1788,7 +1793,7 @@ protected:
    * @return The simulator associated with the backward pass. */
 
   std::shared_ptr< StOpt::SimulatorSDDPBase >getSimulatorBackward( void )
-   const override { return simulator_backward; }
+   const override { return( simulator_backward ); }
 
 /*--------------------------------------------------------------------------*/
   /// returns the simulator for the forward pass
@@ -1798,7 +1803,7 @@ protected:
    * @return The simulator associated with the forward pass. */
 
   std::shared_ptr< StOpt::SimulatorSDDPBase >getSimulatorForward( void )
-   const override { return simulator_forward; }
+   const override { return( simulator_forward ); }
 
 /*--------------------------------------------------------------------------*/
   /// set the SDDPSolver with which this SDDPOptimizer will be associated
@@ -1833,21 +1838,21 @@ protected:
 /*--------------------------------------------------------------------------*/
 
   int get_number_simulations_backward( void ) const {
-   return simulator_backward->getNbSimul();
+   return( simulator_backward->getNbSimul() );
    }
 
 /*--------------------------------------------------------------------------*/
 
   int get_number_simulations_forward( void ) const {
-   return simulator_forward->getNbSimul();
+   return( simulator_forward->getNbSimul() );
    }
 
 /*--------------------------------------------------------------------------*/
 
   int get_number_simulations( bool backward ) const {
    if( backward )
-    return get_number_simulations_backward();
-   return get_number_simulations_forward();
+    return( get_number_simulations_backward() );
+   return( get_number_simulations_forward() );
    }
 
 /*--------------------------------------------------------------------------*/
@@ -1869,13 +1874,13 @@ protected:
 /*--------------------------------------------------------------------------*/
 
   int get_forward_seed( void ) const {
-   return simulator_forward->get_seed();
+   return( simulator_forward->get_seed() );
    }
 
 /*--------------------------------------------------------------------------*/
 
   int get_dflt_number_simulations_backward( void ) const {
-   return simulator_backward->get_number_scenarios();
+   return( simulator_backward->get_number_scenarios() );
    }
 
 /*--------------------------------------------------------------------------*/
@@ -1887,12 +1892,12 @@ protected:
 /*--------------------------------------------------------------------------*/
   /// returns the current stage for a backward pass
 
-  Index get_current_backward_stage( void ) const { return date_next; }
+  Index get_current_backward_stage( void ) const { return( date_next ); }
 
 /*--------------------------------------------------------------------------*/
   /// returns the current stage for a forward pass
 
-  Index get_current_forward_stage( void ) const { return date; }
+  Index get_current_forward_stage( void ) const { return( date ); }
 
 /*--------------------------------------------------------------------------*/
   /// returns the index of the backward scenario associated with simulation_id
@@ -1907,8 +1912,8 @@ protected:
 
   Index get_backward_scenario_index( Index simulation_id ) const {
    if( get_current_backward_stage() == 0 )
-    return sddp_solver->get_first_stage_scenario_index();
-   return simulator_backward->get_scenario_index( simulation_id );
+    return( sddp_solver->get_first_stage_scenario_index() );
+   return( simulator_backward->get_scenario_index( simulation_id ) );
    }
 
 /*--------------------------------------------------------------------------*/
@@ -1924,8 +1929,8 @@ protected:
 
   Index get_forward_scenario_index( Index simulation_id ) const {
    if( get_current_forward_stage() == 0 )
-    return sddp_solver->get_first_stage_scenario_index();
-   return simulator_forward->get_scenario_index( simulation_id );
+    return( sddp_solver->get_first_stage_scenario_index() );
+   return( simulator_forward->get_scenario_index( simulation_id ) );
    }
 
 /*--------------------------------------------------------------------------*/
@@ -1946,15 +1951,15 @@ protected:
 
   Index get_scenario_index( Index simulation_id , bool backward ) const {
    if( backward )
-    return get_backward_scenario_index( simulation_id );
-   return get_forward_scenario_index( simulation_id );
+    return( get_backward_scenario_index( simulation_id ) );
+   return( get_forward_scenario_index( simulation_id ) );
    }
 
 /*--------------------------------------------------------------------------*/
 
   Index get_num_sub_blocks_per_stage( void ) const {
-   return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
-    get_num_sub_blocks_per_stage();
+   return( static_cast< SDDPBlock * >( sddp_solver->f_Block )->
+    get_num_sub_blocks_per_stage() );
    }
 
 /*--------------------------------------------------------------------------*/
@@ -1976,18 +1981,17 @@ protected:
   PolyhedralFunction * get_polyhedral_function( Index stage , Index i = 0 ,
                                                 Index sub_block_index = 0 )
    const {
-   return static_cast< SDDPBlock * >( sddp_solver->f_Block
-                                      )->get_polyhedral_function( stage , i ,
-                                                            sub_block_index );
+   return( static_cast< SDDPBlock * >( sddp_solver->f_Block )
+           ->get_polyhedral_function( stage , i , sub_block_index ) );
    }
 
 /*--------------------------------------------------------------------------*/
 
-  bool mesh_provided() const { return sddp_solver->mesh_provided(); }
+  bool mesh_provided() const { return( sddp_solver->mesh_provided() ); }
 
 /*--------------------------------------------------------------------------*/
 
-  int get_output_frequency() const { return sddp_solver->output_frequency; }
+  int get_output_frequency() const { return( sddp_solver->output_frequency ); }
 
 /*--------------------------------------------------------------------------*/
 

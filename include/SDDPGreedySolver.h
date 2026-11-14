@@ -417,7 +417,8 @@ public:
    * applied to the inner Block of each BendersBFunction. */
 
   strInnerBSC ,
-  ///< name of the file containing the default BlockSolverConfig for inner Block
+  ///< name of the file containing the default BlockSolverConfig for inner
+  ///< Block
   /**< Name of the file containing the default BlockSolverConfig that will be
    * applied to the inner Block of each BendersBFunction. */
 
@@ -944,18 +945,18 @@ public:
 
  int get_dflt_int_par( const idx_type par ) const override {
   switch( par ) {
-   case( intScenarioId ): return 0;
-   case( intFirstStageScenarioId ): return -1;
-   case( intUnregisterSolver ): return 0;
-   case( intLogVerb ): return 0;
-   case( intScenarioSeed ): return -1;
-   case( intScenarioSampleFrequency ): return 1;
-   case( intSimulationDataOutputPrecision ): return 20;
-   case( intOutputScenario ): return -1;
-   case( intEarlyConfig ): return 0;
-   case( intLoadCutsOnce ): return 1;
-   case( intSubBlockIndex ): return 0;
-   case( intRandomPoolSize ): return -1;
+   case( intScenarioId ): return( 0 );
+   case( intFirstStageScenarioId ): return( -1 );
+   case( intUnregisterSolver ): return( 0 );
+   case( intLogVerb ): return( 0 );
+   case( intScenarioSeed ): return( -1 );
+   case( intScenarioSampleFrequency ): return( 1 );
+   case( intSimulationDataOutputPrecision ): return( 20 );
+   case( intOutputScenario ): return( -1 );
+   case( intEarlyConfig ): return( 0 );
+   case( intLoadCutsOnce ): return( 1 );
+   case( intSubBlockIndex ): return( 0 );
+   case( intRandomPoolSize ): return( -1 );
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1044,19 +1045,20 @@ public:
 
  int get_int_par( const idx_type par ) const override {
   switch( par ) {
-   case( intScenarioId ): return f_scenario_id;
-   case( intFirstStageScenarioId ): return f_first_stage_scenario_id;
-   case( intUnregisterSolver ): return f_unregister_solver;
-   case( intLogVerb ): return log_verbosity;
-   case( intScenarioSeed ): return( f_seed == Inf< Index >() ) ? -1 : f_seed;
-   case( intScenarioSampleFrequency ): return f_scenario_sample_frequency;
+   case( intScenarioId ): return( f_scenario_id );
+   case( intFirstStageScenarioId ): return( f_first_stage_scenario_id );
+   case( intUnregisterSolver ): return( f_unregister_solver );
+   case( intLogVerb ): return( log_verbosity );
+   case( intScenarioSeed ):
+    return( ( f_seed == Inf< Index >() ) ? -1 : f_seed );
+   case( intScenarioSampleFrequency ): return( f_scenario_sample_frequency );
    case( intSimulationDataOutputPrecision ):
-    return f_simulation_data_output_precision;
-   case( intOutputScenario ): return f_output_scenario;
-   case( intEarlyConfig ): return f_early_config;
-   case( intLoadCutsOnce ): return f_load_cuts_once;
-   case( intSubBlockIndex ): return f_sub_block_index;
-   case( intRandomPoolSize ): return random_pool_size;
+    return( f_simulation_data_output_precision );
+   case( intOutputScenario ): return( f_output_scenario );
+   case( intEarlyConfig ): return( f_early_config );
+   case( intLoadCutsOnce ): return( f_load_cuts_once );
+   case( intSubBlockIndex ): return( f_sub_block_index );
+   case( intRandomPoolSize ): return( random_pool_size );
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1073,11 +1075,11 @@ public:
 
  const std::string & get_str_par( const idx_type par ) const override {
   switch( par ) {
-   case( strInnerBC ): return f_inner_block_config_filename;
-   case( strInnerBSC ): return f_inner_block_solver_config_filename;
-   case( strLoadCuts ): return f_load_cuts_filename;
-   case( strRandomCutsFile ): return f_random_cuts_filename;
-   case( strSimulationData ): return f_simulation_data_filename;
+   case( strInnerBC ): return( f_inner_block_config_filename );
+   case( strInnerBSC ): return( f_inner_block_solver_config_filename );
+   case( strLoadCuts ): return( f_load_cuts_filename );
+   case( strRandomCutsFile ): return( f_random_cuts_filename );
+   case( strSimulationData ): return( f_simulation_data_filename );
    }
   return( Solver::get_str_par( par ) );
   }
@@ -1133,19 +1135,20 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type int_par_str2idx( const std::string & name ) const override {
-  if( name == "intScenarioId" ) return intScenarioId;
-  if( name == "intFirstStageScenarioId" ) return intFirstStageScenarioId;
-  if( name == "intUnregisterSolver" ) return intUnregisterSolver;
-  if( name == "intScenarioSeed" ) return intScenarioSeed;
-  if( name == "intScenarioSampleFrequency" ) return intScenarioSampleFrequency;
+  if( name == "intScenarioId" ) return( intScenarioId );
+  if( name == "intFirstStageScenarioId" ) return( intFirstStageScenarioId );
+  if( name == "intUnregisterSolver" ) return( intUnregisterSolver );
+  if( name == "intScenarioSeed" ) return( intScenarioSeed );
+  if( name == "intScenarioSampleFrequency" )
+   return( intScenarioSampleFrequency );
   if( name == "intSimulationDataOutputPrecision" )
-   return intSimulationDataOutputPrecision;
-  if( name == "intOutputScenario" ) return intOutputScenario;
-  if( name == "intEarlyConfig" ) return intEarlyConfig;
-  if( name == "intLoadCutsOnce" ) return intLoadCutsOnce;
-  if( name == "intSubBlockIndex" ) return intSubBlockIndex;
-  if( name == "intRandomPoolSize" ) return intRandomPoolSize;
-  return Solver::int_par_str2idx( name );
+   return( intSimulationDataOutputPrecision );
+  if( name == "intOutputScenario" ) return( intOutputScenario );
+  if( name == "intEarlyConfig" ) return( intEarlyConfig );
+  if( name == "intLoadCutsOnce" ) return( intLoadCutsOnce );
+  if( name == "intSubBlockIndex" ) return( intSubBlockIndex );
+  if( name == "intRandomPoolSize" ) return( intRandomPoolSize );
+  return( Solver::int_par_str2idx( name ) );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -1159,11 +1162,11 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type str_par_str2idx( const std::string & name ) const override {
-  if( name == "strInnerBC" ) return strInnerBC;
-  if( name == "strInnerBSC" ) return strInnerBSC;
-  if( name == "strLoadCuts" ) return strLoadCuts;
-  if( name == "strRandomCutsFile" ) return strRandomCutsFile;
-  if( name == "strSimulationData" ) return strSimulationData;
+  if( name == "strInnerBC" ) return( strInnerBC );
+  if( name == "strInnerBSC" ) return( strInnerBSC );
+  if( name == "strLoadCuts" ) return( strLoadCuts );
+  if( name == "strRandomCutsFile" ) return( strRandomCutsFile );
+  if( name == "strSimulationData" ) return( strSimulationData );
   return( Solver::str_par_str2idx( name ) );
   }
 
@@ -1178,8 +1181,8 @@ public:
   * @return The index of the parameter with the given \p name. */
 
  idx_type vint_par_str2idx( const std::string & name ) const override {
-  if( name == "vintStagesSample" ) return vintStagesSample;
-  if( name == "vintRandomPoolSize" ) return vintRandomPoolSize;
+  if( name == "vintStagesSample" ) return( vintStagesSample );
+  if( name == "vintRandomPoolSize" ) return( vintRandomPoolSize );
   return( Solver::vint_par_str2idx( name ) );
   }
 
@@ -1467,7 +1470,7 @@ public:
  * @{ */
 
  bool has_var_solution( void ) override {
-  return f_has_var_solution;
+  return( f_has_var_solution );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1530,14 +1533,14 @@ public:
 /*--------------------------------------------------------------------------*/
 
  OFValue get_var_value( void ) override {
-  return solution_value;
+  return( solution_value );
  }
 
 /*--------------------------------------------------------------------------*/
 
  OFValue get_lb( void ) override {
   if( ( get_objective_sense() == Objective::eMax ) && has_var_solution() )
-   return solution_value;
+   return( solution_value );
   return( - Inf< OFValue >() );
  }
 
@@ -1545,7 +1548,7 @@ public:
 
  OFValue get_ub( void ) override {
   if( ( get_objective_sense() == Objective::eMin ) && has_var_solution() )
-   return solution_value;
+   return( solution_value );
   return( Inf< OFValue >() );
  }
 
@@ -1558,7 +1561,7 @@ public:
   * @return the stage at which a fault has occurred.
   */
  Index get_fault_stage() const {
-  return fault_stage;
+  return( fault_stage );
  }
 
 /** @} ---------------------------------------------------------------------*/
@@ -1567,7 +1570,8 @@ public:
 /** @name Reading the state of the SDDPGreedySolver
  *  @{ */
 
- /// returns the time horizon of the SDDPBlock attached to this SDDPGreedySolver
+ /// returns the time horizon of the SDDPBlock attached to this
+ /// SDDPGreedySolver
  /** Returns the time horizon of the problem represented by the SDDPBlock
   * attached to this SDDPGreedySolver.
   *
@@ -1576,8 +1580,8 @@ public:
   */
  Index get_time_horizon( void ) const {
   if( f_Block )
-   return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
-  return 0;
+   return( static_cast< SDDPBlock * >( f_Block )->get_time_horizon() );
+  return( 0 );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1590,7 +1594,7 @@ public:
   * @return The id of the scenario to be considered.
   */
  Index get_scenario_id( void ) const {
-  return f_scenario_id;
+  return( f_scenario_id );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1614,7 +1618,7 @@ public:
   * @return The id of the scenario to be considered or a negative number.
   */
  Index get_first_stage_scenario_id( void ) const {
-  return f_first_stage_scenario_id;
+  return( f_first_stage_scenario_id );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1625,7 +1629,7 @@ public:
   * @return The status of the most recent call to compute().
   */
  Index get_status( void ) const {
-  return status_compute;
+  return( status_compute );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1638,7 +1642,7 @@ public:
   * @return A copy of the random number engine used to select the scenarios.
   */
  std::mt19937 get_random_number_engine() const {
-  return random_number_engine;
+  return( random_number_engine );
  }
 
 /** @} ---------------------------------------------------------------------*/
@@ -1668,7 +1672,8 @@ protected:
  /// It indicates whether the inner Blocks should be configured in advance
  int f_early_config = 0;
 
- /// It indicates whether cuts should be loaded only once (see #intLoadCutsOnce)
+ /// It indicates whether cuts should be loaded only once (see
+ /// #intLoadCutsOnce)
  int f_load_cuts_once = 1;
 
  /// The index of the sub-Block of the SDDPBlock that must be considered
@@ -1891,7 +1896,7 @@ private:
   auto objective = static_cast< FRealObjective * >
    ( benders_block->get_objective() );
 
-  return static_cast< BendersBFunction * >( objective->get_function() );
+  return( static_cast< BendersBFunction * >( objective->get_function() ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1936,15 +1941,15 @@ private:
    solution_value = sub_solver->get_ub();
   else
    solution_value = sub_solver->get_lb();
-  return solution_value - get_future_value( stage );
+  return( solution_value - get_future_value( stage ) );
  }
 
 /*--------------------------------------------------------------------------*/
 
  double get_future_value( Index stage ) const {
   assert( stage < get_time_horizon() );
-  return static_cast< SDDPBlock * >( f_Block )->
-   get_future_cost( stage , f_sub_block_index );
+  return( static_cast< SDDPBlock * >( f_Block )->
+   get_future_cost( stage , f_sub_block_index ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1954,7 +1959,7 @@ private:
   auto benders_function = get_benders_function( stage );
   auto inner_block = benders_function->get_inner_block();
   assert( inner_block );
-  return inner_block->get_objective_sense();
+  return( inner_block->get_objective_sense() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -2065,7 +2070,7 @@ private:
  double get_compute_time() const {
   const auto now = std::chrono::system_clock::now();
   std::chrono::duration< double > time = now - f_compute_start_time;
-  return time.count();
+  return( time.count() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -2079,7 +2084,7 @@ private:
  double get_subproblem_time() const {
   const auto now = std::chrono::system_clock::now();
   std::chrono::duration< double > time = now - f_subproblem_start_time;
-  return time.count();
+  return( time.count() );
  }
 
 /*--------------------------------------------------------------------------*/
