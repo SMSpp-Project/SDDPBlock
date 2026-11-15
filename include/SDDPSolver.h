@@ -212,17 +212,130 @@ class StochasticBlock;
  * SDDPBlock::set_scenarios()], the cuts are those of the old random data,
  * and they need not underestimate (for a minimization) the cost-to-go
  * functions of the new ones: if the change lowers the costs, the lower bound
- * given by the old cuts may be above the new optimal value. Hence, the next
- * compute() gives the simulators the new scenarios and, as #intCutsOnChange
- * says, either removes the cuts of the PolyhedralFunctions (but those of
- * the last stage, which are data of the problem) and the random cuts (the
- * default), so that the solution starts from scratch and its bounds are
- * valid, or keeps them as they are. The changes of the data of the stages
- * that are not in the scenarios are not covered: they come to the
- * SDDPSolver as NBModification of the SDDPBlock, which say nothing of what
- * has changed, and the cuts are left as they are; a datum that is to change
- * between two calls to compute() can be put in the scenarios, with the same
- * value in all of them.
+ * given by the old cuts may be above the new optimal value. The next
+ * compute() reads the new scenarios and, as #intCutsOnChange says, either
+ * removes the cuts (the default: a solution from scratch, whose bounds are
+ * valid), or keeps them as they are, or moves them by an amount that makes
+ * them valid for the new data, which is what follows. We write it for a
+ * minimization; for a maximization the cuts are upper bounds, every
+ * inequality on the values of the stages is reversed, and the cuts are moved
+ * up.
+ *
+ * Let \f$ V_t( z , \xi ; F ) \f$ be the optimal value of the problem of stage
+ * \f$ t \f$ with incoming state \f$ z \f$, random data (sub-scenario)
+ * \f$ \xi \f$ and cost-to-go function \f$ F \f$ of its outgoing state, so
+ * that \f$ \mathcal{V}_t( z ) = \sum_s q_s V_t( z , \xi_{t,s} ;
+ * \mathcal{V}_{t+1} ) \f$ with weights \f$ q_s \geq 0 \f$ summing to 1 on
+ * the \f$ N \f$ sub-scenarios \f$ \xi_{t,s} \f$ of stage \f$ t \f$ (equal
+ * weights for the unconditional expectation, the weights of the regression
+ * or of the sampled scenarios otherwise, cf. SDDPBlock). The assumption is
+ * that each entry \f$ i \f$ of a sub-scenario, in the random data group
+ * \f$ g( i ) \f$, has two constants \f$ L^-_{g(i)} , L^+_{g(i)} \geq 0 \f$
+ * (#vdblScenarioLipschitz) such that
+ *
+ * \f[
+ *   V_t( z , \xi' ; F ) \;\geq\; V_t( z , \xi ; F ) - \delta( \xi , \xi' )
+ *   \;, \qquad
+ *   \delta( \xi , \xi' ) = \sum_i \Big( L^-_{g(i)} [ \xi_i - \xi'_i ]_+ +
+ *                          L^+_{g(i)} [ \xi'_i - \xi_i ]_+ \Big)
+ *   \tag{A}
+ * \f]
+ *
+ * for each stage \f$ t \f$, state \f$ z \f$ and pair of sub-scenarios
+ * \f$ \xi , \xi' \f$, with \f$ F = \mathcal{V}_{t+1} \f$ the cost-to-go
+ * function of the old data (a fortiori, if (A) holds for every \f$ F \f$,
+ * as in most of the examples below), i.e., that a decrease (increase) by
+ * one unit of the \f$ i \f$-th random datum cannot decrease the value of a
+ * stage by more than \f$ L^-_{g(i)} \f$ (\f$ L^+_{g(i)} \f$).
+ * Let then \f$ \xi_{t,s} \f$ and \f$ \xi'_{t,s} \f$ be the old and the new
+ * sub-scenario of stage \f$ t \f$ in scenario \f$ s \f$, the number of
+ * scenarios being the same, \f$ \delta_{t,s} = \delta( \xi_{t,s} ,
+ * \xi'_{t,s} ) \f$,
+ *
+ * \f[
+ *   \Delta_t = \frac{1}{N} \sum_{s=1}^N \delta_{t,s}
+ *   \quad \text{or} \quad
+ *   \Delta_t = \max_s \delta_{t,s} \;, \qquad
+ *   D_t = \sum_{\tau = t + 1}^{T - 1} \Delta_\tau
+ *   \quad ( t = 0 , \dots , T - 2 ) \;,
+ * \f]
+ *
+ * the mean being used when the backward pass averages the cuts of all the
+ * scenarios with equal weights (no #vintMeshDiscretization,
+ * #intNbSimulBackward equal to the number of scenarios, and no sampling with
+ * replacement) and the maximum otherwise. Then, with \f$ \mathcal{V}' \f$
+ * the cost-to-go functions of the new data and the terminal one unchanged,
+ *
+ * \f[
+ *   \mathcal{V}'_{t+1}( z ) \;\geq\; \mathcal{V}_{t+1}( z ) - D_t
+ *   \quad \text{for all } z \text{ and } t = 0 , \dots , T - 2 \;. \tag{B}
+ * \f]
+ *
+ * Indeed, (B) holds for \f$ t = T - 1 \f$ with \f$ D_{T-1} = 0 \f$, since
+ * \f$ \mathcal{V}_T \f$ is data of the problem. If it holds for \f$ t + 1
+ * \f$, then for each scenario \f$ s \f$
+ *
+ * \f[
+ *   V_{t+1}( z , \xi'_{t+1,s} ; \mathcal{V}'_{t+2} ) \geq
+ *   V_{t+1}( z , \xi'_{t+1,s} ; \mathcal{V}_{t+2} ) - D_{t+1} \geq
+ *   V_{t+1}( z , \xi_{t+1,s} ; \mathcal{V}_{t+2} ) - \delta_{t+1,s} -
+ *   D_{t+1}
+ * \f]
+ *
+ * where the first inequality holds because lowering the objective function
+ * of a problem by at most a constant lowers its optimal value by at most the
+ * same constant, and the second is (A); averaging over the scenarios with
+ * the weights \f$ q_s \f$ gives (B) for \f$ t \f$, with \f$ \Delta_{t+1} \f$
+ * the mean when the weights are equal and the maximum for any weights. As a
+ * consequence, a cut \f$ \alpha + \beta^\top z \f$ that underestimates
+ * \f$ \mathcal{V}_{t+1} \f$ (the PolyhedralFunction of stage \f$ t \f$)
+ * gives the cut \f$ \alpha - D_t + \beta^\top z \f$ that underestimates
+ * \f$ \mathcal{V}'_{t+1} \f$, and so does the global bound of that
+ * PolyhedralFunction lowered by \f$ D_t \f$; a random cut of stage \f$ t \f$
+ * and scenario \f$ s \f$, which underestimates \f$ V_t( \cdot , \xi_{t,s} ;
+ * \mathcal{V}_{t+1} ) \f$, is lowered by \f$ \delta_{t,s} + D_t \f$ (with
+ * \f$ D_{T-1} = 0 \f$). The cuts are moved in this way at the beginning of
+ * compute() [see SDDPBlock::shift_cuts()], and the backward value of its
+ * first iteration, being the value of the first stage with the moved cuts,
+ * is a lower bound for the new data. Of course, the cuts underestimate
+ * the new cost-to-go functions only to the extent that they underestimated
+ * the old ones: (B) moves the inequality, whatever the reason for which it
+ * held (cf. SDDPBlock for the convexity that it requires). Neither does the
+ * amount depend on the state, nor on the cut, hence it costs nothing beyond
+ * reading the scenarios, and it lowers the whole approximation of each stage
+ * rigidly; when a change of an entry has no constant (a negative entry of
+ * #vdblScenarioLipschitz), \f$ D_t \f$ is infinite at the stages before it
+ * and their cuts are removed instead, as they are, at all the stages, when
+ * the number of scenarios changes.
+ *
+ * The constants are properties of the model of the stages, which the
+ * SDDPSolver cannot compute, and a valid one is often at hand. If a random
+ * datum is the right-hand side of a row (say, the demand of a bus at an
+ * instant in an energy balance) that has a deficit variable, of cost
+ * \f$ c \f$ per unit, with enough capacity and in no other row, then
+ * \f$ L^- = c \f$: an optimal solution for the smaller datum, plus the
+ * difference in the deficit, is feasible for the larger one, whatever
+ * \f$ z \f$ and \f$ F \f$ are; symmetrically, \f$ L^+ = 0 \f$ if any
+ * solution for a datum can be turned into one for a smaller datum at no
+ * larger cost (say, by producing less, from units with no minimum output,
+ * or by spilling the water that would have been turbined). If the datum is
+ * the cost \f$ c_j \f$ of a variable with bounds \f$ l_j \leq x_j \leq u_j
+ * \f$, then \f$ V_t \f$ changes by at least \f$ \min \{ ( c'_j - c_j ) l_j ,
+ * ( c'_j - c_j ) u_j \} \f$, hence \f$ L^- = \max \{ u_j , 0 \} \f$ and
+ * \f$ L^+ = \max \{ - l_j , 0 \} \f$, summed over the variables (say, the
+ * instants) whose cost the datum is. If the datum is an upper bound on a
+ * variable (say, the available power of an intermittent unit) or an inflow
+ * of a reservoir that can spill, a decrease shrinks the feasible region,
+ * hence \f$ L^- = 0 \f$; an increase of such an inflow by one unit cannot
+ * decrease the value by more than the value of a unit of water in
+ * \f$ F \f$ and in the stage, i.e., by more than the energy it gives times
+ * the cost of the deficit it can replace at most. The changes of the data
+ * of the stages that are not
+ * in the scenarios are not covered: they come to the SDDPSolver as
+ * NBModification of the SDDPBlock, which say nothing of what has changed,
+ * and the cuts are left as they are; a datum that is to change between two
+ * calls to compute() can be put in the scenarios, with the same value in
+ * all of them.
  */
 
 class SDDPSolver : public Solver {
@@ -387,6 +500,10 @@ public:
    *
    * - 0: they are kept as they are, i.e., as valid for the new random data,
    *   which they need not be;
+   *
+   * - 1: they are moved by the amount that keeps them valid under the
+   *   assumption given by #vdblScenarioLipschitz, and removed at the stages
+   *   where that amount is not finite;
    *
    * - 2: they are removed, as in a solution from scratch.
    *
@@ -594,6 +711,24 @@ public:
    * initial state is set for the first stage problem. By default, this vector
    * is empty. */
 
+  vdblScenarioLipschitz ,
+  ///< the constants of the scenarios for moving the cuts
+  /**< The constants \f$ L^-_g \f$ and \f$ L^+_g \f$ of the random data
+   * groups \f$ g \f$ of the sub-scenarios [see SDDPBlock] by which the
+   * cuts are moved when the scenarios change and #intCutsOnChange is 1: a
+   * decrease (increase) by one unit of an entry of group \f$ g \f$ of a
+   * sub-scenario cannot decrease, for a minimization (increase, for a
+   * maximization), the optimal value of the problem of the stage by more
+   * than \f$ L^-_g \f$ (\f$ L^+_g \f$). With \f$ G \f$ groups (one,
+   * the whole sub-scenario, if the SDDPBlock defines none), the vector has
+   * either 2G entries, \f$ L^-_g \f$ and \f$ L^+_g \f$ of each group in
+   * turn, or G entries, each both \f$ L^-_g \f$ and \f$ L^+_g \f$, or
+   * one entry, which is all of them. A negative entry says that no such
+   * constant is known: a change of an entry in that direction makes the
+   * amount infinite. See "Cuts after a change of the scenarios" in the notes
+   * of the class. By default, this vector is empty, which is the same as
+   * a single negative entry. */
+
   vdblLastAlgPar
   ///< first allowed new vector-of-double parameter for derived classes
   /**< Convenience value for easily allow derived classes to extend the set of
@@ -709,9 +844,9 @@ public:
    case( intBackwardSolverIndex ):
     f_backward_Solver_index = value; return;
    case( intCutsOnChange ):
-    if( ( value != 0 ) && ( value != 2 ) )
+    if( ( value < 0 ) || ( value > 2 ) )
      throw( std::invalid_argument( "SDDPSolver::set_par: intCutsOnChange "
-                                   "must be 0 or 2, not " +
+                                   "must be 0, 1 or 2, not " +
                                    std::to_string( value ) ) );
     f_cuts_on_change = value; return;
   }
@@ -836,6 +971,8 @@ public:
   *
   * - #vdblInitialState
   *
+  * - #vdblScenarioLipschitz
+  *
   * Please refer to the #vdbl_par_type_SDDP_S enumeration for a detailed
   * description of each of them.
   *
@@ -848,6 +985,7 @@ public:
   switch( par ) {
    case( vdblLastStageCuts ): last_stage_cuts = value; return;
    case( vdblInitialState ): initial_state = value; return;
+   case( vdblScenarioLipschitz ): f_scenario_lipschitz = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -1109,7 +1247,9 @@ public:
  const std::vector< double > & get_dflt_vdbl_par( const idx_type par )
   const override {
   const static std::vector< double > empty;
-  if( par == vdblLastStageCuts || par == vdblInitialState ) return( empty );
+  if( par == vdblLastStageCuts || par == vdblInitialState ||
+      par == vdblScenarioLipschitz )
+   return( empty );
 
   return( Solver::get_dflt_vdbl_par( par ) );
   }
@@ -1225,6 +1365,7 @@ public:
   switch( par ) {
    case( vdblLastStageCuts ): return( last_stage_cuts );
    case( vdblInitialState ): return( initial_state );
+   case( vdblScenarioLipschitz ): return( f_scenario_lipschitz );
    }
   return( Solver::get_vdbl_par( par ) );
   }
@@ -1330,6 +1471,7 @@ public:
  idx_type vdbl_par_str2idx( const std::string & name ) const override {
   if( name == "vdblLastStageCuts" ) return( vdblLastStageCuts );
   if( name == "vdblInitialState" ) return( vdblInitialState );
+  if( name == "vdblScenarioLipschitz" ) return( vdblScenarioLipschitz );
   return( Solver::vdbl_par_str2idx( name ) );
   }
 
@@ -1426,7 +1568,7 @@ public:
 
  const std::string & vdbl_par_idx2str( const idx_type idx ) const override {
   static const std::vector< std::string > parameter_names =
-   { "vdblLastStageCuts" , "vdblInitialState" };
+   { "vdblLastStageCuts" , "vdblInitialState" , "vdblScenarioLipschitz" };
   if( idx >= vdbl_par_type_S::vdblLastAlgPar && idx < vdblLastAlgPar )
    return( parameter_names[ idx - vdbl_par_type_S::vdblLastAlgPar ] );
   return( Solver::vdbl_par_idx2str( idx ) );
@@ -1659,12 +1801,26 @@ public:
   }
 
 /*--------------------------------------------------------------------------*/
+ /// returns the amounts by which the cuts were last moved
+ /** This function returns the amount by which the last change of the
+  * scenarios handled with #intCutsOnChange == 1 has moved the cuts of the
+  * PolyhedralFunction of each stage t < get_time_horizon() - 1 [see "Cuts
+  * after a change of the scenarios" in the notes of the class], an infinite
+  * one if they have been removed, and an empty vector if no change has been
+  * handled in this way.
+  *
+  * @return The amounts by which the cuts were last moved. */
+
+ const std::vector< double > & get_cuts_shift( void ) const {
+  return( f_cuts_shift );
+  }
+
+/*--------------------------------------------------------------------------*/
  /// returns the numbers of cuts moved and removed by the last change
  /** This function returns the number of the cuts of the PolyhedralFunctions
   * (of all the stages and sub-Blocks, the random cuts not included) that the
   * last change of the scenarios handled with #intCutsOnChange > 0 has moved
-  * (the first element, always 0 with the values of #intCutsOnChange
-  * allowed here) and removed (the second).
+  * (the first element) and removed (the second).
   *
   * @return The numbers of cuts moved and removed. */
 
@@ -2323,6 +2479,11 @@ private:
  void process_outstanding_Modification();
 
 /*--------------------------------------------------------------------------*/
+ /// reads the scenarios of the SDDPBlock into #f_seen_scenarios
+
+ void read_scenarios( void );
+
+/*--------------------------------------------------------------------------*/
  /// handles a change of the scenarios as #intCutsOnChange says
 
  void handle_scenario_change( void );
@@ -2388,6 +2549,7 @@ private:
 
   last_stage_cuts = get_dflt_vdbl_par( vdblLastStageCuts );
   initial_state = get_dflt_vdbl_par( vdblInitialState );
+  f_scenario_lipschitz = get_dflt_vdbl_par( vdblScenarioLipschitz );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -2406,8 +2568,17 @@ private:
  /// what is done of the cuts when the scenarios change [see intCutsOnChange]
  int f_cuts_on_change = 2;
 
+ /// the constants of the random data groups [see vdblScenarioLipschitz]
+ std::vector< double > f_scenario_lipschitz;
+
  /// whether an SDDPBlockMod has come since the scenarios were last read
  std::atomic< bool > f_scenarios_changed = false;
+
+ /// the sub-scenarios that the cuts are valid for, by stage and scenario
+ std::vector< std::vector< std::vector< double > > > f_seen_scenarios;
+
+ /// the amount by which the cuts of each stage were last moved
+ std::vector< double > f_cuts_shift;
 
  /// the numbers of the cuts last moved and removed [see get_cuts_change()]
  std::array< Index , 2 > f_cuts_changed = { 0 , 0 };

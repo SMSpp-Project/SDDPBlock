@@ -31,7 +31,9 @@
 #include "SDDPSolver.h"
 #include "StochasticBlock.h"
 
+#include <algorithm>
 #include <chrono>
+#include <numeric>
 #include <Eigen/Core>
 
 #include "boost/iostreams/stream.hpp"
@@ -299,6 +301,7 @@ void SDDPSolver::set_Block( Block * block )
  sddp_optimizer->set_scenarios( *sddp_block );
 
  // the cuts that the SDDPBlock has are taken as valid for these scenarios
+ read_scenarios();
  f_scenarios_changed = false;
 
  // BlockConfig for the inner Blocks
@@ -767,38 +770,202 @@ void SDDPSolver::process_outstanding_Modification() {
 
 /*--------------------------------------------------------------------------*/
 
+void SDDPSolver::read_scenarios( void )
+{
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ const auto time_horizon = get_time_horizon();
+
+ f_seen_scenarios.resize( time_horizon );
+ for( Index t = 0 ; t < time_horizon ; ++t ) {
+  const auto num_scenarios = sddp_block->size( t );
+  f_seen_scenarios[ t ].resize( num_scenarios );
+  for( Index s = 0 ; s < num_scenarios ; ++s )
+   f_seen_scenarios[ t ][ s ].assign( sddp_block->sub_scenario_begin( s , t ) ,
+                                      sddp_block->sub_scenario_end( s , t ) );
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPSolver::handle_scenario_change( void )
 {
  if( ! f_scenarios_changed.exchange( false ) )
   return;
 
  const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+ const auto time_horizon = get_time_horizon();
 
- // the simulators take the new scenarios
+ // the simulators take the new scenarios, and the old ones are kept for
+ // comparing them with the new ones
  sddp_optimizer->set_scenarios( *sddp_block );
+ const auto old_scenarios = std::move( f_seen_scenarios );
+ read_scenarios();
 
- f_cuts_changed = { 0 , 0 };
  if( f_cuts_on_change == 0 )
   return;
 
- // the cuts of the old scenarios are removed, but those of the last stage,
- // which are data of the problem
- for( Index t = 0 ; t + 1 < get_time_horizon() ; ++t )
+ // the amount D_t by which the cuts of stage t are moved, infinite where
+ // they are removed: always with intCutsOnChange == 2, and when the number
+ // of scenarios has changed, since no scenario is then the new version of
+ // an old one
+ std::vector< double > shift( time_horizon - 1 , Inf< double >() );
+ std::vector< std::vector< double > > random_shift;
+
+ bool paired = ( old_scenarios.size() == f_seen_scenarios.size() );
+ for( Index t = 0 ; paired && ( t < time_horizon ) ; ++t )
+  paired = ( old_scenarios[ t ].size() == f_seen_scenarios[ t ].size() );
+
+ if( ( f_cuts_on_change == 1 ) && paired ) {
+
+  // the groups of a sub-scenario and the constants of each: those of the
+  // SDDPBlock if they make up the sub-scenario of every stage, otherwise a
+  // single group, the whole sub-scenario
+  auto groups = sddp_block->get_size_random_data_groups();
+  for( Index t = 0 ; t < time_horizon ; ++t )
+   if( ( ! f_seen_scenarios[ t ].empty() ) &&
+       ( std::accumulate( groups.begin() , groups.end() , Index( 0 ) ) !=
+         f_seen_scenarios[ t ].front().size() ) ) {
+    groups.clear();
+    break;
+    }
+  const Index num_groups = groups.empty() ? 1 : groups.size();
+
+  const auto & L = f_scenario_lipschitz;
+  std::vector< double > L_down( num_groups , -1 );
+  std::vector< double > L_up( num_groups , -1 );
+  if( L.size() == 1 ) {
+   std::fill( L_down.begin() , L_down.end() , L[ 0 ] );
+   std::fill( L_up.begin() , L_up.end() , L[ 0 ] );
+   }
+  else if( L.size() == num_groups ) {
+   L_down = L;
+   L_up = L;
+   }
+  else if( L.size() == 2 * num_groups )
+   for( Index g = 0 ; g < num_groups ; ++g ) {
+    L_down[ g ] = L[ 2 * g ];
+    L_up[ g ] = L[ 2 * g + 1 ];
+    }
+  else if( ! L.empty() )
+   throw( std::invalid_argument( "SDDPSolver::compute: vdblScenarioLipschitz "
+                                 "has " + std::to_string( L.size() ) +
+                                 " entries, while the sub-scenarios have " +
+                                 std::to_string( num_groups ) +
+                                 " random data groups" ) );
+
+  // the cuts are averages with equal weights over all the scenarios only if
+  // the backward pass takes each scenario once and there is no regression;
+  // otherwise the weights are unknown, and the largest amount is taken
+  const bool mean = ( ! mesh_provided() ) &&
+   ( ! std::static_pointer_cast< ScenarioSimulator >(
+        sddp_optimizer->getSimulatorBackward() )->get_sampling_replacement() );
+
+  // delta_{t,s}, by which the change of the sub-scenario of stage t in
+  // scenario s may decrease the value of the problem of the stage
+  random_shift.resize( time_horizon );
+  for( Index t = 0 ; t < time_horizon ; ++t ) {
+   const auto num_scenarios = f_seen_scenarios[ t ].size();
+   random_shift[ t ].assign( num_scenarios , 0 );
+   for( Index s = 0 ; s < num_scenarios ; ++s ) {
+    const auto & xi = old_scenarios[ t ][ s ];
+    const auto & xi_new = f_seen_scenarios[ t ][ s ];
+    double delta = 0;
+    Index g = 0;
+    Index group_end = groups.empty() ? xi.size() : groups[ 0 ];
+    for( Index i = 0 ; i < xi.size() ; ++i ) {
+     while( ( i >= group_end ) && ( g + 1 < num_groups ) )
+      group_end += groups[ ++g ];
+     const auto change = xi_new[ i ] - xi[ i ];
+     if( change == 0 )
+      continue;
+     const auto l = ( change < 0 ) ? L_down[ g ] : L_up[ g ];
+     if( l < 0 ) {
+      delta = Inf< double >();
+      break;
+      }
+     delta += l * std::abs( change );
+     }
+    random_shift[ t ][ s ] = delta;
+    }
+   }
+
+  // D_t = sum_{t' > t} Delta_{t'}, Delta_{t'} the mean or the largest of
+  // the delta_{t',s} over the scenarios, and D_{T - 1} = 0 since the
+  // PolyhedralFunction of the last stage is data of the problem
+  double D = 0;
+  for( Index t = time_horizon - 1 ; t > 0 ; --t ) {
+   const auto & delta = random_shift[ t ];
+   double Delta = 0;
+   if( ! delta.empty() ) {
+    if( mean &&
+        ( Index( sddp_optimizer->get_number_simulations_backward() ) ==
+          delta.size() ) )
+     Delta = std::accumulate( delta.begin() , delta.end() , 0.0 ) /
+      delta.size();
+    else
+     Delta = *std::max_element( delta.begin() , delta.end() );
+    }
+   D += Delta;
+   shift[ t - 1 ] = D;
+   }
+
+  // the random cut of stage t and scenario s is a cut of the value of the
+  // problem of the stage with the PolyhedralFunction of stage t
+  for( Index t = 0 ; t < time_horizon ; ++t )
+   for( auto & d : random_shift[ t ] )
+    d += ( t + 1 < time_horizon ) ? shift[ t ] : 0;
+  }
+
+ // remove the cuts of the stages where the amount is infinite, and move the
+ // others
+ f_cuts_changed = { 0 , 0 };
+ std::vector< double > finite_shift( shift );
+ for( Index t = 0 ; t + 1 < time_horizon ; ++t ) {
+  const bool remove = ( shift[ t ] == Inf< double >() );
   for( Index i = 0 ;
        i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i )
-   for( Index j = 0 ; j < sddp_block->get_num_sub_blocks_per_stage() ; ++j )
-    f_cuts_changed[ 1 ] +=
-     sddp_block->get_polyhedral_function( t , i , j )->get_nrows();
+   for( Index j = 0 ; j < sddp_block->get_num_sub_blocks_per_stage() ; ++j ) {
+    const auto polyhedral_function =
+     sddp_block->get_polyhedral_function( t , i , j );
+    f_cuts_changed[ remove ? 1 : 0 ] += polyhedral_function->get_nrows();
+    if( remove )
+     polyhedral_function->delete_rows();
+    }
+  if( remove )
+   finite_shift[ t ] = 0;
+  }
 
- sddp_block->remove_cuts();
- sddp_block->remove_random_cuts();
+ const bool random_finite = std::all_of( random_shift.begin() ,
+                                         random_shift.end() ,
+                                         []( const auto & v ) {
+  return( std::all_of( v.begin() , v.end() , []( auto d ) {
+   return( d < Inf< double >() ); } ) ); } );
+
+ if( random_shift.empty() || ( ! random_finite ) ) {
+  sddp_block->remove_random_cuts();
+  random_shift.clear();
+  }
+
+ sddp_block->shift_cuts( finite_shift , random_shift );
+
+ if( f_cuts_on_change == 1 )
+  f_cuts_shift = shift;
 
  if( f_log && log_verbosity > 0 ) {
 #ifdef USE_MPI
-  if( ! mpi_communicator.rank() )
+  if( ! mpi_communicator.rank() ) {
 #endif
-   *f_log << "The scenarios have changed: " << f_cuts_changed[ 1 ]
-          << " cuts removed" << std::endl;
+   *f_log << "The scenarios have changed: " << f_cuts_changed[ 0 ]
+          << " cuts moved, " << f_cuts_changed[ 1 ] << " removed";
+   if( f_cuts_on_change == 1 ) {
+    *f_log << "; amount by stage:";
+    for( auto d : shift )
+     *f_log << " " << d;
+    }
+   *f_log << std::endl;
+#ifdef USE_MPI
+   }
+#endif
   }
  }
 

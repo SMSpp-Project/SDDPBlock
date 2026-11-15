@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `SDDPSolver` with `intCutsOnChange` 1 moves the cuts after a change of
+  the scenarios, with `SDDPBlock::shift_cuts()`, by an amount that keeps
+  them valid for the new data, rather than removing them (2, the default)
+  or keeping them (0): under the assumption that a change of a random datum
+  moves the value of a stage by at most `vdblScenarioLipschitz` per unit,
+  the cost-to-go function of stage t + 1 decreases by at most the sum over
+  the stages after t of the mean (or, when the backward pass does not weigh
+  the scenarios equally, the largest) change of the value of a stage, as
+  proven in the documentation of `SDDPSolver`, so that the next `compute()`
+  starts from the old cuts and its lower bounds are valid;
+  `get_cuts_shift()` gives what has been done
+
 - `SDDPSolver::get_number_solves()` gives the problems of the stages that
   the last `compute()` has solved in the forward and in the backward passes
 

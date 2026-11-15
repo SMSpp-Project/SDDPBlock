@@ -278,6 +278,69 @@ void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
 
 /*--------------------------------------------------------------------------*/
 
+void SDDPBlock::shift_cuts( const std::vector< double > & shift ,
+                            const std::vector< std::vector< double > > &
+                            random_shift )
+{
+ const auto time_horizon = get_time_horizon();
+
+ if( shift.size() + 1 < time_horizon )
+  throw( std::invalid_argument( "SDDPBlock::shift_cuts: " +
+                                std::to_string( shift.size() ) + " shifts "
+                                "for " + std::to_string( time_horizon ) +
+                                " stages" ) );
+
+ // the constants of all the rows and the bound of a PolyhedralFunction,
+ // down for a convex one and up for a concave one
+ auto move = []( PolyhedralFunction & pf , double amount ,
+                 ModParam issueMod ) {
+  if( amount <= 0 )
+   return;
+  if( ! pf.is_convex() )
+   amount = - amount;
+  if( const auto nrows = pf.get_nrows() ) {
+   PolyhedralFunction::RealVector nb( pf.get_b() );
+   for( auto & b : nb )
+    b -= amount;
+   pf.modify_constants( nb , Range( 0 , nrows ) , issueMod );
+   }
+  if( pf.is_bound_set() )
+   pf.modify_bound( pf.get_global_bound() - amount , issueMod );
+  };
+
+ for( Index stage = 0 ; stage + 1 < time_horizon ; ++stage ) {
+  if( shift[ stage ] < 0 )
+   throw( std::invalid_argument( "SDDPBlock::shift_cuts: negative shift " +
+                                 std::to_string( shift[ stage ] ) +
+                                 " at stage " + std::to_string( stage ) ) );
+  for( Index i = 0 ; i < num_polyhedral_per_sub_block ; ++i )
+   for( Index sub_block_index = 0 ;
+        sub_block_index < num_sub_blocks_per_stage ; ++sub_block_index )
+    move( *get_polyhedral_function( stage , i , sub_block_index ) ,
+          shift[ stage ] , eModBlck );
+  }
+
+ if( random_shift.empty() || ( random_cuts.num_elements() == 0 ) )
+  return;
+
+ if( random_shift.size() < random_cuts.size() )
+  throw( std::invalid_argument( "SDDPBlock::shift_cuts: random shifts for " +
+                                std::to_string( random_shift.size() ) +
+                                " stages" ) );
+
+ // the random cuts are seen by no Solver
+ for( Index t = 0 ; t < random_cuts.size() ; ++t )
+  for( Index s = 0 ; s < random_cuts[ t ].size() ; ++s ) {
+   if( s >= random_shift[ t ].size() )
+    throw( std::invalid_argument( "SDDPBlock::shift_cuts: no random shift "
+                                  "for scenario " + std::to_string( s ) +
+                                  " at stage " + std::to_string( t ) ) );
+   move( random_cuts[ t ][ s ] , random_shift[ t ][ s ] , eNoMod );
+   }
+ }
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPBlock::set_scenarios( std::vector< std::vector< double > > &&
                                scenarios , ModParam issueMod )
 {

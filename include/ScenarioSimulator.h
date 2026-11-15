@@ -140,6 +140,13 @@ class ScenarioSimulator : public StOpt::SimulatorSDDPBase
   }
 
 /*--------------------------------------------------------------------------*/
+ /// tells if the sampling of scenarios is with replacement
+
+ bool get_sampling_replacement( void ) const {
+  return( sampling_with_replacement );
+  }
+
+/*--------------------------------------------------------------------------*/
  /// indicates if the sampling must be done at at time instant
  /** This function determines if the sampling of scenarios must be done at
   * each time instant as opposed to only at time 0 (for a forward simulator)

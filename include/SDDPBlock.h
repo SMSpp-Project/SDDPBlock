@@ -1574,6 +1574,31 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// moves the cuts of each PolyhedralFunction by the given amounts
+ /** This function moves the constant of each cut, and the global bound if it
+  * is finite, of every PolyhedralFunction of each stage t <
+  * get_time_horizon() - 1 (of every sub-Block of the stage) by \p shift[ t ]
+  * \f$ \geq 0 \f$: down if the PolyhedralFunction is convex, up if it is
+  * concave. Thus, a cut that underestimates (overestimates) a function
+  * still does after the function has decreased (increased) by at most
+  * \p shift[ t ] everywhere [see SDDPSolver]. As remove_cuts(), it leaves
+  * the PolyhedralFunction of the last stage, which is data of the problem,
+  * untouched. If \p random_shift is not empty, the random cut of each stage
+  * t and scenario s [see get_random_cut()] is moved in the same way by
+  * \p random_shift[ t ][ s ].
+  *
+  * @param shift A vector of get_time_horizon() - 1 (or more, the others
+  *        being ignored) nonnegative numbers.
+  *
+  * @param random_shift Either empty, or a vector of get_time_horizon()
+  *        vectors, the t-th of which has one nonnegative number per
+  *        scenario. */
+
+ void shift_cuts( const std::vector< double > & shift ,
+                  const std::vector< std::vector< double > > & random_shift
+                  = {} );
+
+/*--------------------------------------------------------------------------*/
  /// removes all the random cuts
  /** This function removes the random cuts of all stages and scenarios [see
   * store_random_cut()]. */
