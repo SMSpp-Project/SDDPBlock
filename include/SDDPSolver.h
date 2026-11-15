@@ -1644,6 +1644,21 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// returns the number of problems of the stages solved by the last compute()
+ /** This function returns the number of problems of the stages that the last
+  * call to compute() has solved in the forward passes (those that check the
+  * convergence included) if \p forward is true, in the backward passes
+  * otherwise.
+  *
+  * @param forward Whether the forward or the backward passes are counted.
+  *
+  * @return The number of problems solved in those passes. */
+
+ long get_number_solves( bool forward ) const {
+  return( f_num_solves[ forward ? 1 : 0 ] );
+  }
+
+/*--------------------------------------------------------------------------*/
  /// returns the numbers of cuts moved and removed by the last change
  /** This function returns the number of the cuts of the PolyhedralFunctions
   * (of all the stages and sub-Blocks, the random cuts not included) that the
@@ -2396,6 +2411,9 @@ private:
 
  /// the numbers of the cuts last moved and removed [see get_cuts_change()]
  std::array< Index , 2 > f_cuts_changed = { 0 , 0 };
+
+ /// the numbers of problems of the stages solved by the last compute()
+ std::array< std::atomic< long > , 2 > f_num_solves = { 0 , 0 };
 
 /*--------------------------------------------------------------------------*/
 

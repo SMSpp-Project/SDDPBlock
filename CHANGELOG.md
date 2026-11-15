@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `SDDPSolver::get_number_solves()` gives the problems of the stages that
+  the last `compute()` has solved in the forward and in the backward passes
+
 ### Fixed
 
 - after a change of the scenarios, `SDDPSolver` no longer starts from the

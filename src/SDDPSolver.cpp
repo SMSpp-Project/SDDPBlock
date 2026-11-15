@@ -398,6 +398,9 @@ int SDDPSolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
 
+ f_num_solves[ 0 ] = 0;
+ f_num_solves[ 1 ] = 0;
+
  handle_scenario_change();
 
  const auto time_horizon = get_time_horizon();
@@ -1041,6 +1044,8 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
  benders_function->set_par( BendersBFunction::intSolverIndex ,
                             is_forward ? f_forward_Solver_index
                                        : f_backward_Solver_index );
+
+ ++f_num_solves[ is_forward ? 1 : 0 ];
 
  auto status = benders_function->compute();
 
