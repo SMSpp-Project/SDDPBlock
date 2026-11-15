@@ -55,6 +55,7 @@ export namespace SMSpp_di_unipi_it {
 
  // SDDPBlock.h
  using SMSpp_di_unipi_it::SDDPBlock;
+ using SMSpp_di_unipi_it::SDDPBlockMod;
  using SMSpp_di_unipi_it::SDDPBlockSolution;
 
  // SDDPGreedySolver.h

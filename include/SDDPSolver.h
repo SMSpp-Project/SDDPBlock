@@ -36,6 +36,8 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <array>
+#include <atomic>
 #include <Eigen/Dense>
 #include "BlockSolverConfig.h"
 #include "ScenarioSimulator.h"
@@ -201,6 +203,26 @@ class StochasticBlock;
  * how the state is passed between stages, how the cuts are obtained from the
  * dual values of the rows into which the state is written, and how the
  * initial conditions that are not in the state are treated).
+ *
+ * \par Cuts after a change of the scenarios
+ *
+ * compute() leaves in the PolyhedralFunctions the cuts it has found, and the
+ * next compute() starts from them; this is a warm start as long as the data
+ * do not change. When the scenarios of the SDDPBlock change [see
+ * SDDPBlock::set_scenarios()], the cuts are those of the old random data,
+ * and they need not underestimate (for a minimization) the cost-to-go
+ * functions of the new ones: if the change lowers the costs, the lower bound
+ * given by the old cuts may be above the new optimal value. Hence, the next
+ * compute() gives the simulators the new scenarios and, as #intCutsOnChange
+ * says, either removes the cuts of the PolyhedralFunctions (but those of
+ * the last stage, which are data of the problem) and the random cuts (the
+ * default), so that the solution starts from scratch and its bounds are
+ * valid, or keeps them as they are. The changes of the data of the stages
+ * that are not in the scenarios are not covered: they come to the
+ * SDDPSolver as NBModification of the SDDPBlock, which say nothing of what
+ * has changed, and the cuts are left as they are; a datum that is to change
+ * between two calls to compute() can be put in the scenarios, with the same
+ * value in all of them.
  */
 
 class SDDPSolver : public Solver {
@@ -356,6 +378,20 @@ public:
   /**< This parameter determines the index of the Solver of the inner Block
    * of each BendersBFunction that must be used in the backward step. Its
    * default value is 0. */
+
+  intCutsOnChange ,
+  ///< What is done of the cuts when the scenarios change
+  /**< This parameter decides what the next compute() does of the cuts of the
+   * PolyhedralFunctions, and of the random cuts, after the scenarios of the
+   * SDDPBlock have changed [see SDDPBlock::set_scenarios()]:
+   *
+   * - 0: they are kept as they are, i.e., as valid for the new random data,
+   *   which they need not be;
+   *
+   * - 2: they are removed, as in a solution from scratch.
+   *
+   * See "Cuts after a change of the scenarios" in the notes of the class.
+   * The default value is 2. */
 
   intLastAlgPar
   ///< First allowed new double parameter for derived classes
@@ -639,6 +675,8 @@ public:
   *
   * - #intBackwardSolverIndex
   *
+  * - #intCutsOnChange
+  *
   * Please refer to the #int_par_type_SDDP_S enumeration for a
   * detailed description of each of them.
   *
@@ -670,6 +708,12 @@ public:
     f_forward_Solver_index = value; return;
    case( intBackwardSolverIndex ):
     f_backward_Solver_index = value; return;
+   case( intCutsOnChange ):
+    if( ( value != 0 ) && ( value != 2 ) )
+     throw( std::invalid_argument( "SDDPSolver::set_par: intCutsOnChange "
+                                   "must be 0 or 2, not " +
+                                   std::to_string( value ) ) );
+    f_cuts_on_change = value; return;
   }
   Solver::set_par( par , value );
  }
@@ -977,6 +1021,7 @@ public:
    case( intRepresentativePoolSize ): return( -1 );
    case( intForwardSolverIndex ): return( 0 );
    case( intBackwardSolverIndex ): return( 0 );
+   case( intCutsOnChange ): return( 2 );
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1098,6 +1143,7 @@ public:
    case( intRepresentativePoolSize ): return( representative_pool_size );
    case( intForwardSolverIndex ): return( f_forward_Solver_index );
    case( intBackwardSolverIndex ): return( f_backward_Solver_index );
+   case( intCutsOnChange ): return( f_cuts_on_change );
    }
   return( Solver::get_dflt_int_par( par ) );
   }
@@ -1209,6 +1255,7 @@ public:
    return( intRepresentativePoolSize );
   if( name == "intForwardSolverIndex" ) return( intForwardSolverIndex );
   if( name == "intBackwardSolverIndex" ) return( intBackwardSolverIndex );
+  if( name == "intCutsOnChange" ) return( intCutsOnChange );
   return( Solver::int_par_str2idx( name ) );
   }
 
@@ -1302,7 +1349,7 @@ public:
      "intNbSimulBackward" , "intNbSimulForward" , "intOutputFrequency" ,
      "intFirstStageScenarioId" , "intForwardSimulatorSeed" ,
      "intRepresentativePoolSize" , "intForwardSolverIndex" ,
-     "intBackwardSolverIndex" };
+     "intBackwardSolverIndex" , "intCutsOnChange" };
 
   if( idx >= int_par_type_S::intLastAlgPar && idx < intLastAlgPar )
    return( parameter_names[ idx - int_par_type_S::intLastAlgPar ] );
@@ -1487,6 +1534,23 @@ public:
  int compute( bool changedvars = true ) override;
 
 /*--------------------------------------------------------------------------*/
+ /// adds a Modification, an SDDPBlockMod being remembered apart
+ /** An SDDPBlockMod [see SDDPBlock::set_scenarios()] is not queued with the
+  * others, where a later NBModification would erase it, but remembered
+  * until the next compute(), which reads the scenarios again and handles the
+  * cuts as #intCutsOnChange says; any other Modification goes to
+  * Solver::add_Modification(). */
+
+ void add_Modification( sp_Mod & mod ) override {
+  if( std::dynamic_pointer_cast< const SDDPBlockMod >( mod ) ) {
+   if( ! f_no_Mod )
+    f_scenarios_changed = true;
+   }
+  else
+   Solver::add_Modification( mod );
+  }
+
+/*--------------------------------------------------------------------------*/
  /// the weights of the Block of the stages are applied
  /** The problems of the stages are solved by their own Solver, which apply
   * the weights of the Objective and of the Variable [see
@@ -1578,6 +1642,20 @@ public:
  int get_number_iterations_performed() const {
   return( number_iterations_performed );
  }
+
+/*--------------------------------------------------------------------------*/
+ /// returns the numbers of cuts moved and removed by the last change
+ /** This function returns the number of the cuts of the PolyhedralFunctions
+  * (of all the stages and sub-Blocks, the random cuts not included) that the
+  * last change of the scenarios handled with #intCutsOnChange > 0 has moved
+  * (the first element, always 0 with the values of #intCutsOnChange
+  * allowed here) and removed (the second).
+  *
+  * @return The numbers of cuts moved and removed. */
+
+ const std::array< Index , 2 > & get_cuts_change( void ) const {
+  return( f_cuts_changed );
+  }
 
 /*--------------------------------------------------------------------------*/
 
@@ -2230,6 +2308,11 @@ private:
  void process_outstanding_Modification();
 
 /*--------------------------------------------------------------------------*/
+ /// handles a change of the scenarios as #intCutsOnChange says
+
+ void handle_scenario_change( void );
+
+/*--------------------------------------------------------------------------*/
  /// solves the sub-Block associated with the given stage
  /** This function solves the sub-Block with index \p sub_block_index at the
   * given \p stage.
@@ -2259,6 +2342,7 @@ private:
   output_frequency = get_dflt_int_par( intOutputFrequency );
   first_stage_scenario_index = get_dflt_int_par( intFirstStageScenarioId );
   representative_pool_size = get_dflt_int_par( intRepresentativePoolSize );
+  f_cuts_on_change = get_dflt_int_par( intCutsOnChange );
 
   // double
 
@@ -2303,6 +2387,15 @@ private:
 
  /// the number of cuts already present at each stage when compute() is called
  std::vector< Index > number_initial_cuts;
+
+ /// what is done of the cuts when the scenarios change [see intCutsOnChange]
+ int f_cuts_on_change = 2;
+
+ /// whether an SDDPBlockMod has come since the scenarios were last read
+ std::atomic< bool > f_scenarios_changed = false;
+
+ /// the numbers of the cuts last moved and removed [see get_cuts_change()]
+ std::array< Index , 2 > f_cuts_changed = { 0 , 0 };
 
 /*--------------------------------------------------------------------------*/
 

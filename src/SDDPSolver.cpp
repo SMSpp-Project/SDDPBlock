@@ -298,6 +298,9 @@ void SDDPSolver::set_Block( Block * block )
  // the legacy ScenarioSet storage.
  sddp_optimizer->set_scenarios( *sddp_block );
 
+ // the cuts that the SDDPBlock has are taken as valid for these scenarios
+ f_scenarios_changed = false;
+
  // BlockConfig for the inner Blocks
  if( ( ! f_inner_block_config ) &&
      ( ! f_inner_block_config_filename.empty() ) ) {
@@ -394,6 +397,8 @@ int SDDPSolver::compute( bool changedvars ) {
   return( kBlockLocked );                          // return error on failure
 
  process_outstanding_Modification();
+
+ handle_scenario_change();
 
  const auto time_horizon = get_time_horizon();
 
@@ -756,6 +761,43 @@ double SDDPSolver::get_ub( void ) {
 void SDDPSolver::process_outstanding_Modification() {
  v_mod.clear();
 }
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::handle_scenario_change( void )
+{
+ if( ! f_scenarios_changed.exchange( false ) )
+  return;
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+
+ // the simulators take the new scenarios
+ sddp_optimizer->set_scenarios( *sddp_block );
+
+ f_cuts_changed = { 0 , 0 };
+ if( f_cuts_on_change == 0 )
+  return;
+
+ // the cuts of the old scenarios are removed, but those of the last stage,
+ // which are data of the problem
+ for( Index t = 0 ; t + 1 < get_time_horizon() ; ++t )
+  for( Index i = 0 ;
+       i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i )
+   for( Index j = 0 ; j < sddp_block->get_num_sub_blocks_per_stage() ; ++j )
+    f_cuts_changed[ 1 ] +=
+     sddp_block->get_polyhedral_function( t , i , j )->get_nrows();
+
+ sddp_block->remove_cuts();
+ sddp_block->remove_random_cuts();
+
+ if( f_log && log_verbosity > 0 ) {
+#ifdef USE_MPI
+  if( ! mpi_communicator.rank() )
+#endif
+   *f_log << "The scenarios have changed: " << f_cuts_changed[ 1 ]
+          << " cuts removed" << std::endl;
+  }
+ }
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/

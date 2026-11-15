@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- after a change of the scenarios, `SDDPSolver` no longer starts from the
+  cuts of the old ones, whose lower bound may be above the new optimal value
+  when the change lowers the costs: the new `SDDPBlock::set_scenarios()`
+  replaces the scenarios and issues the new `SDDPBlockMod`, which
+  `SDDPSolver` keeps apart from the other Modification, and its next
+  `compute()` gives the simulators the new scenarios and, as its new
+  parameter `intCutsOnChange` says, removes the cuts (2, the default, as
+  `SDDPSimulationSolver` does when the data change) or keeps them (0);
+  `get_cuts_change()` gives the number of cuts removed
+
 - the configuration, of the module and of one that finds it, no longer
   warns that policies CMP0144 and CMP0167 are not set: Boost is found by its
   own package configuration file, and the upper-case `<PACKAGE>_ROOT` are
