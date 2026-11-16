@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the installed module `smspp.sddpblock` could not be imported, since its
+  package gave the interface of the module the target of the library by its
+  name in the build tree, which an installed package does not have
+
 - after a change of the scenarios, `SDDPSolver` no longer starts from the
   cuts of the old ones, whose lower bound may be above the new optimal value
   when the change lowers the costs: the new `SDDPBlock::set_scenarios()`
