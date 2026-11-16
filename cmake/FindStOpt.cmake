@@ -96,33 +96,32 @@ else ()
 
     # ----- Find the geners library ----------------------------------------- #
 
-    if (UNIX)
-        find_library(StOpt_geners_LIBRARY
-                NAMES geners
-                PATHS ${StOpt_ROOT}/lib
-                DOC "geners library.")
-
+    # also where conda and vcpkg put it, the latter with a debug one of its
+    # own
+    set(_StOpt_geners_dirs ${StOpt_ROOT}/lib $ENV{LIBRARY_LIB})
+    set(_StOpt_geners_debug ${StOpt_ROOT}/debug/lib
+            ${StOpt_ROOT}/build/lib/Debug)
+    if (VCPKG_INSTALLED_DIR)
+        list(APPEND _StOpt_geners_dirs
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib)
+        list(APPEND _StOpt_geners_debug
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib)
+    endif ()
+    find_library(StOpt_geners_LIBRARY
+            NAMES geners
+            PATHS ${_StOpt_geners_dirs}
+            DOC "geners library.")
+    find_library(StOpt_geners_LIBRARY_DEBUG
+            NAMES geners
+            PATHS ${_StOpt_geners_debug}
+            NO_DEFAULT_PATH
+            DOC "geners debug library.")
+    if (NOT StOpt_geners_LIBRARY_DEBUG)
         set(StOpt_geners_LIBRARY_DEBUG ${StOpt_geners_LIBRARY}
                 CACHE FILEPATH "geners debug library." FORCE)
-    elseif (WIN32)
-        find_library(StOpt_geners_LIBRARY
-                NAMES geners
-                PATHS
-                ${StOpt_ROOT}/lib
-                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
-                $ENV{LIBRARY_LIB}
-                NO_DEFAULT_PATH
-                DOC "geners library.")
-
-        find_library(StOpt_geners_LIBRARY_DEBUG
-                NAMES geners
-                PATHS
-                ${StOpt_ROOT}/debug/lib
-                ${StOpt_ROOT}/build/lib/Debug
-                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
-                NO_DEFAULT_PATH
-                DOC "geners debug library.")
     endif ()
+    unset(_StOpt_geners_dirs)
+    unset(_StOpt_geners_debug)
 
     # ----- Find the StOpt include directory -------------------------------- #
     find_path(StOpt_INCLUDE_DIR
@@ -132,34 +131,32 @@ else ()
             DOC "StOpt include directory.")
 
     # ----- Find the StOpt library ------------------------------------------ #
-    if (UNIX)
-        # a distribution packaging StOpt names the library in lowercase
-        find_library(StOpt_LIBRARY
-                NAMES StOpt stopt
-                PATHS ${StOpt_ROOT}/lib
-                DOC "StOpt library.")
-
+    # also where conda and vcpkg put it, the latter with a debug one of its
+    # own; a distribution packaging StOpt names the library in lowercase
+    set(_StOpt_dirs ${StOpt_ROOT}/lib $ENV{LIBRARY_LIB})
+    set(_StOpt_debug ${StOpt_ROOT}/debug/lib
+            ${StOpt_ROOT}/build/lib/Debug)
+    if (VCPKG_INSTALLED_DIR)
+        list(APPEND _StOpt_dirs
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib)
+        list(APPEND _StOpt_debug
+                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib)
+    endif ()
+    find_library(StOpt_LIBRARY
+            NAMES StOpt stopt
+            PATHS ${_StOpt_dirs}
+            DOC "StOpt library.")
+    find_library(StOpt_LIBRARY_DEBUG
+            NAMES StOpt stopt
+            PATHS ${_StOpt_debug}
+            NO_DEFAULT_PATH
+            DOC "StOpt debug library.")
+    if (NOT StOpt_LIBRARY_DEBUG)
         set(StOpt_LIBRARY_DEBUG ${StOpt_LIBRARY}
                 CACHE FILEPATH "StOpt debug library." FORCE)
-    elseif (WIN32)
-        find_library(StOpt_LIBRARY
-                NAMES StOpt
-                PATHS
-                ${StOpt_ROOT}/lib
-                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
-                $ENV{LIBRARY_LIB}
-                NO_DEFAULT_PATH
-                DOC "StOpt library.")
-
-        find_library(StOpt_LIBRARY_DEBUG
-                NAMES StOpt
-                PATHS
-                ${StOpt_ROOT}/debug/lib
-                ${StOpt_ROOT}/build/lib/Debug
-                ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/lib
-                NO_DEFAULT_PATH
-                DOC "StOpt debug library.")
     endif ()
+    unset(_StOpt_dirs)
+    unset(_StOpt_debug)
 
     # ----- Parse the version ----------------------------------------------- #
     if (StOpt_INCLUDE_DIR)
