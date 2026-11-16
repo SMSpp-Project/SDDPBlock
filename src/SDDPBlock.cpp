@@ -278,6 +278,26 @@ void SDDPBlock::store_random_cut( std::vector< double > && coefficients ,
 
 /*--------------------------------------------------------------------------*/
 
+void SDDPBlock::set_scenarios( std::vector< std::vector< double > > &&
+                               scenarios , ModParam issueMod )
+{
+ if( f_scenario_generator )
+  throw( std::logic_error( "SDDPBlock::set_scenarios: the scenarios are "
+                           "given by a ScenarioGenerator" ) );
+
+ const auto old_size = scenario_set.size();
+ scenario_set.set_scenarios( std::move( scenarios ) );
+
+ if( scenario_set.size() != old_size )
+  remove_random_cuts();
+
+ if( issue_pmod( issueMod , Modification::eModPhys | Modification::eEffAny ) )
+  Block::add_Modification( std::make_shared< SDDPBlockMod >( this ) ,
+                           Observer::par2chnl( issueMod ) );
+ }
+
+/*--------------------------------------------------------------------------*/
+
 void SDDPBlock::initialize_random_cuts( void )
 {
  const auto time_horizon = get_time_horizon();

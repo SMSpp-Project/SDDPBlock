@@ -298,6 +298,9 @@ void SDDPSolver::set_Block( Block * block )
  // the legacy ScenarioSet storage.
  sddp_optimizer->set_scenarios( *sddp_block );
 
+ // the cuts that the SDDPBlock has are taken as valid for these scenarios
+ f_scenarios_changed = false;
+
  // BlockConfig for the inner Blocks
  if( ( ! f_inner_block_config ) &&
      ( ! f_inner_block_config_filename.empty() ) ) {
@@ -395,6 +398,11 @@ int SDDPSolver::compute( bool changedvars ) {
 
  process_outstanding_Modification();
 
+ f_num_solves[ 0 ] = 0;
+ f_num_solves[ 1 ] = 0;
+
+ handle_scenario_change();
+
  const auto time_horizon = get_time_horizon();
 
  // ostream for StOpt output
@@ -420,7 +428,8 @@ int SDDPSolver::compute( bool changedvars ) {
     auto suffix = std::to_string( t );
     if( num_sub_blocks_per_stage > 1 )
      suffix += "-" + std::to_string( i );
-    const auto filename = f_dir_out_pathname + f_sub_solver_filename_prefix + suffix;
+    const auto filename = f_dir_out_pathname + f_sub_solver_filename_prefix +
+                          suffix;
 
     sub_solvers_logfiles.emplace_back
      ( std::ofstream{ filename , std::ofstream::out | std::ofstream::app } );
@@ -612,7 +621,8 @@ int SDDPSolver::compute( bool changedvars ) {
   if( mesh_discretization.size() != particle_length )
    throw( std::logic_error
          ( "SDDPSolver::compute: simulation particle has dimension " +
-           std::to_string( particle_length ) + " but given mesh discretization "
+           std::to_string( particle_length ) +
+           " but given mesh discretization "
            "has dimension " + std::to_string( mesh_discretization.size() ) ) );
   mesh_discretization_array.resize( mesh_discretization.size() );
   for( Index i = 0 ; i < mesh_discretization.size() ; ++i )
@@ -634,8 +644,11 @@ int SDDPSolver::compute( bool changedvars ) {
  auto backward_forward_values =
   StOpt::backwardForwardSDDP< StOpt::LocalLinearRegressionForSDDP >
   ( sddp_optimizer , number_simulations_for_convergence , initial_state_array ,
-    final_cut , dates , mesh_discretization_array , f_dir_out_pathname + regressors_filename ,
-    f_dir_out_pathname + cuts_filename , f_dir_out_pathname + visited_states_filename , number_iterations_performed ,
+    final_cut , dates , mesh_discretization_array ,
+    f_dir_out_pathname + regressors_filename ,
+    f_dir_out_pathname + cuts_filename ,
+    f_dir_out_pathname + visited_states_filename ,
+    number_iterations_performed ,
     accuracy_achieved_stopt , convergence_frequency , *output_stream ,
 #ifdef USE_MPI
     mpi_communicator ,
@@ -687,62 +700,63 @@ int SDDPSolver::compute( bool changedvars ) {
 
  if( accuracy_achieved_stopt == 0.0 && accuracy_achieved > accuracy )
   status = kCurveCross;
- else if( accuracy_achieved <= accuracy || accuracy_achieved_stopt <= accuracy )
+ else if( accuracy_achieved <= accuracy ||
+          accuracy_achieved_stopt <= accuracy )
   status = kOK;
  else if( number_iterations_performed == maximum_number_iterations )
   status = kStopIter;
  else
   status = kError; // TODO
 
- return status;
+ return( status );
 }
 
 /*--------------------------------------------------------------------------*/
 
 double SDDPSolver::get_lb( void ) {
  if( ! f_Block )
-  return -Inf< double >();
+  return( -Inf< double >() );
 
  const auto minimization =
   ( f_Block->get_objective_sense() == Objective::eMin );
 
  if( status == kOK || status == kLowPrecision ) {
   if( minimization )
-   return backward_value;
-  return forward_value;
+   return( backward_value );
+  return( forward_value );
  }
 
  if( status == kInfeasible ) {
   if( minimization )
-   return Inf< double >();
-  return -Inf< double >();
+   return( Inf< double >() );
+  return( -Inf< double >() );
  }
 
- return -Inf< double >();
+ return( -Inf< double >() );
 }
 
 /*--------------------------------------------------------------------------*/
 
 double SDDPSolver::get_ub( void ) {
  if( ! f_Block )
-  return Inf< double >();
+  return( Inf< double >() );
 
  const auto minimization =
   ( f_Block->get_objective_sense() == Objective::eMin );
 
  if( status == kOK || status == kLowPrecision ) {
   if( minimization )
-   return forward_value;
-  return backward_value;
+   return( forward_value );
+  return( backward_value );
  }
 
  if( status == kInfeasible ) {
   if( minimization )
-   return Inf< double >();
-  return -Inf< double >();
+   return( Inf< double >() );
+  return( -Inf< double >() );
  }
 
- return Inf< double >();
+ return( Inf< double >() );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -750,6 +764,43 @@ double SDDPSolver::get_ub( void ) {
 void SDDPSolver::process_outstanding_Modification() {
  v_mod.clear();
 }
+
+/*--------------------------------------------------------------------------*/
+
+void SDDPSolver::handle_scenario_change( void )
+{
+ if( ! f_scenarios_changed.exchange( false ) )
+  return;
+
+ const auto sddp_block = static_cast< SDDPBlock * >( f_Block );
+
+ // the simulators take the new scenarios
+ sddp_optimizer->set_scenarios( *sddp_block );
+
+ f_cuts_changed = { 0 , 0 };
+ if( f_cuts_on_change == 0 )
+  return;
+
+ // the cuts of the old scenarios are removed, but those of the last stage,
+ // which are data of the problem
+ for( Index t = 0 ; t + 1 < get_time_horizon() ; ++t )
+  for( Index i = 0 ;
+       i < sddp_block->get_num_polyhedral_function_per_sub_block() ; ++i )
+   for( Index j = 0 ; j < sddp_block->get_num_sub_blocks_per_stage() ; ++j )
+    f_cuts_changed[ 1 ] +=
+     sddp_block->get_polyhedral_function( t , i , j )->get_nrows();
+
+ sddp_block->remove_cuts();
+ sddp_block->remove_random_cuts();
+
+ if( f_log && log_verbosity > 0 ) {
+#ifdef USE_MPI
+  if( ! mpi_communicator.rank() )
+#endif
+   *f_log << "The scenarios have changed: " << f_cuts_changed[ 1 ]
+          << " cuts removed" << std::endl;
+  }
+ }
 
 /*--------------------------------------------------------------------------*/
 /*---------------------- METHODS FOR EVENTS HANDLING -----------------------*/
@@ -788,7 +839,7 @@ void SDDPSolver::reset_event_handler( int type , EventID id ) {
 /*--------------------------------------------------------------------------*/
 
 State * SDDPSolver::get_State( void ) const {
- return new SDDPSolverState( this );
+ return( new SDDPSolverState( this ) );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -842,7 +893,7 @@ void SDDPSolver::serialize_State
 /*--------------------------------------------------------------------------*/
 
 SDDPBlock::Index SDDPSolver::get_time_horizon( void ) const {
- return static_cast< SDDPBlock * >( f_Block )->get_time_horizon();
+ return( static_cast< SDDPBlock * >( f_Block )->get_time_horizon() );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -963,7 +1014,7 @@ SDDPSolver::get_benders_function( SDDPBlock::Index stage ,
  auto objective = static_cast< FRealObjective * >
   ( benders_block->get_objective() );
 
- return static_cast< BendersBFunction * >( objective->get_function() );
+ return( static_cast< BendersBFunction * >( objective->get_function() ) );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -993,6 +1044,8 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
  benders_function->set_par( BendersBFunction::intSolverIndex ,
                             is_forward ? f_forward_Solver_index
                                        : f_backward_Solver_index );
+
+ ++f_num_solves[ is_forward ? 1 : 0 ];
 
  auto status = benders_function->compute();
 
@@ -1025,7 +1078,7 @@ double SDDPSolver::solve( SDDPBlock::Index stage ,
 
  solver->get_var_solution( f_get_var_solution_config );
 
- return benders_function->get_value();
+ return( benders_function->get_value() );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1048,7 +1101,7 @@ T SDDPSolver::get_solution( SDDPBlock::Index stage ,
   *data = static_cast< const ColVariable & >( variable ).get_value();
   data++;
  }
- return solution;
+ return( solution );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1078,7 +1131,8 @@ void SDDPSolver::file_output() const {
 
  if( ! f_random_cuts_filename.empty() ) {
   // Output the random cuts
-  std::string random_cuts_filename = f_dir_out_pathname + f_random_cuts_filename;
+  std::string random_cuts_filename = f_dir_out_pathname +
+                                     f_random_cuts_filename;
   if( f_add_suffix )
    random_cuts_filename += f_filename_suffix;
   auto sddp_block = static_cast< SDDPBlock * >( f_Block );
@@ -1140,7 +1194,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
  previous_pass_was_backward = true;
 
- return backward;
+ return( backward );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1166,7 +1220,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
 
  if( sddp_solver->f_log && sddp_solver->log_verbosity >= 3 ) {
   auto log = sddp_solver->f_log;
-  *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****" << std::endl;
+  *log << "***** SDDPSolver::SDDPOptimizer::oneStepBackward *****"
+       << std::endl;
   *log << "  Stage:          " << current_stage << std::endl;
   *log << "  Block index:    " << sub_block_index << std::endl;
   *log << "  Scenario index: ";
@@ -1227,7 +1282,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
  /* In the first stage, the scenario is not set if the given scenario index
   * (for the first stage) is negative. */
  if( scenario_must_be_set && scenario_provided )
-  sddp_solver->set_scenario( scenario_index , current_stage , sub_block_index );
+  sddp_solver->set_scenario( scenario_index , current_stage ,
+                             sub_block_index );
 
  /**************************/
  /* SOLVING THE SUBPROBLEM */
@@ -1350,7 +1406,8 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   *log << "  Time (s):       " << time << std::endl;
 
   if( sddp_solver->log_verbosity >= 10 ) {
-   auto solution = sddp_solver->get_solution( current_stage , sub_block_index );
+   auto solution = sddp_solver->get_solution( current_stage ,
+                                              sub_block_index );
    *log << "  Solution:       (";
    for( decltype( solution.size() ) i = 0 ; i < solution.size() ; ++i ) {
     if( i > 0 ) *( sddp_solver->f_log ) << ", ";
@@ -1360,7 +1417,7 @@ Eigen::ArrayXd SDDPSolver::SDDPOptimizer::oneStepBackward
   }
  }
 
- return linearization;
+ return( linearization );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1399,7 +1456,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  // Update control variable
  previous_pass_was_backward = false;
 
- return forward;
+ return( forward );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1476,7 +1533,8 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /***************/
 
  if( scenario_must_be_set && scenario_provided )
-  sddp_solver->set_scenario( scenario_index , current_stage , sub_block_index );
+  sddp_solver->set_scenario( scenario_index , current_stage ,
+                             sub_block_index );
 
  /*********************************/
  /* VARIABLES FROM PREVIOUS STAGE */
@@ -1551,7 +1609,7 @@ double SDDPSolver::SDDPOptimizer::oneStepForward
  /* RETURN SOLUTION VALUE */
  /*************************/
 
- return objective_value;
+ return( objective_value );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1586,14 +1644,14 @@ SDDPSolver::SDDPOptimizer::oneAdmissibleState( const double & stage ) {
       ++i , ++data , ++state_iterator )
   *data = *state_iterator;
 
- return state;
+ return( state );
 }
 
 /*--------------------------------------------------------------------------*/
 
 int SDDPSolver::SDDPOptimizer::getStateSize() const {
- return static_cast< SDDPBlock * >( sddp_solver->f_Block )->
-  get_admissible_state_size( 0 );
+ return( static_cast< SDDPBlock * >( sddp_solver->f_Block )->
+  get_admissible_state_size( 0 ) );
 }
 
 /*--------------------------------------------------------------------------*/

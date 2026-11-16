@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-16
+
+### Added
+
+- `SDDPSolver::get_number_solves()` gives the problems of the stages that
+  the last `compute()` has solved in the forward and in the backward passes
+
+### Fixed
+
+- the installed module `smspp.sddpblock` could not be imported, since its
+  package gave the interface of the module the target of the library by its
+  name in the build tree, which an installed package does not have
+
+- after a change of the scenarios, `SDDPSolver` no longer starts from the
+  cuts of the old ones, whose lower bound may be above the new optimal value
+  when the change lowers the costs: the new `SDDPBlock::set_scenarios()`
+  replaces the scenarios and issues the new `SDDPBlockMod`, which
+  `SDDPSolver` keeps apart from the other Modification, and its next
+  `compute()` gives the simulators the new scenarios and, as its new
+  parameter `intCutsOnChange` says, removes the cuts (2, the default, as
+  `SDDPSimulationSolver` does when the data change) or keeps them (0);
+  `get_cuts_change()` gives the number of cuts removed
+
+- the configuration, of the module and of one that finds it, no longer
+  warns that policies CMP0144 and CMP0167 are not set: Boost is found by its
+  own package configuration file, and the upper-case `<PACKAGE>_ROOT` are
+  prefixes of `find_package()`
+
 ## [0.8.0] - 2026-11-03
 
 ### Added
@@ -302,7 +330,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release
 
-[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.8.0...develop
+[Unreleased]: https://gitlab.com/smspp/sddpblock/-/compare/0.9.0...develop
+[0.9.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.8.0...0.9.0
 [0.8.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.7.0...0.8.0
 [0.7.0]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.1...0.7.0
 [0.6.1]: https://gitlab.com/smspp/sddpblock/-/compare/0.6.0...0.6.1

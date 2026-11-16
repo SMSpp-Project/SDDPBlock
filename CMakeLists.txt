@@ -17,6 +17,13 @@
 # --------------------------------------------------------------------------- #
 cmake_minimum_required(VERSION 3.21)
 cmake_policy(VERSION 3.15)
+# Boost is found by its own package configuration file, as FindBoost is
+# gone, and the upper-case <PACKAGE>_ROOT are prefixes of find_package()
+foreach (_policy CMP0144 CMP0167)
+    if (POLICY ${_policy})
+        cmake_policy(SET ${_policy} NEW)
+    endif ()
+endforeach ()
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/DeriveVersion.cmake)
 smspp_derive_version(SMSPP_MODULE_VERSION)
 
@@ -210,11 +217,26 @@ if (SMSpp_BUILD_MODULE)
     target_compile_features(${modName}_module PUBLIC cxx_std_20)
     # the interface takes the include paths and the definitions of the
     # library, but not its compile options (e.g., the -fopenmp of a source,
-    # which no header needs), so that it agrees with the module it imports
+    # which no header needs), so that it agrees with the module it imports;
+    # the installed package takes them from the installed library, whose
+    # target of this name is not there, and gives the include paths as -I
+    # options, before which CMake puts no prefix of the package
+    set(_inc $<TARGET_PROPERTY:${modName},INTERFACE_INCLUDE_DIRECTORIES>)
+    set(_def $<TARGET_PROPERTY:${modName},INTERFACE_COMPILE_DEFINITIONS>)
     target_include_directories(${modName}_module PRIVATE
-            $<TARGET_PROPERTY:${modName},INTERFACE_INCLUDE_DIRECTORIES>)
+            $<BUILD_INTERFACE:${_inc}>)
     target_compile_definitions(${modName}_module PRIVATE
-            $<TARGET_PROPERTY:${modName},INTERFACE_COMPILE_DEFINITIONS>)
+            $<BUILD_INTERFACE:${_def}>)
+    set(_lib ${modNamespace}::${modName})
+    set(_inc $<TARGET_PROPERTY:${_lib},INTERFACE_INCLUDE_DIRECTORIES>)
+    set(_def $<TARGET_PROPERTY:${_lib},INTERFACE_COMPILE_DEFINITIONS>)
+    target_compile_options(${modName}_module PRIVATE
+            $<INSTALL_INTERFACE:$<LIST:TRANSFORM,${_inc},PREPEND,-I>>)
+    target_compile_definitions(${modName}_module PRIVATE
+            $<INSTALL_INTERFACE:${_def}>)
+    unset(_lib)
+    unset(_inc)
+    unset(_def)
     target_link_libraries(${modName}_module PUBLIC $<LINK_ONLY:${modName}>
             ${modNamespace}::StochasticBlock_module)
     add_library(${modNamespace}::${modName}_module ALIAS ${modName}_module)

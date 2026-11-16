@@ -629,7 +629,8 @@ public:
   }
 
   if( paths.size() != num_polyhedral_per_sub_block * time_horizon &&
-      ! ( paths.size() == num_polyhedral_per_sub_block && time_horizon > 1 ) ) {
+      ! ( paths.size() == num_polyhedral_per_sub_block &&
+          time_horizon > 1 ) ) {
    if( num_polyhedral_per_sub_block == 1 )
     throw( std::invalid_argument(
      "SDDPBlock::deserialize: The number of AbstractPath to "
@@ -1147,7 +1148,8 @@ public:
   * @return An iterator to the vector containing the admissible state for the
   *         given \p stage. */
 
- std::vector< double >::const_iterator get_admissible_state( Index stage ) const {
+ std::vector< double >::const_iterator
+  get_admissible_state( Index stage ) const {
   assert( stage < get_time_horizon() );
   return( std::next( admissible_states.cbegin() ,
                      admissible_state_begin[ stage ] ) );
@@ -1572,6 +1574,38 @@ public:
  }
 
 /*--------------------------------------------------------------------------*/
+ /// removes all the random cuts
+ /** This function removes the random cuts of all stages and scenarios [see
+  * store_random_cut()]. */
+
+ void remove_random_cuts() {
+  random_cuts.resize( boost::extents[ 0 ][ 0 ] );
+  f_random_cuts_initialized = false;
+  }
+
+/*--------------------------------------------------------------------------*/
+ /// replaces the scenarios stored in this SDDPBlock
+ /** This function replaces the scenarios stored in this SDDPBlock by
+  * \p scenarios, each one a vector spanning all the stages with the
+  * structure of the present ones [see ScenarioSet]: the size of the
+  * sub-scenario of each stage and the random data groups are not changed,
+  * while the number of scenarios may be. It can only be called if the
+  * scenarios are stored in this SDDPBlock, i.e., not given by a
+  * ScenarioGenerator [see get_scenario_generator()]. If the number of
+  * scenarios changes, the random cuts, which are associated with the
+  * scenarios, are removed. An SDDPBlockMod is issued, according to
+  * \p issueMod, so that the Solvers attached to this SDDPBlock know that
+  * the random data are not those they have seen [see SDDPSolver].
+  *
+  * @param scenarios The new scenarios.
+  *
+  * @param issueMod Decides if and how the SDDPBlockMod is issued [see
+  *        Observer::make_par()]. */
+
+ void set_scenarios( std::vector< std::vector< double > > && scenarios ,
+                     ModParam issueMod = eModBlck );
+
+/*--------------------------------------------------------------------------*/
  /// store the given random cut
  /** This function store the random cut given by \p coefficients and \p alpha,
   * which must be associated with the given \p stage and with the scenario
@@ -1615,7 +1649,8 @@ public:
    throw( std::invalid_argument( "SDDPBlock::get_num__cuts: invalid stage "
                                  "index: " + std::to_string( stage ) ) );
 
-  return( get_polyhedral_function( stage , i , sub_block_index )->get_nrows() );
+  return( get_polyhedral_function( stage , i ,
+                                   sub_block_index )->get_nrows() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -1958,7 +1993,8 @@ private:
    // "DataMapping" then, if "StochasticBlock" has one, we use it.
 
    Index num_data_mappings;
-   if( ! ::SMSpp_di_unipi_it::deserialize_dim( sub_group , "NumberDataMappings" ,
+   if( ! ::SMSpp_di_unipi_it::deserialize_dim( sub_group ,
+                                               "NumberDataMappings" ,
                                                num_data_mappings , true ) ) {
 
     auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
@@ -1992,6 +2028,63 @@ private:
 /*--------------------------------------------------------------------------*/
 
 };   // end( class SDDPBlock )
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- CLASS SDDPBlockMod ----------------------------*/
+/*--------------------------------------------------------------------------*/
+/// a Modification saying that the scenarios of an SDDPBlock have changed
+/** SDDPBlockMod is the physical Modification that SDDPBlock::set_scenarios()
+ * issues: the random data of the stages are no longer those that the Solvers
+ * attached to the SDDPBlock have seen, and a Solver that keeps anything that
+ * depends on them (the scenarios of its simulators, the cuts) has to read
+ * them again [see SDDPSolver]. It carries no data: the new scenarios are
+ * those of the SDDPBlock, and the old ones are those that each Solver has
+ * seen. Since the random data may be any datum of the stages, it says that
+ * anything may happen to the problem. */
+
+class SDDPBlockMod : public Modification {
+
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+
+ public:
+
+/*---------------------- CONSTRUCTOR & DESTRUCTOR --------------------------*/
+
+ /// constructor: takes the SDDPBlock
+
+ explicit SDDPBlockMod( SDDPBlock * const fblock )
+  : Modification( eModPhys | eEffAny ) , f_Block( fblock ) {}
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+ virtual ~SDDPBlockMod() = default;   ///< destructor, does nothing
+
+/*-------------------- PUBLIC METHODS OF THE CLASS -------------------------*/
+
+ /// returns the SDDPBlock to which the SDDPBlockMod refers
+
+ Block * get_Block( void ) const override {
+  return( f_Block );
+  }
+
+/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+
+ protected:
+
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+ /// print the SDDPBlockMod
+
+ void print( std::ostream & output ) const override {
+  output << "SDDPBlockMod[" << this << "]: change the scenarios";
+  }
+
+/*--------------------- PROTECTED FIELDS OF THE CLASS ----------------------*/
+
+ SDDPBlock * f_Block;  ///< the SDDPBlock to which the Modification refers
+
+/*--------------------------------------------------------------------------*/
+
+ };  // end( class( SDDPBlockMod ) )
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- CLASS SDDPBlockSolution --------------------------*/

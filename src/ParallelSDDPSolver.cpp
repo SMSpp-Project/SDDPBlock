@@ -54,7 +54,7 @@ Eigen::ArrayXd ParallelSDDPSolver::ParallelSDDPOptimizer::oneStepBackward
 
  unlock( current_stage , sub_block_index , scenario_index , true );
 
- return backward;
+ return( backward );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -77,7 +77,7 @@ double ParallelSDDPSolver::ParallelSDDPOptimizer::oneStepForward
 
  unlock( current_stage , sub_block_index , scenario_index , true );
 
- return forward;
+ return( forward );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -85,8 +85,8 @@ double ParallelSDDPSolver::ParallelSDDPOptimizer::oneStepForward
 bool ParallelSDDPSolver::ParallelSDDPOptimizer::is_locked
 ( Index sub_block_index ) const {
  if( locked.empty() )
-  return false;
- return locked[ sub_block_index ];
+  return( false );
+ return( locked[ sub_block_index ] );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -105,13 +105,13 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::get_sub_block_with_scenario
 ( Index stage , Index scenario_index ) const {
  if( scenario_currently_set.empty() ||
      scenario_currently_set[ stage ].empty() )
-  return Inf< Index >();
+  return( Inf< Index >() );
  auto iter = std::find( scenario_currently_set[ stage ].cbegin() ,
                         scenario_currently_set[ stage ].cend() ,
                         scenario_index );
  if( iter != scenario_currently_set[ stage ].end() )
-  return std::distance( scenario_currently_set[ stage ].cbegin() , iter );
- return Inf< Index >();
+  return( std::distance( scenario_currently_set[ stage ].cbegin() , iter ) );
+ return( Inf< Index >() );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -162,7 +162,8 @@ void ParallelSDDPSolver::ParallelSDDPOptimizer::synchronize_cuts() const {
 
  const auto num_sub_block_per_stage = get_num_sub_blocks_per_stage();
 
- for( Index stage = 0 ; stage < sddp_solver->get_time_horizon() - 1 ; ++stage ) {
+ for( Index stage = 0 ; stage < sddp_solver->get_time_horizon() - 1 ;
+      ++stage ) {
   // The sub-Blocks at the last stage do not need to be synchronized, as their
   // cuts are added only once in the beginning of SDDPSolver::compute().
 
@@ -260,7 +261,7 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::lock
 
   if( sub_block_index < Inf< Index >() )
    // An unlocked sub-Block has been found. Return its index.
-   return sub_block_index;
+   return( sub_block_index );
   else
    // No sub-Block is available. Wait.
    std::this_thread::sleep_for
@@ -295,8 +296,9 @@ bool ParallelSDDPSolver::ParallelSDDPOptimizer::is_scenario_set
 ( Index stage , Index sub_block_index , Index scenario_index ) const {
  if( scenario_currently_set.empty() ||
      scenario_currently_set[ stage ].empty() )
-  return false;
- return scenario_currently_set[ stage ][ sub_block_index ] == scenario_index;
+  return( false );
+ return( scenario_currently_set[ stage ][ sub_block_index ] ==
+         scenario_index );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -308,7 +310,7 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::find_available_sub_block
  const auto preferred_block_index = preferred_block[ simulation_id ];
  if( preferred_block_index < Inf< Index >() &&
      ( ! is_locked( preferred_block_index ) ) ) {
-  return preferred_block_index;
+  return( preferred_block_index );
  }
 
  // Search for an unlocked sub-Block among the non-reserved sub-Blocks
@@ -317,7 +319,7 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::find_available_sub_block
   if( non_reserved_block[ i ] && ( ! is_locked( i ) ) ) {
    if( scenario_currently_set[ stage ][ i ] == Inf< Index >() )
     // Give preference to sub-Blocks without a scenario
-    return i;
+    return( i );
    if( non_reserved_index == Inf< Index >() )
     // Keep the index of the first non-reserved sub-Block
     non_reserved_index = i;
@@ -326,15 +328,15 @@ Index ParallelSDDPSolver::ParallelSDDPOptimizer::find_available_sub_block
  if( non_reserved_index < Inf< Index >() )
   // No sub-Block without a scenario is available, but a non-reserved
   // sub-Block is. So, that is the one we select.
-  return non_reserved_index;
+  return( non_reserved_index );
 
  // Finally, search for an unlocked sub-Block in the list of reserved ones
  for( auto index : reserved_blocks )
   if( ! is_locked( index ) )
-   return index;
+   return( index );
 
  // All sub-Blocks are locked
- return Inf< Index >();
+ return( Inf< Index >() );
 }
 
 /*--------------------------------------------------------------------------*/

@@ -182,7 +182,7 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
   if( f_inner_block_config &&
       std::any_of( v_inner_block_configured.cbegin() ,
                    v_inner_block_configured.cend() ,
-                   []( auto b ) { return b; } ) ) {
+                   []( auto b ) { return( b ); } ) ) {
 
    f_inner_block_config->clear();
 
@@ -207,7 +207,7 @@ void SDDPGreedySolver::set_ComputeConfig( const ComputeConfig * scfg )
   // Solver that this SDDPGreedySolver has registered there
   if( std::any_of( v_inner_solver_configured.cbegin() ,
                    v_inner_solver_configured.cend() ,
-                   []( auto b ) { return b; } ) ) {
+                   []( auto b ) { return( b ); } ) ) {
    const auto time_horizon = get_time_horizon();
    for( Index stage = 0 ; stage < time_horizon ; ++stage )
     if( v_inner_solver_configured[ stage ] )
@@ -387,7 +387,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
  reset_compute_time();
 
  if( ! f_Block )
-  return kBlockLocked;
+  return( kBlockLocked );
 
  // Possibly lock the SDDPBlock
 
@@ -494,7 +494,8 @@ int SDDPGreedySolver::compute( bool changedvars ) {
    status_compute = kSolutionNotFound;
    break;
   }
-  else if( sub_status == Solver::kStopTime || sub_status == Solver::kStopIter ) {
+  else if( sub_status == Solver::kStopTime ||
+           sub_status == Solver::kStopIter ) {
    const auto sub_solution_value = get_sub_solution_value( stage );
    solution_value += sub_solution_value;
    if( fault_stage == Inf< Index >() ) {
@@ -544,7 +545,7 @@ int SDDPGreedySolver::compute( bool changedvars ) {
 
  logger.show_status();
 
- return status_compute;
+ return( status_compute );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -617,7 +618,7 @@ void SDDPGreedySolver::put_State( State && state ) {
 /*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::has_dual_solution() {
- return f_has_dual_solution;
+ return( f_has_dual_solution );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -627,12 +628,12 @@ bool SDDPGreedySolver::is_dual_feasible() {
  for( Index t = 0 ; t < time_horizon ; ++t ) {
   if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) ) {
    if( ! solver->is_dual_feasible() )
-    return false;
+    return( false );
   }
   else
-   return false; // The sub-Solver is not a CDASolver
+   return( false ); // The sub-Solver is not a CDASolver
  }
- return true;
+ return( true );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -651,9 +652,9 @@ bool SDDPGreedySolver::new_dual_solution() {
  for( Index t = 0 ; t < time_horizon ; ++t ) {
   if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) )
    if( solver->new_dual_solution() )
-    return true;
+    return( true );
  }
- return false;
+ return( false );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -663,12 +664,12 @@ bool SDDPGreedySolver::has_dual_direction() {
  for( Index t = 0 ; t < time_horizon ; ++t ) {
   if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) ) {
    if( ! solver->has_dual_direction() )
-    return false;
+    return( false );
   }
   else
-   return false; // The sub-Solver is not a CDASolver
+   return( false ); // The sub-Solver is not a CDASolver
  }
- return true;
+ return( true );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -687,9 +688,9 @@ bool SDDPGreedySolver::new_dual_direction() {
  for( Index t = 0 ; t < time_horizon ; ++t ) {
   if( auto solver = dynamic_cast< CDASolver * >( get_sub_solver( t ) ) )
    if( solver->new_dual_direction() )
-    return true;
+    return( true );
  }
- return false;
+ return( false );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -846,7 +847,7 @@ std::vector< double > SDDPGreedySolver::get_solution
     ( static_cast< const ColVariable & >( variable ).get_value() );
   }
  }
- return solution;
+ return( solution );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1224,7 +1225,8 @@ void SDDPGreedySolver::output_simulation_data
 
  // Subgradients with respect to the initial state
 
- for( const auto & subgradient : f_simulation_data.subgradients_initial_state ) {
+ for( const auto & subgradient :
+      f_simulation_data.subgradients_initial_state ) {
   file << subgradient.first << separator << "I";
   for( const auto & component : subgradient.second )
    file << separator << component;
@@ -1285,31 +1287,31 @@ void SDDPGreedySolver::output_simulation_data
 Index SDDPGreedySolver::get_scenario_id( Index stage ) const {
  if( stage == 0 ) {
   if( f_first_stage_scenario_id >= 0 )
-   return f_first_stage_scenario_id;
-  return f_scenario_id;
+   return( f_first_stage_scenario_id );
+  return( f_scenario_id );
  }
  else if( f_seed < Inf< Index >() ) { // Random scenarios are being considered
   assert( stage < v_random_scenario_id.size() );
-  return v_random_scenario_id[ stage ];
+  return( v_random_scenario_id[ stage ] );
  }
- return f_scenario_id;
+ return( f_scenario_id );
 }
 
 /*--------------------------------------------------------------------------*/
 
 bool SDDPGreedySolver::should_sample( Index stage ) const {
  if( f_seed == Inf< Index >() )
-  return false;
+  return( false );
 
  if( ( f_scenario_sample_frequency > 0 ) &&
      ( stage % f_scenario_sample_frequency == 0 ) )
-  return true;
+  return( true );
 
  if( std::find( v_stages_to_sample.begin() , v_stages_to_sample.end() , stage )
      != v_stages_to_sample.end() )
-  return true;
+  return( true );
 
- return false;
+ return( false );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1439,8 +1441,8 @@ void SDDPGreedySolver::Logger::log_header() const {
         << std::endl;
 
  *f_log << std::string( stage_width + scenario_width - 1 , '-' )
-        << "-------------------------------------------------------------------"
-        << std::endl;
+    << "-------------------------------------------------------------------"
+    << std::endl;
 }
 
 /*--------------------------------------------------------------------------*/
