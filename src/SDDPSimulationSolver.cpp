@@ -247,7 +247,8 @@ int SDDPSimulationSolver::compute( bool changedvars )
    if( ! interrupt ) {
     interrupt = true;
     // a provably infeasible scenario says so, any other failure is an error
-    status = ( scenario_status == kInfeasible ) ? kInfeasible : kError;
+    status = ( scenario_status == kInfeasible ) ? int( kInfeasible )
+                                                : int( kError );
     }
    }
   else {

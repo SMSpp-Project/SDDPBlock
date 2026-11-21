@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the one of `smspp_install_rpath()`, with no test on the system or on the
   compiler [see `SMSppModule.cmake` of SMS++]; CMake 3.24 or later is needed
 
+### Fixed
+
+- `SDDPSimulationSolver` gives the status of a failed scenario with no
+  conditional between two enumerations
+
 ## [0.9.0] - 2026-11-16
 
 ### Added
