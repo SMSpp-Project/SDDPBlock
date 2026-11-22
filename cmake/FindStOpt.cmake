@@ -97,7 +97,8 @@ else ()
     # ----- Find the geners library ----------------------------------------- #
 
     # also where conda and vcpkg put it, the latter with a debug one of its
-    # own
+    # own; by HINTS, as the toolchain of vcpkg puts its debug directory first
+    # among the default ones under a generator of several configurations
     set(_StOpt_geners_dirs ${StOpt_ROOT}/lib $ENV{LIBRARY_LIB})
     set(_StOpt_geners_debug ${StOpt_ROOT}/debug/lib
             ${StOpt_ROOT}/build/lib/Debug)
@@ -109,7 +110,7 @@ else ()
     endif ()
     find_library(StOpt_geners_LIBRARY
             NAMES geners
-            PATHS ${_StOpt_geners_dirs}
+            HINTS ${_StOpt_geners_dirs}
             DOC "geners library.")
     find_library(StOpt_geners_LIBRARY_DEBUG
             NAMES geners
@@ -144,7 +145,7 @@ else ()
     endif ()
     find_library(StOpt_LIBRARY
             NAMES StOpt stopt
-            PATHS ${_StOpt_dirs}
+            HINTS ${_StOpt_dirs}
             DOC "StOpt library.")
     find_library(StOpt_LIBRARY_DEBUG
             NAMES StOpt stopt
