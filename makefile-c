@@ -59,4 +59,8 @@ SDDPBkINC := $(StcBlkINC) $(libStOptINC) $(SDDPBkINC)
 SDDPBkLIB = $(StcBlkLIB) $(libStOptLIB) -lmpi -lboost_mpi \
 	-lboost_serialization $(libOpenMPLIB)
 
+# the objects as the shared libraries of the module and of those whose
+# objects it takes [see SMS++/lib/makefile-shared]
+$(eval $(call SMSppSOlib,SDDPBk))
+
 ########################### End of makefile-c ################################
