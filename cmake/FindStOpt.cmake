@@ -97,8 +97,9 @@ else ()
     # ----- Find the geners library ----------------------------------------- #
 
     # also where conda and vcpkg put it, the latter with a debug one of its
-    # own; by HINTS, as the toolchain of vcpkg puts its debug directory first
-    # among the default ones under a generator of several configurations
+    # own; those directories first and alone, as the toolchain of vcpkg puts
+    # its debug directory in CMAKE_PREFIX_PATH, which comes before any HINTS,
+    # under a generator of several configurations
     set(_StOpt_geners_dirs ${StOpt_ROOT}/lib $ENV{LIBRARY_LIB})
     set(_StOpt_geners_debug ${StOpt_ROOT}/debug/lib
             ${StOpt_ROOT}/build/lib/Debug)
@@ -110,7 +111,11 @@ else ()
     endif ()
     find_library(StOpt_geners_LIBRARY
             NAMES geners
-            HINTS ${_StOpt_geners_dirs}
+            PATHS ${_StOpt_geners_dirs}
+            NO_DEFAULT_PATH
+            DOC "geners library.")
+    find_library(StOpt_geners_LIBRARY
+            NAMES geners
             DOC "geners library.")
     find_library(StOpt_geners_LIBRARY_DEBUG
             NAMES geners
@@ -132,8 +137,8 @@ else ()
             DOC "StOpt include directory.")
 
     # ----- Find the StOpt library ------------------------------------------ #
-    # also where conda and vcpkg put it, the latter with a debug one of its
-    # own; a distribution packaging StOpt names the library in lowercase
+    # as for geners; a distribution packaging StOpt names the library in
+    # lowercase
     set(_StOpt_dirs ${StOpt_ROOT}/lib $ENV{LIBRARY_LIB})
     set(_StOpt_debug ${StOpt_ROOT}/debug/lib
             ${StOpt_ROOT}/build/lib/Debug)
@@ -145,7 +150,11 @@ else ()
     endif ()
     find_library(StOpt_LIBRARY
             NAMES StOpt stopt
-            HINTS ${_StOpt_dirs}
+            PATHS ${_StOpt_dirs}
+            NO_DEFAULT_PATH
+            DOC "StOpt library.")
+    find_library(StOpt_LIBRARY
+            NAMES StOpt stopt
             DOC "StOpt library.")
     find_library(StOpt_LIBRARY_DEBUG
             NAMES StOpt stopt
@@ -165,7 +174,8 @@ else ()
                 "${StOpt_INCLUDE_DIR}/StOpt/core/utils/version.h"
                 _stopt_version_lines REGEX "#define STOPT_VERSION")
 
-        string(REGEX REPLACE ".*STOPT_VERSION *\"([0-9].[0-9]*\).*" "\\1" _stopt_version "${_stopt_version_lines}")
+        string(REGEX REPLACE ".*STOPT_VERSION *\"([0-9].[0-9]*\).*" "\\1"
+                _stopt_version "${_stopt_version_lines}")
 
         set(StOpt_VERSION "${_stopt_version}")
         unset(_stopt_version_lines)
@@ -211,13 +221,16 @@ if (StOpt_FOUND)
     set(StOpt_LIBRARIES ${StOpt_LIBRARY})
 
     if (NOT TARGET StOpt::StOpt)
+        set(_StOpt_deps StOpt::geners Eigen3::Eigen BZip2::BZip2 ZLIB::ZLIB
+                Boost::timer)
         add_library(StOpt::StOpt UNKNOWN IMPORTED)
         set_target_properties(
                 StOpt::StOpt PROPERTIES
                 IMPORTED_LOCATION "${StOpt_LIBRARY}"
                 IMPORTED_LOCATION_DEBUG "${StOpt_LIBRARY_DEBUG}"
                 INTERFACE_INCLUDE_DIRECTORIES "${StOpt_INCLUDE_DIRS}"
-                INTERFACE_LINK_LIBRARIES "StOpt::geners;Eigen3::Eigen;BZip2::BZip2;ZLIB::ZLIB;Boost::timer")
+                INTERFACE_LINK_LIBRARIES "${_StOpt_deps}")
+        unset(_StOpt_deps)
     endif ()
 endif ()
 

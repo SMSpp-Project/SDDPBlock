@@ -22,9 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `FindStOpt.cmake` looks for the libraries of StOpt and geners by hints, so
-  that a build of several configurations with vcpkg takes the release ones
-  for the release configurations, and the debug ones only for Debug.
+- `FindStOpt.cmake` looks for the libraries of StOpt and geners first in
+  their own directories alone, so that a build of several configurations
+  with vcpkg takes the release ones for the release configurations, and the
+  debug ones only for Debug.
 
 - `SDDPSimulationSolver` gives the status of a failed scenario with no
   conditional between two enumerations
