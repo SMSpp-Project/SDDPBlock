@@ -17,8 +17,7 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni,
- *                      Donato Meoli
+ * \copyright &copy; by Rafael Durbano Lobato, Antonio Frangioni, Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
